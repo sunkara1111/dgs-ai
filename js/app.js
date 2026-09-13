@@ -1136,153 +1136,83 @@ function fibShoulderCape(count, yTop, yBot) {
 function initHumanoid() {
   const canvas = $('humanoid');
   if (!canvas) return;
+  // CSS bust is the readable silhouette — never hide it under glow soup
+  const fallback = $('bustFallback');
+  if (fallback) fallback.classList.remove('is-hidden');
+
   try {
     const renderer = new THREE.WebGLRenderer({
       canvas, antialias: true, alpha: true, powerPreference: 'high-performance',
     });
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-    camera.position.set(0, 0.12, 3.55);
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camera.position.set(0, 0.05, 3.1);
 
-    const teal = 0x7ee0c8;
-    const gold = 0xe8d5a3;
-    const violet = 0x9b8cff;
-    const white = 0xffffff;
+    const teal = 0x5eead4;
+    const violet = 0xa78bfa;
     const cTeal = new THREE.Color(teal);
-    const cGold = new THREE.Color(gold);
     const cViolet = new THREE.Color(violet);
-    const cWhite = new THREE.Color(white);
-
-    const softGlow = makeGlowTexture(256, [
-      [0, 'rgba(255,255,255,1)'],
-      [0.14, 'rgba(255,248,235,0.88)'],
-      [0.32, 'rgba(126,224,200,0.42)'],
-      [0.55, 'rgba(155,140,255,0.16)'],
-      [0.8, 'rgba(155,140,255,0.03)'],
-      [1, 'rgba(0,0,0,0)'],
-    ]);
-    const nodeGlow = makeGlowTexture(96, [
-      [0, 'rgba(255,255,255,0.95)'],
-      [0.25, 'rgba(126,224,200,0.7)'],
-      [0.6, 'rgba(155,140,255,0.22)'],
-      [1, 'rgba(0,0,0,0)'],
-    ]);
+    const cWhite = new THREE.Color(0xffffff);
 
     const bust = new THREE.Group();
     scene.add(bust);
 
-    // —— Soft silhouette meshes (readable figure, not a logo orb) ——
-    const headMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 48, 48),
-      new THREE.MeshBasicMaterial({
-        color: 0x1a2228, transparent: true, opacity: 0.22,
-        depthWrite: false,
-      })
-    );
-    headMesh.scale.set(0.72, 0.9, 0.64);
-    headMesh.position.set(0, 0.58, 0);
+    // Solid readable silhouette (NormalBlending — must read as head/neck/shoulders)
+    const headMat = new THREE.MeshBasicMaterial({
+      color: 0x0f1720, transparent: true, opacity: 0.78, depthWrite: true,
+    });
+    const headRim = new THREE.MeshBasicMaterial({
+      color: teal, transparent: true, opacity: 0.35, depthWrite: false,
+      wireframe: true,
+    });
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), headMat);
+    headMesh.scale.set(0.7, 0.88, 0.62);
+    headMesh.position.set(0, 0.62, 0);
     bust.add(headMesh);
+    const headWire = new THREE.Mesh(new THREE.SphereGeometry(1.02, 24, 18), headRim);
+    headWire.scale.copy(headMesh.scale);
+    headWire.position.copy(headMesh.position);
+    bust.add(headWire);
 
     const neckMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.16, 0.2, 0.38, 24),
-      new THREE.MeshBasicMaterial({
-        color: 0x151a20, transparent: true, opacity: 0.28,
-        depthWrite: false,
-      })
+      new THREE.CylinderGeometry(0.15, 0.2, 0.36, 20),
+      new THREE.MeshBasicMaterial({ color: 0x121820, transparent: true, opacity: 0.85 })
     );
-    neckMesh.position.set(0, 0.05, 0);
+    neckMesh.position.set(0, 0.1, 0.02);
     bust.add(neckMesh);
 
     const shoulderMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 40, 28),
-      new THREE.MeshBasicMaterial({
-        color: 0x10151c, transparent: true, opacity: 0.3,
-        depthWrite: false,
-      })
+      new THREE.SphereGeometry(1, 36, 24),
+      new THREE.MeshBasicMaterial({ color: 0x0c1218, transparent: true, opacity: 0.82 })
     );
-    shoulderMesh.scale.set(1.35, 0.55, 0.62);
-    shoulderMesh.position.set(0, -0.55, -0.02);
+    shoulderMesh.scale.set(1.45, 0.52, 0.55);
+    shoulderMesh.position.set(0, -0.48, 0);
     bust.add(shoulderMesh);
 
-    // —— Volumetric core glow: head + chest ——
-    const headBloom = new THREE.Mesh(
-      new THREE.SphereGeometry(0.55, 32, 32),
+    // Soft face core (small — not a screen-filling orb)
+    const faceCore = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 24, 24),
       new THREE.MeshBasicMaterial({
-        color: teal, transparent: true, opacity: 0.1,
-        depthWrite: false, blending: THREE.AdditiveBlending,
+        color: teal, transparent: true, opacity: 0.55,
+        blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
-    headBloom.position.set(0, 0.58, 0.05);
-    bust.add(headBloom);
+    faceCore.position.set(0, 0.68, 0.42);
+    bust.add(faceCore);
 
-    const headCore = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 28, 28),
-      new THREE.MeshBasicMaterial({
-        color: white, transparent: true, opacity: 0.42,
-        depthWrite: false, blending: THREE.AdditiveBlending,
-      })
-    );
-    headCore.position.set(0, 0.6, 0.12);
-    bust.add(headCore);
-
-    const chestBloom = new THREE.Mesh(
-      new THREE.SphereGeometry(0.48, 28, 28),
-      new THREE.MeshBasicMaterial({
-        color: violet, transparent: true, opacity: 0.12,
-        depthWrite: false, blending: THREE.AdditiveBlending,
-      })
-    );
-    chestBloom.position.set(0, -0.35, 0.08);
-    chestBloom.scale.set(1.35, 0.7, 0.7);
-    bust.add(chestBloom);
-
-    const volHead = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: softGlow, color: 0xffffff, transparent: true, opacity: 0.55,
-      depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
-    volHead.position.set(0, 0.58, 0);
-    volHead.scale.set(1.55, 1.7, 1);
-    bust.add(volHead);
-
-    const volChest = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: softGlow, color: violet, transparent: true, opacity: 0.32,
-      depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
-    volChest.position.set(0, -0.32, 0);
-    volChest.scale.set(2.1, 1.2, 1);
-    bust.add(volChest);
-
-    const volAura = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: softGlow, color: teal, transparent: true, opacity: 0.18,
-      depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
-    volAura.position.set(0, 0.15, -0.2);
-    volAura.scale.set(3.2, 3.6, 1);
-    bust.add(volAura);
-
-    // —— Dense elegant surface point cloud (fibonacci head + shoulder cape) ——
-    const headCount = 2200;
-    const capeCount = 1400;
-    const headPos = fibEllipsoid(headCount, 0.72, 0.9, 0.64, 0.58, (x, y, z, yN) => {
-      // jaw taper + slight cheek sculpt
+    // Surface points ON the figure only (no giant sprites)
+    const headCount = 1600;
+    const capeCount = 1000;
+    const headPos = fibEllipsoid(headCount, 0.7, 0.88, 0.62, 0.62, (x, y, z) => {
       let xx = x, yy = y, zz = z;
-      if (yy < 0.35) {
-        const t = (0.35 - yy) / 0.75;
-        xx *= 1 - t * 0.28;
-        zz *= 1 - t * 0.2;
-      }
-      // brow ridge lift
-      if (yy > 0.78 && yy < 1.05 && Math.abs(xx) < 0.45) {
-        zz += 0.02;
-      }
+      if (yy < 0.4) { xx *= 0.82; zz *= 0.85; }
       return { x: xx, y: yy, z: zz };
     });
-    const capePos = fibShoulderCape(capeCount, -0.05, -1.15);
-
+    const capePos = fibShoulderCape(capeCount, 0.0, -1.05);
     const total = headCount + capeCount;
     const positions = new Float32Array(total * 3);
     const colors = new Float32Array(total * 3);
@@ -1290,66 +1220,43 @@ function initHumanoid() {
     positions.set(headPos, 0);
     positions.set(capePos, headCount * 3);
     bases.set(positions);
-
     for (let i = 0; i < total; i++) {
       const onHead = i < headCount;
       const y = positions[i * 3 + 1];
       const x = positions[i * 3];
       const z = positions[i * 3 + 2];
-      let col;
+      let col = onHead ? cTeal : cViolet;
       if (onHead) {
-        // eyes: brighter white points
-        const leftEye = Math.hypot(x + 0.22, y - 0.72, z - 0.38);
-        const rightEye = Math.hypot(x - 0.22, y - 0.72, z - 0.38);
-        if (Math.min(leftEye, rightEye) < 0.11) col = cWhite;
-        else if (y > 0.95) col = cViolet.clone().lerp(cTeal, 0.45);
-        else if (y < 0.25) col = cTeal.clone().lerp(cViolet, 0.35);
-        else col = i % 7 === 0 ? cGold : cTeal;
-      } else {
-        col = i % 5 === 0 ? cTeal : cViolet;
-        if (y < -0.85) col = cViolet.clone().lerp(cTeal, 0.2);
+        const le = Math.hypot(x + 0.2, y - 0.75, z - 0.4);
+        const re = Math.hypot(x - 0.2, y - 0.75, z - 0.4);
+        if (Math.min(le, re) < 0.1) col = cWhite;
       }
-      colors[i * 3] = col.r;
-      colors[i * 3 + 1] = col.g;
-      colors[i * 3 + 2] = col.b;
+      colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
     }
-
     const cloudGeo = new THREE.BufferGeometry();
     cloudGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     cloudGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     const cloud = new THREE.Points(cloudGeo, new THREE.PointsMaterial({
-      size: 0.02,
-      map: nodeGlow,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.9,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      sizeAttenuation: true,
+      size: 0.028, vertexColors: true, transparent: true, opacity: 0.75,
+      depthWrite: false, sizeAttenuation: true,
     }));
     bust.add(cloud);
 
-    // —— Gentle orbit rings around the bust ——
-    const ringMat = (color, opacity) => new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity,
-      depthWrite: false, blending: THREE.AdditiveBlending,
-    });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.42, 0.0045, 10, 220), ringMat(teal, 0.28));
-    ring.rotation.x = Math.PI / 2.25;
-    ring.position.y = 0.05;
+    // Thin rings — subtle, not the hero
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.35, 0.006, 8, 160),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.22 })
+    );
+    ring.rotation.x = Math.PI / 2.3;
+    ring.position.y = 0.02;
     scene.add(ring);
-
-    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.68, 0.0034, 10, 220), ringMat(gold, 0.14));
-    ring2.rotation.x = Math.PI / 2.45;
-    ring2.rotation.z = 0.42;
-    ring2.position.y = -0.05;
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(1.6, 0.004, 8, 160),
+      new THREE.MeshBasicMaterial({ color: violet, transparent: true, opacity: 0.14 })
+    );
+    ring2.rotation.x = Math.PI / 2.15;
+    ring2.rotation.z = 0.35;
     scene.add(ring2);
-
-    const ring3 = new THREE.Mesh(new THREE.TorusGeometry(1.95, 0.0026, 8, 200), ringMat(violet, 0.1));
-    ring3.rotation.x = Math.PI / 2.05;
-    ring3.rotation.y = 0.18;
-    ring3.position.y = -0.12;
-    scene.add(ring3);
 
     function resize() {
       const parent = canvas.parentElement;
@@ -1362,64 +1269,36 @@ function initHumanoid() {
     resize();
     window.addEventListener('resize', resize);
 
-    const fallback = $('bustFallback');
-    if (fallback) fallback.classList.add('is-hidden');
-
     let t = 0;
     const posAttr = cloudGeo.attributes.position;
     function frame() {
-      t += 0.0085;
+      t += 0.01;
       const speakNow = state.status === 'SPEAKING';
       const listen = state.status === 'LISTENING';
-      const amp = speakNow ? 0.022 : listen ? 0.014 : 0.007;
-      const pulse = speakNow
-        ? 1.07 + Math.sin(t * 6.4) * 0.03
-        : listen
-          ? 1.035 + Math.sin(t * 3.2) * 0.016
-          : 1 + Math.sin(t * 0.9) * 0.01;
-
-      // subtle surface breathe (keeps silhouette readable)
+      const amp = speakNow ? 0.016 : listen ? 0.01 : 0.005;
+      const pulse = speakNow ? 1.045 + Math.sin(t * 6) * 0.02 : listen ? 1.02 + Math.sin(t * 3) * 0.01 : 1 + Math.sin(t) * 0.006;
       for (let i = 0; i < total; i++) {
-        const bx = bases[i * 3];
-        const by = bases[i * 3 + 1];
-        const bz = bases[i * 3 + 2];
-        posAttr.array[i * 3] = bx + Math.sin(t * 1.5 + by * 2.8) * amp;
-        posAttr.array[i * 3 + 1] = by + Math.cos(t * 1.3 + bx * 2.2) * amp * 0.65;
-        posAttr.array[i * 3 + 2] = bz + Math.sin(t * 1.1 + bx) * amp * 0.45;
+        const bx = bases[i * 3], by = bases[i * 3 + 1], bz = bases[i * 3 + 2];
+        posAttr.array[i * 3] = bx + Math.sin(t * 1.4 + by * 2) * amp;
+        posAttr.array[i * 3 + 1] = by + Math.cos(t * 1.2 + bx * 2) * amp * 0.6;
+        posAttr.array[i * 3 + 2] = bz + Math.sin(t + bx) * amp * 0.4;
       }
       posAttr.needsUpdate = true;
-
-      // slow idle turn + breathing scale
-      bust.rotation.y = Math.sin(t * 0.2) * 0.16;
-      bust.rotation.x = Math.sin(t * 0.14) * 0.03;
-      const breathY = 1 + Math.sin(t * 0.85) * 0.012;
-      bust.scale.set(pulse, pulse * breathY, pulse);
-
-      headBloom.material.opacity = speakNow ? 0.2 : listen ? 0.14 : 0.09;
-      headCore.material.opacity = speakNow ? 0.62 : listen ? 0.5 : 0.38;
-      chestBloom.material.opacity = speakNow ? 0.2 : listen ? 0.15 : 0.1;
-      volHead.material.opacity = speakNow ? 0.72 : listen ? 0.6 : 0.48;
-      volChest.material.opacity = speakNow ? 0.42 : listen ? 0.34 : 0.26;
-      cloud.material.opacity = speakNow ? 0.98 : listen ? 0.93 : 0.88;
-
-      volHead.scale.set(1.55 * pulse, 1.7 * pulse, 1);
-      volChest.scale.set(2.1 * pulse, 1.2 * pulse, 1);
-      volAura.scale.set(3.2 * pulse, 3.6 * pulse, 1);
-
-      ring.rotation.z = t * 0.065;
-      ring2.rotation.z = -t * 0.045;
-      ring3.rotation.z = t * 0.03;
-
+      bust.rotation.y = Math.sin(t * 0.18) * 0.14;
+      bust.scale.setScalar(pulse);
+      faceCore.material.opacity = speakNow ? 0.75 : listen ? 0.62 : 0.5;
+      ring.rotation.z = t * 0.07;
+      ring2.rotation.z = -t * 0.05;
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
     frame();
   } catch (err) {
     console.error('Humanoid WebGL failed', err);
-    const fallback = $('bustFallback');
     if (fallback) fallback.classList.remove('is-hidden');
   }
 }
+
 
 function bindUi() {
   $('wakeBtn').onclick = wake;
