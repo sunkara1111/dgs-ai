@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913bot" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913auto" />
 </head>
 <body>
   <div class="app" data-ui="voice-stage" id="app" data-voice="IDLE">
@@ -34,11 +34,15 @@
             <p class="bot-kicker">Bot · paper only</p>
             <p class="bot-fine">Not financial advice · no guaranteed profit</p>
           </div>
-          <button type="button" class="bot-scan" id="scanBtn">Scan</button>
+          <div class="bot-card-actions">
+            <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false">Autopilot OFF</button>
+            <button type="button" class="bot-scan" id="scanBtn">Scan</button>
+          </div>
         </div>
         <div class="bot-proposal" id="botProposal">
           <p class="bot-empty">No setup yet — say <em>find a trade</em> or tap Scan</p>
         </div>
+        <p class="bot-auto-line" id="botAutoLine">Autopilot OFF · paper default</p>
         <div class="bot-meta">
           <span id="botGate" data-open="0">Gate CLOSED</span>
           <span id="botDayPnl">Day $0.00</span>
@@ -58,8 +62,9 @@
       <iframe id="tvFrame" title="DGS AI chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
       <div class="chart-dock">
         <button type="button" class="btn btn-accent" id="sendPhoneBtn">Send to phone</button>
-        <button type="button" class="btn" id="openTvTabBtn">Open full chart</button>
+        <button type="button" class="btn" id="openTvTabBtn">Open in TradingView</button>
       </div>
+      <p class="chart-tip" id="chartTvTip">Tip: TradingView alert webhooks need a backend URL — GitHub Pages alone cannot receive them. Stub: <code>https://YOUR-BACKEND/hooks/tv</code></p>
     </section>
 
     <nav class="dock" id="dock">
@@ -151,6 +156,38 @@
     <video id="gestureCam" playsinline muted></video>
     <p class="log" id="voiceLog">DGS AI idle. Paper risk guard armed.</p>
 
+    <details id="liveBrokers">
+      <summary>Live brokers (optional)</summary>
+      <p class="fine">Stubs only. Keys stay in this browser’s localStorage. Paper autopilot remains default. No live orders until you explicitly enable a future release.</p>
+      <p class="broker-tip">TradingView webhook stub (future backend): <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code> — static Pages cannot receive webhooks alone.</p>
+
+      <div class="broker-block" data-broker="alpaca">
+        <h4>Alpaca <span class="broker-badge">official paper/live API</span></h4>
+        <label>API key <input id="alpacaKey" type="password" autocomplete="off" placeholder="PK…" /></label>
+        <label>API secret <input id="alpacaSecret" type="password" autocomplete="off" placeholder="secret" /></label>
+        <label class="check"><input id="alpacaPaper" type="checkbox" checked /> Prefer Alpaca paper endpoint</label>
+        <div class="btn-row">
+          <button type="button" class="btn" id="alpacaConnectBtn" disabled title="Validates format only — does not send orders">Connect (format check)</button>
+          <span class="broker-status" id="alpacaStatus">Not connected · orders disabled</span>
+        </div>
+      </div>
+
+      <div class="broker-block" data-broker="coinswitch">
+        <h4>CoinSwitch <span class="broker-badge">API stub</span></h4>
+        <label>API key <input id="coinswitchKey" type="password" autocomplete="off" placeholder="key" /></label>
+        <label>API secret <input id="coinswitchSecret" type="password" autocomplete="off" placeholder="secret" /></label>
+        <div class="btn-row">
+          <button type="button" class="btn" id="coinswitchConnectBtn" disabled title="Validates format only — does not send orders">Connect (format check)</button>
+          <span class="broker-status" id="coinswitchStatus">Not connected · orders disabled</span>
+        </div>
+      </div>
+
+      <div class="broker-block" data-broker="robinhood">
+        <h4>Robinhood</h4>
+        <p class="broker-warn">No official bot API — use Alpaca paper or export alerts via TradingView. We will not ask for your Robinhood password.</p>
+      </div>
+    </details>
+
     <h3>Paper book</h3>
     <ul id="book" class="book"></ul>
     <p class="fine">Founder: Dineshgopi Sunkara. Paper only. No guaranteed profit.</p>
@@ -226,6 +263,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913bot"></script>
+  <script type="module" src="js/app.js?v=20260913auto"></script>
 </body>
 </html>

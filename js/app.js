@@ -128,9 +128,12 @@ const state = {
   proposal: null,
   lastScanAt: 0,
   quotesCache: {},
+  autopilot: false,
+  autopilotLastAction: 'Paper default · idle',
+  autopilotBusy: false,
 };
 
-const CACHE_BUST = '20260913bot';
+const CACHE_BUST = '20260913auto';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 let talkLoop = null;
@@ -149,6 +152,8 @@ function loadState() {
     if (typeof data.halted === 'boolean') state.halted = data.halted;
     if (typeof data.lastSymbol === 'string') state.lastSymbol = data.lastSymbol;
     if (data.proposal && typeof data.proposal === 'object') state.proposal = data.proposal;
+    if (typeof data.autopilot === 'boolean') state.autopilot = data.autopilot;
+    if (typeof data.autopilotLastAction === 'string') state.autopilotLastAction = data.autopilotLastAction;
   } catch (_) {}
 }
 
@@ -161,6 +166,8 @@ function saveState() {
     halted: state.halted,
     lastSymbol: state.lastSymbol,
     proposal: state.proposal,
+    autopilot: !!state.autopilot,
+    autopilotLastAction: state.autopilotLastAction || '',
   }));
 }
 
@@ -240,8 +247,9 @@ function tvChartUrl(sym) {
 function speak(text, opts = {}) {
   if (!text) return Promise.resolve();
   const force = !!(opts && opts.force);
-  const allow = force || state.userSpoke;
-  addLine('dgs', text);
+  const quiet = !!(opts && opts.quiet);
+  const allow = !quiet && (force || state.userSpoke);
+  if (!opts || opts.transcript !== false) addLine('dgs', text);
   if ($('voiceLog')) $('voiceLog').textContent = text;
   hideHint();
   if (!allow) {
@@ -301,7 +309,7 @@ function parseSymbol(text) {
 }
 
 function hasTradingCue(t) {
-  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade)\b/.test(t)
+  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade|autopilot)\b/.test(t)
     || Object.keys(NAME_TO_SYM).some((n) => t.includes(n));
 }
 
@@ -790,6 +798,8 @@ function updateBotCard() {
   const gateEl = $('botGate');
   const pnlEl = $('botDayPnl');
   const enterBtn = $('botEnterBtn');
+  const autoBtn = $('autopilotBtn');
+  const autoLine = $('botAutoLine');
   const p = state.proposal;
   if (propEl) {
     if (!p) {
@@ -811,6 +821,16 @@ function updateBotCard() {
     pnlEl.className = pnl >= 0 ? 'up' : 'dn';
   }
   if (enterBtn) enterBtn.disabled = !state.lastOpen;
+  if (autoBtn) {
+    autoBtn.dataset.on = state.autopilot ? '1' : '0';
+    autoBtn.setAttribute('aria-pressed', state.autopilot ? 'true' : 'false');
+    autoBtn.textContent = state.autopilot ? 'Autopilot ON' : 'Autopilot OFF';
+  }
+  if (autoLine) {
+    autoLine.dataset.on = state.autopilot ? '1' : '0';
+    const flag = state.autopilot ? 'Autopilot ON' : 'Autopilot OFF';
+    autoLine.textContent = `${flag} · ${state.autopilotLastAction || 'paper default'}`;
+  }
 }
 
 function updateStats(dd, open) {
@@ -920,9 +940,10 @@ function analyzeRisk() {
 }
 
 async function scanMarket(opts = {}) {
-  markUserSpoke();
-  setStatus('LISTENING');
-  const filler = opts.silent ? Promise.resolve() : speakFiller();
+  const quiet = !!(opts && opts.quiet);
+  if (!quiet) markUserSpoke();
+  if (!quiet) setStatus('LISTENING');
+  const filler = (opts.silent || quiet) ? Promise.resolve() : speakFiller();
   const mode = $('mode')?.value || 'INTRADAY';
   const minRr = Number($('minRr')?.value) || 1.5;
   const list = WATCHLIST.slice();
@@ -947,7 +968,13 @@ async function scanMarket(opts = {}) {
     state.proposal = null;
     updateBotCard();
     saveState();
-    await speak('No clean momentum setup on the paper watchlist right now. Try again later. Paper only — not advice, no guaranteed profit.');
+    const noneMsg = 'No clean momentum setup on the paper watchlist right now. Try again later. Paper only — not advice, no guaranteed profit.';
+    if (quiet) {
+      setAutopilotAction('Scan: no setup');
+      await speak(noneMsg, { quiet: true, transcript: false });
+    } else {
+      await speak(noneMsg);
+    }
     return null;
   }
 
@@ -975,18 +1002,40 @@ async function scanMarket(opts = {}) {
     ? `Risk gate is OPEN for about ${chosen.shares || '?'} shares.`
     : 'Risk gate is CLOSED on this setup — I will not paper-enter until rules pass.';
   const flat = $('noOvernight')?.checked ? ' Flat-by-close is on.' : '';
-  await speak(
-    `Best paper setup: ${chosen.side} ${chosen.symbol}. Entry ${fmtPx(chosen.entry)}, stop ${fmtPx(chosen.stop)}, target ${fmtPx(chosen.target)}, reward to risk ${chosen.rr.toFixed(2)}, setup score ${chosen.setupScore}. ${gateLine}${flat} Say take the trade to paper-enter, or find another. Not financial advice. No guaranteed profit.`
-  );
+  const msg = `Best paper setup: ${chosen.side} ${chosen.symbol}. Entry ${fmtPx(chosen.entry)}, stop ${fmtPx(chosen.stop)}, target ${fmtPx(chosen.target)}, reward to risk ${chosen.rr.toFixed(2)}, setup score ${chosen.setupScore}. ${gateLine}${flat} Say take the trade to paper-enter, or find another. Not financial advice. No guaranteed profit.`;
+  if (quiet) {
+    setAutopilotAction(`Scan: ${chosen.side} ${chosen.symbol} · gate ${state.lastOpen ? 'OPEN' : 'CLOSED'}`);
+    await speak(msg, { quiet: true, transcript: false });
+  } else {
+    await speak(msg);
+  }
   return chosen;
 }
 
-function paperEnter() {
-  markUserSpoke();
+function paperEnter(opts = {}) {
+  const quiet = !!(opts && opts.quiet);
+  if (!quiet) markUserSpoke();
   const r = analyzeRisk();
   if (!r.open) {
-    speak('Risk gate is closed. I will not paper-enter this setup. I do not place live orders. No guaranteed profit.');
-    return;
+    const blocked = 'Risk gate is closed. I will not paper-enter this setup. I do not place live orders. No guaranteed profit.';
+    if (quiet) {
+      setAutopilotAction('Enter blocked · gate CLOSED');
+      speak(blocked, { quiet: true, transcript: false });
+    } else {
+      speak(blocked);
+    }
+    return null;
+  }
+  // Avoid stacking same symbol while open
+  if (openTrades().some((t) => t.symbol === r.symbol)) {
+    const dup = `Already have an open paper ${r.symbol} — skip duplicate enter.`;
+    if (quiet) {
+      setAutopilotAction(`Skip duplicate ${r.symbol}`);
+      speak(dup, { quiet: true, transcript: false });
+    } else {
+      speak(dup);
+    }
+    return null;
   }
   const trade = {
     id: Date.now(),
@@ -1004,14 +1053,22 @@ function paperEnter() {
     unrealized: 0,
     ts: new Date().toISOString(),
     mode: $('mode')?.value || 'INTRADAY',
+    viaAutopilot: !!(opts && opts.fromAutopilot),
   };
   state.book.unshift(trade);
   renderBook();
   saveState();
   analyzeRisk();
   const flat = $('noOvernight')?.checked ? ' Remember to flatten by session close.' : '';
-  speak(`Paper entry booked. ${r.shares} shares ${r.symbol} ${r.side} at ${fmtPx(r.entry)}. Risk score ${r.score}. This is not a live broker order.${flat}`);
+  const msg = `Paper entry booked. ${r.shares} shares ${r.symbol} ${r.side} at ${fmtPx(r.entry)}. Risk score ${r.score}. This is not a live broker order.${flat}`;
+  if (quiet) {
+    setAutopilotAction(`Paper enter ${r.side} ${r.symbol} @ ${fmtPx(r.entry)}`);
+    speak(msg, { quiet: true });
+  } else {
+    speak(msg);
+  }
   refreshOpenMarks().catch(() => {});
+  return trade;
 }
 
 async function refreshOpenMarks() {
@@ -1032,22 +1089,31 @@ async function refreshOpenMarks() {
   analyzeRisk();
 }
 
-async function closeTrade(symbol) {
-  markUserSpoke();
+async function closeTrade(symbol, opts = {}) {
+  const quiet = !!(opts && opts.quiet);
+  if (!quiet) markUserSpoke();
   const sym = (symbol || '').toUpperCase();
   const t = openTrades().find((x) => x.symbol === sym) || (!sym ? openTrades()[0] : null);
   if (!t) {
-    await speak(sym ? `No open paper trade for ${sym}.` : 'No open paper trades to close.');
-    return;
+    const none = sym ? `No open paper trade for ${sym}.` : 'No open paper trades to close.';
+    await speak(none, quiet ? { quiet: true, transcript: false } : {});
+    return null;
   }
-  const q = await fetchQuote(t.symbol);
-  state.quotesCache[t.symbol] = q;
-  const mark = q.last;
+  let mark = opts.mark;
+  if (mark == null || Number.isNaN(Number(mark))) {
+    const q = await fetchQuote(t.symbol);
+    state.quotesCache[t.symbol] = q;
+    mark = q.last;
+  } else {
+    mark = Number(mark);
+  }
   const pnl = unrealizedFor(t, mark);
+  const reason = opts.reason || 'manual';
   t.status = 'CLOSED';
   t.mark = mark;
   t.exit = mark;
   t.realized = pnl;
+  t.closeReason = reason;
   t.closedAt = new Date().toISOString();
   state.dayPnL += pnl;
   const eq = num('equity') + pnl;
@@ -1057,7 +1123,14 @@ async function closeTrade(symbol) {
   renderBook();
   analyzeRisk();
   const dir = pnl >= 0 ? 'profit' : 'loss';
-  await speak(`Closed paper ${t.symbol} ${t.side} at ${fmtPx(mark)}. Realized ${dir} ${money(pnl)}. Day P and L ${money(sessionDayPnL())}. Paper only — not advice.`);
+  const msg = `Closed paper ${t.symbol} ${t.side} at ${fmtPx(mark)} (${reason}). Realized ${dir} ${money(pnl)}. Day P and L ${money(sessionDayPnL())}. Paper only — not advice.`;
+  if (quiet) {
+    setAutopilotAction(`Close ${t.symbol} · ${reason} · ${money(pnl)}`);
+    await speak(msg, { quiet: true });
+  } else {
+    await speak(msg);
+  }
+  return t;
 }
 
 function renderBook() {
@@ -1079,9 +1152,252 @@ function renderBook() {
   });
 }
 
+const AUTOPILOT_MS = 75000;
+const BROKER_LS_KEY = 'dgs-ai-broker-stubs';
+let autopilotTimer = null;
+
+function setAutopilotAction(msg) {
+  state.autopilotLastAction = msg || '';
+  updateBotCard();
+  saveState();
+}
+
+function riskHaltReasons() {
+  const equity = num('equity');
+  const dailyLoss = num('dailyLoss');
+  const maxDd = num('maxDd');
+  const sessionPnl = sessionDayPnL();
+  const dd = Math.max(0, (state.peakEquity - equity) / Math.max(state.peakEquity, 1) * 100);
+  const dailyHalt = Math.abs(Math.min(0, sessionPnl)) / Math.max(equity, 1) * 100 >= dailyLoss;
+  const ddHalt = dd >= maxDd;
+  return { equity, sessionPnl, dd, dailyHalt, ddHalt, halted: !!state.halted };
+}
+
+function hitTargetOrStop(t, mark) {
+  if (mark == null || Number.isNaN(mark)) return null;
+  if (t.side === 'LONG') {
+    if (mark >= t.target) return 'take-profit';
+    if (mark <= t.stop) return 'stop';
+  } else {
+    if (mark <= t.target) return 'take-profit';
+    if (mark >= t.stop) return 'stop';
+  }
+  return null;
+}
+
+function holdExceeded(t) {
+  const maxHold = num('maxHold') || 90;
+  const start = Date.parse(t.ts || '') || 0;
+  if (!start) return false;
+  return (Date.now() - start) >= maxHold * 60 * 1000;
+}
+
+async function manageOpenPositionsQuiet() {
+  const opens = openTrades();
+  if (!opens.length) return 0;
+  let closed = 0;
+  for (const t of opens.slice()) {
+    const q = await fetchQuote(t.symbol);
+    state.quotesCache[t.symbol] = q;
+    t.mark = q.last;
+    t.unrealized = unrealizedFor(t, q.last);
+    let reason = hitTargetOrStop(t, q.last);
+    if (!reason && holdExceeded(t)) reason = 'max-hold';
+    if (reason) {
+      await closeTrade(t.symbol, { quiet: true, mark: q.last, reason });
+      closed += 1;
+    }
+  }
+  saveState();
+  renderBook();
+  analyzeRisk();
+  return closed;
+}
+
+async function autopilotTick() {
+  if (!state.autopilot || state.autopilotBusy) return;
+  state.autopilotBusy = true;
+  try {
+    const rh = riskHaltReasons();
+    if (rh.halted) {
+      setAutopilotAction('Paused · force halt');
+      return;
+    }
+    if (rh.dailyHalt) {
+      setAutopilotAction('Paused · daily loss limit');
+      return;
+    }
+    if (rh.ddHalt) {
+      setAutopilotAction('Paused · max drawdown');
+      return;
+    }
+
+    const closed = await manageOpenPositionsQuiet();
+    if (closed) {
+      setAutopilotAction(`Managed · closed ${closed} paper position(s)`);
+    }
+
+    const maxTrades = num('maxTrades');
+    if (tradesTodayCount() >= maxTrades) {
+      setAutopilotAction(`Idle · max trades today (${maxTrades})`);
+      return;
+    }
+
+    const chosen = await scanMarket({ quiet: true, silent: true });
+    if (!chosen) return;
+    if (!state.lastOpen) {
+      setAutopilotAction(`Watch · ${chosen.side} ${chosen.symbol} gate CLOSED`);
+      return;
+    }
+    const trade = paperEnter({ quiet: true, fromAutopilot: true });
+    if (trade) {
+      setAutopilotAction(`Entered ${trade.side} ${trade.symbol} @ ${fmtPx(trade.entry)}`);
+    }
+  } catch (err) {
+    setAutopilotAction(`Tick error · ${(err && err.message) || 'unknown'}`);
+  } finally {
+    state.autopilotBusy = false;
+    updateBotCard();
+  }
+}
+
+function startAutopilot(opts = {}) {
+  const announce = !(opts && opts.quiet);
+  if (state.autopilot) {
+    if (announce) speak('Autopilot is already on. Paper only — scanning quietly. No guaranteed profit.');
+    updateBotCard();
+    return;
+  }
+  state.autopilot = true;
+  setAutopilotAction('Started · paper loop armed');
+  saveState();
+  updateBotCard();
+  if (autopilotTimer) clearInterval(autopilotTimer);
+  autopilotTimer = setInterval(() => { autopilotTick().catch(() => {}); }, AUTOPILOT_MS);
+  // Kick once soon (not immediate heavy) — ~2s after start
+  setTimeout(() => { if (state.autopilot) autopilotTick().catch(() => {}); }, 2000);
+  if (announce) {
+    speak('Autopilot on. Paper default. I will scan the watchlist about every seventy-five seconds, enter only when the risk gate is open, and manage stops and targets on marks. Quiet updates unless you ask for status. Not advice. No guaranteed profit. Not a live broker.');
+  }
+}
+
+function stopAutopilot(opts = {}) {
+  const announce = !(opts && opts.quiet);
+  state.autopilot = false;
+  if (autopilotTimer) {
+    clearInterval(autopilotTimer);
+    autopilotTimer = null;
+  }
+  setAutopilotAction('Stopped');
+  saveState();
+  updateBotCard();
+  if (announce) speak('Autopilot off. Paper book stays as-is. Say start autopilot to resume.');
+}
+
+function loadBrokerStubs() {
+  try {
+    const raw = localStorage.getItem(BROKER_LS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.alpacaKey && $('alpacaKey')) $('alpacaKey').value = data.alpacaKey;
+    if (data.alpacaSecret && $('alpacaSecret')) $('alpacaSecret').value = data.alpacaSecret;
+    if (typeof data.alpacaPaper === 'boolean' && $('alpacaPaper')) $('alpacaPaper').checked = data.alpacaPaper;
+    if (data.coinswitchKey && $('coinswitchKey')) $('coinswitchKey').value = data.coinswitchKey;
+    if (data.coinswitchSecret && $('coinswitchSecret')) $('coinswitchSecret').value = data.coinswitchSecret;
+    if (data.alpacaOk && $('alpacaStatus')) {
+      $('alpacaStatus').textContent = 'Format OK · stored locally · orders still disabled';
+    }
+    if (data.coinswitchOk && $('coinswitchStatus')) {
+      $('coinswitchStatus').textContent = 'Format OK · stored locally · orders still disabled';
+    }
+    refreshBrokerConnectButtons();
+  } catch (_) {}
+}
+
+function saveBrokerStubs(extra = {}) {
+  const prev = (() => {
+    try { return JSON.parse(localStorage.getItem(BROKER_LS_KEY) || '{}'); } catch (_) { return {}; }
+  })();
+  const data = {
+    ...prev,
+    alpacaKey: $('alpacaKey')?.value || '',
+    alpacaSecret: $('alpacaSecret')?.value || '',
+    alpacaPaper: !!($('alpacaPaper')?.checked),
+    coinswitchKey: $('coinswitchKey')?.value || '',
+    coinswitchSecret: $('coinswitchSecret')?.value || '',
+    ...extra,
+  };
+  localStorage.setItem(BROKER_LS_KEY, JSON.stringify(data));
+}
+
+function alpacaFormatOk(key, secret) {
+  const k = (key || '').trim();
+  const s = (secret || '').trim();
+  // Official-ish: keys are non-empty alphanumerics; paper keys often start with PK
+  return k.length >= 8 && s.length >= 8 && /^[A-Za-z0-9_-]+$/.test(k) && /^[A-Za-z0-9_-]+$/.test(s);
+}
+
+function coinswitchFormatOk(key, secret) {
+  const k = (key || '').trim();
+  const s = (secret || '').trim();
+  return k.length >= 8 && s.length >= 8;
+}
+
+function refreshBrokerConnectButtons() {
+  const aOk = alpacaFormatOk($('alpacaKey')?.value, $('alpacaSecret')?.value);
+  const cOk = coinswitchFormatOk($('coinswitchKey')?.value, $('coinswitchSecret')?.value);
+  if ($('alpacaConnectBtn')) $('alpacaConnectBtn').disabled = !aOk;
+  if ($('coinswitchConnectBtn')) $('coinswitchConnectBtn').disabled = !cOk;
+}
+
+function bindBrokerStubs() {
+  ['alpacaKey', 'alpacaSecret', 'alpacaPaper', 'coinswitchKey', 'coinswitchSecret'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
+    el.addEventListener('change', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
+  });
+  const aBtn = $('alpacaConnectBtn');
+  if (aBtn) {
+    aBtn.onclick = () => {
+      const key = $('alpacaKey')?.value || '';
+      const secret = $('alpacaSecret')?.value || '';
+      if (!alpacaFormatOk(key, secret)) {
+        if ($('alpacaStatus')) $('alpacaStatus').textContent = 'Invalid format · check key/secret';
+        return;
+      }
+      saveBrokerStubs({ alpacaOk: true, alpacaCheckedAt: new Date().toISOString() });
+      if ($('alpacaStatus')) {
+        $('alpacaStatus').textContent = 'Format OK · stored locally · orders still disabled';
+      }
+      speak('Alpaca credentials look valid in format and are stored only in this browser. Connect is a stub — DGS AI will not send live or paper broker orders yet. Paper autopilot remains default.');
+    };
+  }
+  const cBtn = $('coinswitchConnectBtn');
+  if (cBtn) {
+    cBtn.onclick = () => {
+      const key = $('coinswitchKey')?.value || '';
+      const secret = $('coinswitchSecret')?.value || '';
+      if (!coinswitchFormatOk(key, secret)) {
+        if ($('coinswitchStatus')) $('coinswitchStatus').textContent = 'Invalid format · check key/secret';
+        return;
+      }
+      saveBrokerStubs({ coinswitchOk: true, coinswitchCheckedAt: new Date().toISOString() });
+      if ($('coinswitchStatus')) {
+        $('coinswitchStatus').textContent = 'Format OK · stored locally · orders still disabled';
+      }
+      speak('CoinSwitch credentials look valid in format and are stored only in this browser. Connect is a stub — no orders are sent. Paper autopilot remains default.');
+    };
+  }
+  loadBrokerStubs();
+}
+
 function forceHalt() {
   markUserSpoke();
   state.halted = true;
+  if (state.autopilot) {
+    setAutopilotAction('Force halt · autopilot paused');
+  }
   saveState();
   analyzeRisk();
   speak('Force halt engaged. All paper entries blocked until you reset the day.');
@@ -1113,11 +1429,12 @@ function statusSpeech() {
   const opens = openTrades();
   const u = totalUnrealized();
   const flat = $('noOvernight')?.checked && opens.length ? ' Flat-by-close reminder: flatten open paper trades before session end.' : '';
-  return `Status. Paper equity ${money(eq)}. Day P and L ${money(sessionDayPnL())} including unrealized ${money(u)}. Open trades ${opens.length}. Drawdown ${dd.toFixed(2)} percent. Gate ${gate}. Halt ${state.halted ? 'on' : 'off'}. Paper only. No guaranteed profit.${flat}`;
+  const auto = state.autopilot ? 'on' : 'off';
+  return `Status. Paper equity ${money(eq)}. Day P and L ${money(sessionDayPnL())} including unrealized ${money(u)}. Open trades ${opens.length}. Drawdown ${dd.toFixed(2)} percent. Gate ${gate}. Autopilot ${auto}. Halt ${state.halted ? 'on' : 'off'}. Last autopilot action: ${state.autopilotLastAction || 'none'}. Paper only. No guaranteed profit.${flat}`;
 }
 
 function helpSpeech() {
-  return 'I am DGS AI. Say find a trade or scan market for a paper setup, take the trade to enter when the gate is open, how is my book or P and L for marks, and close trade followed by a symbol. Also brief, quote, chart, send to phone. Paper only. Not a broker. Not advice. No guaranteed profit.';
+  return 'I am DGS AI. Say find a trade or scan market for a paper setup, take the trade to enter when the gate is open, start autopilot or stop autopilot for the paper loop, how is my book or P and L for marks, and close trade followed by a symbol. Also brief, quote, chart, send to phone. Paper only. Not a broker. Not advice. No guaranteed profit.';
 }
 
 function wake() {
@@ -1145,7 +1462,7 @@ function quickAnswer(q) {
     return 'No profit is guaranteed. DGS AI blocks bad paper size. It does not promise returns.';
   }
   if (/(broker|live order|real money|place a trade)/.test(t)) {
-    return 'Paper only. I will not connect a broker or place a live order.';
+    return 'Paper autopilot is the default. Broker connectors are stubs only — Alpaca and CoinSwitch store keys locally and do not send orders yet. Robinhood has no official bot API; we will not ask for your password.';
   }
   if (/(social|instagram|linkedin|twitter|post)/.test(t)) {
     openDrawer('social');
@@ -1165,6 +1482,21 @@ async function handleVoiceCommand(text) {
   const t = text.toLowerCase();
   markUserSpoke();
   addLine('user', text);
+
+  if (/(start autopilot|enable autopilot|autopilot on|begin autopilot|turn on autopilot)/.test(t)) {
+    startAutopilot();
+    return;
+  }
+  if (/(stop autopilot|disable autopilot|autopilot off|end autopilot|turn off autopilot)/.test(t)) {
+    stopAutopilot();
+    return;
+  }
+  if (/(autopilot status|is autopilot|autopilot (running|state))/.test(t)) {
+    await speak(state.autopilot
+      ? `Autopilot is on. Last action: ${state.autopilotLastAction || 'none'}. Paper only. No guaranteed profit.`
+      : 'Autopilot is off. Paper default. Say start autopilot to begin the quiet paper loop.');
+    return;
+  }
 
   if (/(find (a |me )?trade|scan (the )?market|best setup( today)?|propose (a )?trade|scan for (a )?setup)/.test(t)) {
     await scanMarket();
@@ -1243,7 +1575,7 @@ async function handleVoiceCommand(text) {
     paperEnter();
     return;
   }
-  if (/(force halt|halt|stop trading)/.test(t)) {
+  if (/(force halt|\bhalt\b|stop (all )?trading|kill switch)/.test(t) && !/autopilot/.test(t)) {
     forceHalt();
     return;
   }
@@ -1271,7 +1603,7 @@ async function handleVoiceCommand(text) {
     await assetPipeline(parseSymbol(text));
     return;
   }
-  await speak('Got it. Say find a trade to scan, take the trade to paper-enter, how is my book, or close trade. Also brief, quote, chart, send to phone. Paper only. No guaranteed profit.');
+  await speak('Got it. Say find a trade to scan, take the trade to paper-enter, start autopilot or stop autopilot, how is my book, or close trade. Also brief, quote, chart, send to phone. Paper only. No guaranteed profit.');
 }
 
 function startVoiceListen() {
@@ -1643,8 +1975,17 @@ function bindUi() {
   $('openRiskBtn').onclick = () => openDrawer('risk');
   const scanBtn = $('scanBtn');
   if (scanBtn) scanBtn.onclick = () => { scanMarket(); };
+  const autoBtn = $('autopilotBtn');
+  if (autoBtn) {
+    autoBtn.onclick = () => {
+      markUserSpoke();
+      if (state.autopilot) stopAutopilot();
+      else startAutopilot();
+    };
+  }
   const botEnter = $('botEnterBtn');
   if (botEnter) botEnter.onclick = () => { paperEnter(); };
+  bindBrokerStubs();
   $('backdrop').onclick = closeDrawers;
   document.querySelectorAll('.drawer-close').forEach((btn) => {
     btn.onclick = closeDrawers;
@@ -1749,6 +2090,12 @@ initSiriOrb();
 setStatus('IDLE');
 bootFromQuery();
 if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
+// Resume paper autopilot if flag was persisted (quiet — no TTS on page load)
+if (state.autopilot) {
+  state.autopilot = false; // startAutopilot flips it on
+  startAutopilot({ quiet: true });
+  setAutopilotAction(state.autopilotLastAction || 'Resumed · paper loop');
+}
 // Periodic mark refresh for open paper trades (quotes only — never live orders)
 setInterval(() => {
   if (openTrades().length) refreshOpenMarks().catch(() => {});

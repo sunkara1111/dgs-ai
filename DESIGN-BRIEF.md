@@ -18,3 +18,20 @@ Apple / Siri aesthetic. Soft black void, frosted glass dock, SF system font stac
 
 ## Branding
 Use **DGS AI** only. Do not reuse demo-video product names.
+
+## Autopilot (paper default)
+Toggle on Bot card or voice: **start autopilot** / **stop autopilot**. While ON, every ~75s: scan watchlist → if gate OPEN and under max trades/day → paper-enter best setup → manage open marks (take profit at target / stop at stop). Respects force halt, daily loss, drawdown. Quiet UI/transcript updates (no TTS unless user asks status). Flag persisted in localStorage. **No guaranteed profit.**
+
+## TradingView
+In-app chart overlay + **Open in TradingView** deep link (`tradingview.com/chart/?symbol=…`).
+
+### Webhook stub (future backend)
+Static GitHub Pages **cannot** receive TradingView alert webhooks alone. Placeholder for a future server:
+`https://YOUR-BACKEND/hooks/tv`
+Documented in UI tip on the chart stage. Do not pretend Pages can ingest POSTs.
+
+## Live brokers (stubs only)
+Settings → Risk drawer → **Live brokers (optional)**:
+- **Alpaca** — official paper/live API fields; key/secret in localStorage only; Connect validates format; **does not send orders** until an explicit future enable.
+- **CoinSwitch** — same stub pattern.
+- **Robinhood** — no official bot API. Label only: use Alpaca paper or TradingView alerts. **Never ask for Robinhood password.** No cookie/private API scrapers.

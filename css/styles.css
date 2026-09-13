@@ -765,3 +765,93 @@ details summary {
     font-size: 1.12rem;
   }
 }
+
+
+.bot-card-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.bot-scan[data-on="1"] {
+  border: 0;
+  background: linear-gradient(135deg, #30d158, #0a84ff);
+  color: #fff;
+}
+.bot-auto-line {
+  margin: 0.35rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: rgba(245,245,247,0.42);
+  line-height: 1.35;
+  min-height: 1.1em;
+}
+.bot-auto-line[data-on="1"] { color: rgba(48,209,88,0.85); }
+.chart-tip {
+  margin: 0.45rem 0.85rem 0.7rem;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: rgba(245,245,247,0.42);
+}
+.chart-tip code {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: rgba(100,210,255,0.75);
+  word-break: break-all;
+}
+.broker-block {
+  margin: 0.75rem 0 1rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.broker-block h4 {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.broker-badge {
+  font-size: 0.58rem;
+  font-weight: 510;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(100,210,255,0.8);
+  border: 1px solid rgba(100,210,255,0.25);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+}
+.broker-status {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: rgba(245,245,247,0.45);
+}
+.broker-warn {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgba(255,214,10,0.85);
+}
+.broker-tip {
+  margin: 0 0 0.75rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: rgba(245,245,247,0.5);
+}
+.broker-tip code {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: rgba(100,210,255,0.75);
+  word-break: break-all;
+}
+#alpacaConnectBtn:disabled,
+#coinswitchConnectBtn:disabled {
+  opacity: 0.45;
+}
+#alpacaConnectBtn:not(:disabled),
+#coinswitchConnectBtn:not(:disabled) {
+  opacity: 1;
+}
