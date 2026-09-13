@@ -327,62 +327,135 @@ function startVoiceListen() {
 function initHumanoid() {
   const canvas = $('humanoid');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.z = 4.05;
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+  camera.position.set(0, 0.15, 3.6);
 
-  const count = 6200;
+  // Soft core glow (inner head)
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0x5eead4, transparent: true, opacity: 0.18 })
+  );
+  core.position.set(0, 0.55, 0);
+  scene.add(core);
+
+  const core2 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.35 })
+  );
+  core2.position.set(0, 0.58, 0.05);
+  scene.add(core2);
+
+  // Clean surface particles on head ellipsoid + shoulders
+  const count = 2800;
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
   const bases = new Float32Array(count * 3);
-  const cCyan = new THREE.Color('#3de7ff');
-  const cAmber = new THREE.Color('#ff9a3c');
-  for (let i = 0; i < count; i++) {
-    const inHead = i < count * 0.64;
-    let x, y, z;
-    if (inHead) {
-      const u = Math.random();
-      const v = Math.random();
-      const theta = 2 * Math.PI * u;
-      const phi = Math.acos(2 * v - 1);
-      const r = 0.9 * Math.cbrt(Math.random());
-      x = r * Math.sin(phi) * Math.cos(theta) * 0.82;
-      y = r * Math.cos(phi) * 1.08 + 0.58;
-      z = r * Math.sin(phi) * Math.sin(theta) * 0.68;
-    } else {
-      x = (Math.random() - 0.5) * 1.35;
-      y = -0.15 - Math.random() * 1.45;
-      z = (Math.random() - 0.5) * 0.65;
+  const cTeal = new THREE.Color('#5eead4');
+  const cViolet = new THREE.Color('#a78bfa');
+  const cWhite = new THREE.Color('#e2e8f0');
+
+  function sampleHead() {
+    // surface of ellipsoid
+    const u = Math.random() * Math.PI * 2;
+    const v = Math.acos(2 * Math.random() - 1);
+    const rx = 0.72, ry = 0.88, rz = 0.62;
+    let x = rx * Math.sin(v) * Math.cos(u);
+    let y = ry * Math.cos(v) + 0.55;
+    let z = rz * Math.sin(v) * Math.sin(u);
+    // slight jaw taper
+    if (y < 0.35) {
+      const t = (0.35 - y) / 0.7;
+      x *= 1 - t * 0.22;
+      z *= 1 - t * 0.18;
     }
-    positions[i * 3] = x; positions[i * 3 + 1] = y; positions[i * 3 + 2] = z;
-    bases[i * 3] = x; bases[i * 3 + 1] = y; bases[i * 3 + 2] = z;
-    const core = inHead && Math.hypot(x, y - 0.55, z) < 0.38;
-    const col = core || Math.random() > 0.88 ? cAmber : cCyan;
-    colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
+    // eye hollows (push inward / dim later)
+    const leftEye = Math.hypot(x + 0.22, y - 0.7, z - 0.35);
+    const rightEye = Math.hypot(x - 0.22, y - 0.7, z - 0.35);
+    const eye = Math.min(leftEye, rightEye) < 0.14;
+    return { x, y, z, eye };
   }
+
+  function sampleShoulder() {
+    const x = (Math.random() - 0.5) * 1.7;
+    const y = -0.35 - Math.random() * 0.85;
+    const z = (Math.random() - 0.5) * 0.45 - 0.05;
+    // keep under head width curve
+    const maxX = 0.55 + (-y) * 0.55;
+    return { x: Math.max(-maxX, Math.min(maxX, x)), y, z, eye: false };
+  }
+
+  for (let i = 0; i < count; i++) {
+    const onHead = i < count * 0.72;
+    const s = onHead ? sampleHead() : sampleShoulder();
+    positions[i * 3] = s.x;
+    positions[i * 3 + 1] = s.y;
+    positions[i * 3 + 2] = s.z;
+    bases[i * 3] = s.x;
+    bases[i * 3 + 1] = s.y;
+    bases[i * 3 + 2] = s.z;
+    let col = onHead ? cTeal : cViolet;
+    if (s.eye) col = cWhite;
+    if (onHead && s.y > 0.95) col = cViolet.clone().lerp(cTeal, 0.4);
+    colors[i * 3] = col.r;
+    colors[i * 3 + 1] = col.g;
+    colors[i * 3 + 2] = col.b;
+  }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const points = new THREE.Points(geo, new THREE.PointsMaterial({
-    size: 0.016, vertexColors: true, transparent: true, opacity: 0.96, depthBlending: THREE.AdditiveBlending,
-  }));
+  const points = new THREE.Points(
+    geo,
+    new THREE.PointsMaterial({
+      size: 0.022,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    })
+  );
   scene.add(points);
 
-  const waveCount = 2400;
-  const wp = new Float32Array(waveCount * 3);
-  for (let i = 0; i < waveCount; i++) {
-    wp[i * 3] = (Math.random() - 0.5) * 9;
-    wp[i * 3 + 1] = (Math.random() - 0.5) * 5.5;
-    wp[i * 3 + 2] = -1.8 - Math.random() * 2.4;
-  }
-  const waves = new THREE.Points(
-    new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(wp, 3)),
-    new THREE.PointsMaterial({ color: '#1ec8ff', size: 0.011, opacity: 0.32, transparent: true })
+  // Orbit ring
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.35, 0.008, 12, 120),
+    new THREE.MeshBasicMaterial({ color: 0x5eead4, transparent: true, opacity: 0.35 })
   );
-  scene.add(waves);
+  ring.rotation.x = Math.PI / 2.4;
+  ring.position.y = 0.15;
+  scene.add(ring);
+
+  const ring2 = new THREE.Mesh(
+    new THREE.TorusGeometry(1.55, 0.006, 12, 140),
+    new THREE.MeshBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.22 })
+  );
+  ring2.rotation.x = Math.PI / 2.1;
+  ring2.rotation.z = 0.4;
+  ring2.position.y = 0.05;
+  scene.add(ring2);
+
+  // sparse ambient dust
+  const dustN = 400;
+  const dustPos = new Float32Array(dustN * 3);
+  for (let i = 0; i < dustN; i++) {
+    dustPos[i * 3] = (Math.random() - 0.5) * 6;
+    dustPos[i * 3 + 1] = (Math.random() - 0.5) * 4;
+    dustPos[i * 3 + 2] = -1 - Math.random() * 3;
+  }
+  const dust = new THREE.Points(
+    new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(dustPos, 3)),
+    new THREE.PointsMaterial({ color: 0x64748b, size: 0.012, transparent: true, opacity: 0.35 })
+  );
+  scene.add(dust);
 
   function resize() {
-    const { clientWidth: w, clientHeight: h } = canvas.parentElement;
+    const parent = canvas.parentElement;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
     renderer.setSize(w, h, false);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     camera.aspect = w / h;
@@ -394,94 +467,32 @@ function initHumanoid() {
   let t = 0;
   const pos = geo.attributes.position;
   function frame() {
-    t += 0.012;
+    t += 0.01;
     const listen = state.status === 'LISTENING';
     const speakNow = state.status === 'SPEAKING';
-    const amp = speakNow ? 0.055 : listen ? 0.03 : 0.012;
+    const amp = speakNow ? 0.028 : listen ? 0.018 : 0.008;
     for (let i = 0; i < count; i++) {
-      const bx = bases[i * 3], by = bases[i * 3 + 1], bz = bases[i * 3 + 2];
-      pos.array[i * 3] = bx + Math.sin(t * 2 + by * 4) * amp;
-      pos.array[i * 3 + 1] = by + Math.cos(t * 2.2 + bx * 3) * amp * 0.8;
-      pos.array[i * 3 + 2] = bz + Math.sin(t * 1.7 + bx) * amp * 0.6;
+      const bx = bases[i * 3];
+      const by = bases[i * 3 + 1];
+      const bz = bases[i * 3 + 2];
+      // keep motion subtle so silhouette stays readable
+      pos.array[i * 3] = bx + Math.sin(t * 1.6 + by * 3) * amp;
+      pos.array[i * 3 + 1] = by + Math.cos(t * 1.4 + bx * 2.5) * amp * 0.7;
+      pos.array[i * 3 + 2] = bz + Math.sin(t * 1.2 + bx) * amp * 0.5;
     }
     pos.needsUpdate = true;
-    points.rotation.y = Math.sin(t * 0.28) * 0.22;
-    const pulse = speakNow ? 1.1 + Math.sin(t * 9) * 0.05 : listen ? 1.05 + Math.sin(t * 5) * 0.02 : 1 + Math.sin(t * 2) * 0.012;
-    points.scale.setScalar(pulse);
-    waves.rotation.z = t * 0.04;
+    points.rotation.y = Math.sin(t * 0.22) * 0.18;
+    const pulse = speakNow ? 1.06 + Math.sin(t * 8) * 0.03 : listen ? 1.03 + Math.sin(t * 4) * 0.015 : 1 + Math.sin(t * 1.5) * 0.008;
+    core.scale.setScalar(pulse);
+    core2.scale.setScalar(pulse * (speakNow ? 1.08 : 1));
+    core.material.opacity = speakNow ? 0.28 : listen ? 0.22 : 0.16;
+    ring.rotation.z = t * 0.15;
+    ring2.rotation.z = -t * 0.1;
+    dust.rotation.y = t * 0.03;
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
   frame();
-}
-
-
-function forceHalt() {
-  state.halted = true;
-  saveState();
-  analyzeRisk();
-  speak('Force halt engaged. All paper entries blocked until you reset the day.');
-}
-
-function resetDay() {
-  state.dayPnL = 0;
-  state.halted = false;
-  state.peakEquity = Math.max(state.peakEquity, num('equity'));
-  saveState();
-  analyzeRisk();
-  speak('Day P and L reset. Risk gate re-armed.');
-}
-
-function clearBook() {
-  state.book = [];
-  saveState();
-  renderBook();
-  speak('Paper book cleared.');
-}
-
-function dist(a, b) {
-  const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
-  return Math.hypot(dx, dy, dz);
-}
-
-async function enablePinchCamera() {
-  if (state.gestureOn) {
-    speak('Pinch camera already on.');
-    return;
-  }
-  if (!window.Hands || !window.Camera) {
-    speak('Pinch camera library failed to load. Use Wake or voice instead.');
-    return;
-  }
-  const video = $('gestureCam');
-  video.style.display = 'block';
-  const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-  hands.setOptions({
-    maxNumHands: 1,
-    modelComplexity: 0,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.5,
-  });
-  let cool = 0;
-  hands.onResults((results) => {
-    if (cool > 0) { cool -= 1; return; }
-    const hand = results.multiHandLandmarks?.[0];
-    if (!hand) return;
-    const pinch = dist(hand[4], hand[8]);
-    if (pinch < 0.05) {
-      cool = 45;
-      setStatus('LISTENING');
-      speak('Pinch recognized. Risk guard listening.');
-    }
-  });
-  const camera = new Camera(video, {
-    onFrame: async () => { await hands.send({ image: video }); },
-    width: 320,
-    height: 240,
-  });
-  await camera.start();
-  state.gestureOn = true;
-  speak('Pinch camera enabled. Pinch thumb and index to wake.');
 }
 
 function bindMicWake() {
