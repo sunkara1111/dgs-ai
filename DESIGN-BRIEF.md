@@ -11,7 +11,7 @@
 Wake → brief / quote / asset pipeline → chart → send to phone. Dense data spoken + mini brief card. Risk & paper book stay in a drawer.
 
 ## Stage design
-Cinematic AI robot lab open screen: cool blue / white / metallic sci-fi aesthetic. Hero is the compressed lab reference image (`assets/dgs-hero.jpg` / `.webp`) with soft holographic grid, blue glow, and light particle dust. Subtle ken-burns + glow pulse on LISTENING/SPEAKING via `#app[data-voice]`. WebGL spiral canvas and CSS bust are demoted (hidden) so the image is the star. Ghost dock. Icon-only secondary modules. Voice is primary. Brand remains **DGS AI** (do not use INTELLIGENCE watermark as product name).
+Apple / Siri aesthetic. Soft black void, frosted glass dock, SF system font stack. Center is a living abstract colorful fluid orb (pinks, purples, blues, teals) — **no humanoids, no robot lab hero, no CSS bust, no face**. Idle breathe + ripple; LISTENING / SPEAKING amplify via `state.status` / `#app[data-voice]`. Transcript as soft glass cards. Brand remains **DGS AI**.
 
 ## Branding
 Use **DGS AI** only. Do not reuse demo-video product names.
