@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
-  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913auto" />
+  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant. Paper default. CoinSwitch India primary live via DGS AI assistant." />
+  <link rel="stylesheet" href="css/styles.css?v=20260913cs" />
 </head>
 <body>
   <div class="app" data-ui="voice-stage" id="app" data-voice="IDLE">
@@ -47,6 +47,14 @@
           <span id="botGate" data-open="0">Gate CLOSED</span>
           <span id="botDayPnl">Day $0.00</span>
           <button type="button" class="bot-enter" id="botEnterBtn" disabled>Paper enter</button>
+        </div>
+        <div class="bot-cs" id="botCs" aria-label="CoinSwitch primary live broker">
+          <div class="bot-cs-top">
+            <span class="bot-cs-label">CoinSwitch · India · PRIMARY</span>
+            <span class="bot-cs-status" id="botCsStatus" data-on="0">Not connected</span>
+          </div>
+          <p class="bot-cs-fine">Live orders via <strong>DGS AI assistant</strong> (server-side keys). Page stores preference + intents only — never embeds secrets.</p>
+          <p class="bot-cs-intent" id="botCsIntent">No live intents yet · say <em>coinswitch status</em></p>
         </div>
       </section>
     </main>
@@ -95,7 +103,7 @@
       <h2>Risk &amp; paper book</h2>
       <button type="button" class="icon-btn drawer-close" data-close="risk">Close</button>
     </div>
-    <p class="fine">Paper only. No broker. No guaranteed profit. DGS AI will not place a live order.</p>
+    <p class="fine">Paper default. No guaranteed profit. Live CoinSwitch (India) runs through <strong>DGS AI assistant</strong> with your keys server-side — not from this static page.</p>
 
     <div class="stats">
       <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
@@ -156,11 +164,26 @@
     <video id="gestureCam" playsinline muted></video>
     <p class="log" id="voiceLog">DGS AI idle. Paper risk guard armed.</p>
 
-    <details id="liveBrokers">
-      <summary>Live brokers (optional)</summary>
-      <p class="fine">Stubs only. Keys stay in this browser’s localStorage. Paper autopilot remains default. No live orders until you explicitly enable a future release.</p>
+    <details id="liveBrokers" open>
+      <summary>CoinSwitch (India) · PRIMARY live</summary>
+      <p class="fine">Honest: Live CoinSwitch orders are executed by <strong>DGS AI assistant</strong> with your API keys <em>server-side</em>. This static GitHub Pages app never embeds Ed25519 secrets or signs real orders (insecure + CORS). Here you only store a “connected” preference and last trade intents.</p>
       <p class="broker-tip">TradingView webhook stub (future backend): <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code> — static Pages cannot receive webhooks alone.</p>
 
+      <div class="broker-block broker-primary" data-broker="coinswitch">
+        <h4>CoinSwitch <span class="broker-badge">PRIMARY · India</span></h4>
+        <p class="broker-status" id="coinswitchStatus" data-on="0">Not connected</p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-accent" id="coinswitchConnectBtn" title="Local preference only — link real keys in DGS AI chat">Mark connected</button>
+          <button type="button" class="btn" id="coinswitchDisconnectBtn">Disconnect</button>
+        </div>
+        <p class="fine">“Connected” is a localStorage flag only. Link API keys in DGS AI chat for server-side execution. Never paste signing secrets into this page.</p>
+        <p class="broker-kicker">Last trade intents</p>
+        <ul id="coinswitchIntents" class="cs-intents"><li class="empty">None yet — say <em>buy BTC on coinswitch</em></li></ul>
+      </div>
+    </details>
+
+    <details id="otherBrokers">
+      <summary>Other brokers (optional stubs)</summary>
       <div class="broker-block" data-broker="alpaca">
         <h4>Alpaca <span class="broker-badge">official paper/live API</span></h4>
         <label>API key <input id="alpacaKey" type="password" autocomplete="off" placeholder="PK…" /></label>
@@ -172,19 +195,9 @@
         </div>
       </div>
 
-      <div class="broker-block" data-broker="coinswitch">
-        <h4>CoinSwitch <span class="broker-badge">API stub</span></h4>
-        <label>API key <input id="coinswitchKey" type="password" autocomplete="off" placeholder="key" /></label>
-        <label>API secret <input id="coinswitchSecret" type="password" autocomplete="off" placeholder="secret" /></label>
-        <div class="btn-row">
-          <button type="button" class="btn" id="coinswitchConnectBtn" disabled title="Validates format only — does not send orders">Connect (format check)</button>
-          <span class="broker-status" id="coinswitchStatus">Not connected · orders disabled</span>
-        </div>
-      </div>
-
       <div class="broker-block" data-broker="robinhood">
         <h4>Robinhood</h4>
-        <p class="broker-warn">No official bot API — use Alpaca paper or export alerts via TradingView. We will not ask for your Robinhood password.</p>
+        <p class="broker-warn">No official bot API — use Alpaca paper, CoinSwitch via DGS AI, or TradingView alerts. We will not ask for your Robinhood password.</p>
       </div>
     </details>
 
@@ -263,6 +276,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913auto"></script>
+  <script type="module" src="js/app.js?v=20260913cs"></script>
 </body>
 </html>

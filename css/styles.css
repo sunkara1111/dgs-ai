@@ -847,11 +847,103 @@ details summary {
   color: rgba(100,210,255,0.75);
   word-break: break-all;
 }
-#alpacaConnectBtn:disabled,
-#coinswitchConnectBtn:disabled {
+#alpacaConnectBtn:disabled {
   opacity: 0.45;
 }
-#alpacaConnectBtn:not(:disabled),
-#coinswitchConnectBtn:not(:disabled) {
+#alpacaConnectBtn:not(:disabled) {
   opacity: 1;
+}
+
+/* —— CoinSwitch primary strip on bot card —— */
+.bot-cs {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+.bot-cs-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.bot-cs-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(100,210,255,0.9);
+}
+.bot-cs-status {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: rgba(245,245,247,0.45);
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.bot-cs-status[data-on="1"] {
+  color: rgba(48,209,88,0.95);
+  border-color: rgba(48,209,88,0.35);
+  background: rgba(48,209,88,0.08);
+}
+.bot-cs-fine {
+  margin: 0.35rem 0 0.2rem;
+  font-size: 0.6rem;
+  line-height: 1.4;
+  color: rgba(245,245,247,0.42);
+}
+.bot-cs-fine strong { color: rgba(245,245,247,0.7); font-weight: 600; }
+.bot-cs-intent {
+  margin: 0.2rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  line-height: 1.35;
+  color: rgba(245,245,247,0.5);
+}
+.bot-cs-intent em { font-style: normal; color: rgba(100,210,255,0.75); }
+
+.broker-primary {
+  border-color: rgba(100,210,255,0.28);
+  background: rgba(10,132,255,0.08);
+}
+.broker-primary .broker-badge {
+  color: rgba(48,209,88,0.9);
+  border-color: rgba(48,209,88,0.3);
+}
+.broker-status[data-on="1"] {
+  color: rgba(48,209,88,0.9);
+}
+.broker-kicker {
+  margin: 0.65rem 0 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 510;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(245,245,247,0.5);
+}
+.cs-intents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 8rem;
+  overflow: auto;
+}
+.cs-intents li {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: rgba(245,245,247,0.65);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.cs-intents li.empty {
+  color: rgba(245,245,247,0.4);
+  border: 0;
+}
+.cs-intents li em {
+  font-style: normal;
+  color: rgba(100,210,255,0.75);
+}
+#coinswitchConnectBtn:disabled {
+  opacity: 0.45;
 }

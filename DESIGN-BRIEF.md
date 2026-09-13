@@ -3,12 +3,12 @@
 **Controller:** DGS AI assistant
 
 ## Roles (priority order)
-1. **Trading (most important)** — voice-first: market/crypto brief, quote any major stock or crypto, open chart, send chart to phone. Hard risk gates. Paper first. No live broker.
+1. **Trading (most important)** — voice-first: market/crypto brief, quote any major stock or crypto, open chart, send chart to phone. Hard risk gates. Paper first. **CoinSwitch (India)** is the primary live-broker path when commanded (executed by DGS AI assistant server-side — not from this static page).
 2. **Social** — drafts + checklists (approve before posting)
 3. **Work** — priorities, emails, actions, SOPs
 
 ## Voice flow
-Wake → brief / quote / asset pipeline → chart → send to phone. Dense data spoken + mini brief card. Risk & paper book stay in a drawer.
+Quiet by default. Wake/Talk listen silently. TTS only after user speaks, says **speak / talk / talk to me / you can speak** (`state.ttsEnabled`), or presses Brief/Scan/etc. Then: brief / quote / asset pipeline → chart → send to phone. Commands always work (find trade, enter, autopilot, chart, send to phone, coinswitch status). Dense data spoken + mini brief card. Risk & paper book stay in a drawer.
 
 ## Paper bot loop
 Scan watchlist → propose setup (momentum + ATR-ish R:R) → hard risk gate → paper enter only if OPEN → mark-to-market book → voice close. Slim Bot glass card on home. PAPER ONLY. No broker. No guaranteed profit.
@@ -30,8 +30,13 @@ Static GitHub Pages **cannot** receive TradingView alert webhooks alone. Placeho
 `https://YOUR-BACKEND/hooks/tv`
 Documented in UI tip on the chart stage. Do not pretend Pages can ingest POSTs.
 
-## Live brokers (stubs only)
-Settings → Risk drawer → **Live brokers (optional)**:
-- **Alpaca** — official paper/live API fields; key/secret in localStorage only; Connect validates format; **does not send orders** until an explicit future enable.
-- **CoinSwitch** — same stub pattern.
-- **Robinhood** — no official bot API. Label only: use Alpaca paper or TradingView alerts. **Never ask for Robinhood password.** No cookie/private API scrapers.
+## CoinSwitch (PRIMARY live · India)
+Bot card + Risk drawer surface CoinSwitch first — not buried.
+- Status: **Not connected** / **Connected** (localStorage preference flag only).
+- Honest copy: Live CoinSwitch orders are executed by **DGS AI assistant** with your API keys **server-side**. This GitHub Pages app must never embed Ed25519 secrets or ship real signed orders (insecure + CORS).
+- Page stores a “connected” preference + last trade **intents** (transcript + local list).
+- Voice: “coinswitch status”, “trade on coinswitch”, “buy BTC on coinswitch” → append intent + say DGS AI will execute when keys are linked in chat.
+
+## Other live brokers (stubs)
+- **Alpaca** — optional secondary; key/secret format check in localStorage; does not send orders from Pages.
+- **Robinhood** — no official bot API. Label only. **Never ask for Robinhood password.**

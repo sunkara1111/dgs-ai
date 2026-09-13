@@ -125,15 +125,18 @@ const state = {
   talkActive: false,
   speaking: false,
   userSpoke: false,
+  ttsEnabled: false,
   proposal: null,
   lastScanAt: 0,
   quotesCache: {},
   autopilot: false,
   autopilotLastAction: 'Paper default · idle',
   autopilotBusy: false,
+  coinswitchConnected: false,
+  coinswitchIntents: [],
 };
 
-const CACHE_BUST = '20260913auto';
+const CACHE_BUST = '20260913cs';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 let talkLoop = null;
@@ -241,14 +244,15 @@ function tvChartUrl(sym) {
 }
 
 /**
- * TTS only after the user has spoken in this session, or after an explicit
- * content-request button (Brief / Chart / Send). Always updates transcript/status.
+ * TTS only after the user has spoken in this session, said speak/talk,
+ * enabled ttsEnabled, or pressed an explicit content button (Brief / Chart / Send / Scan).
+ * Always updates transcript/status. Quiet by default until then.
  */
 function speak(text, opts = {}) {
   if (!text) return Promise.resolve();
   const force = !!(opts && opts.force);
   const quiet = !!(opts && opts.quiet);
-  const allow = !quiet && (force || state.userSpoke);
+  const allow = !quiet && (force || state.userSpoke || state.ttsEnabled);
   if (!opts || opts.transcript !== false) addLine('dgs', text);
   if ($('voiceLog')) $('voiceLog').textContent = text;
   hideHint();
@@ -309,7 +313,7 @@ function parseSymbol(text) {
 }
 
 function hasTradingCue(t) {
-  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade|autopilot)\b/.test(t)
+  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade|autopilot|coinswitch|coin switch)\b/.test(t)
     || Object.keys(NAME_TO_SYM).some((n) => t.includes(n));
 }
 
@@ -1294,6 +1298,143 @@ function stopAutopilot(opts = {}) {
   if (announce) speak('Autopilot off. Paper book stays as-is. Say start autopilot to resume.');
 }
 
+const CS_LS_KEY = 'dgs-ai-coinswitch';
+
+function loadCoinSwitchPref() {
+  try {
+    const raw = localStorage.getItem(CS_LS_KEY);
+    if (!raw) {
+      // migrate legacy broker stub flag if present
+      try {
+        const leg = JSON.parse(localStorage.getItem(BROKER_LS_KEY) || '{}');
+        if (leg.coinswitchOk) {
+          state.coinswitchConnected = true;
+          saveCoinSwitchPref();
+        }
+      } catch (_) {}
+      updateCoinSwitchUi();
+      return;
+    }
+    const data = JSON.parse(raw);
+    state.coinswitchConnected = !!data.connected;
+    state.coinswitchIntents = Array.isArray(data.intents) ? data.intents.slice(0, 12) : [];
+  } catch (_) {
+    state.coinswitchConnected = false;
+    state.coinswitchIntents = [];
+  }
+  updateCoinSwitchUi();
+}
+
+function saveCoinSwitchPref() {
+  localStorage.setItem(CS_LS_KEY, JSON.stringify({
+    connected: !!state.coinswitchConnected,
+    connectedAt: state.coinswitchConnected ? (new Date().toISOString()) : null,
+    intents: (state.coinswitchIntents || []).slice(0, 12),
+  }));
+}
+
+function updateCoinSwitchUi() {
+  const on = !!state.coinswitchConnected;
+  const label = on ? 'Connected' : 'Not connected';
+  const st = $('coinswitchStatus');
+  if (st) {
+    st.textContent = on
+      ? 'Connected · preference only · live via DGS AI assistant'
+      : 'Not connected';
+    st.dataset.on = on ? '1' : '0';
+  }
+  const botSt = $('botCsStatus');
+  if (botSt) {
+    botSt.textContent = label;
+    botSt.dataset.on = on ? '1' : '0';
+  }
+  const intentEl = $('botCsIntent');
+  const intents = state.coinswitchIntents || [];
+  if (intentEl) {
+    if (!intents.length) {
+      intentEl.innerHTML = 'No live intents yet · say <em>coinswitch status</em> or <em>buy BTC on coinswitch</em>';
+    } else {
+      const last = intents[0];
+      intentEl.textContent = `Last intent: ${last.summary || last.text || '—'}`;
+    }
+  }
+  const list = $('coinswitchIntents');
+  if (list) {
+    if (!intents.length) {
+      list.innerHTML = '<li class="empty">None yet — say <em>buy BTC on coinswitch</em></li>';
+    } else {
+      list.innerHTML = intents.slice(0, 8).map((it) => {
+        const when = it.at ? new Date(it.at).toLocaleString() : '';
+        return `<li>${escapeHtml(it.summary || it.text || '')}${when ? ` · ${escapeHtml(when)}` : ''}</li>`;
+      }).join('');
+    }
+  }
+  updateBotCard();
+}
+
+function setCoinSwitchConnected(on, announce = true) {
+  state.coinswitchConnected = !!on;
+  saveCoinSwitchPref();
+  updateCoinSwitchUi();
+  if (!announce) return;
+  markUserSpoke();
+  if (on) {
+    speak('CoinSwitch marked connected on this device. That is a preference flag only. Live orders are executed by DGS AI assistant with your API keys server-side — never from this static page. Link keys in chat when you are ready.');
+  } else {
+    speak('CoinSwitch marked not connected. Preference cleared on this device. Paper autopilot remains default.');
+  }
+}
+
+function appendCoinSwitchIntent(rawText, extras = {}) {
+  const text = String(rawText || '').trim();
+  const side = extras.side || '';
+  const symbol = (extras.symbol || '').toUpperCase();
+  const summary = extras.summary || (
+    side && symbol ? `${side} ${symbol} on CoinSwitch`
+      : side ? `${side} on CoinSwitch`
+      : text || 'CoinSwitch intent'
+  );
+  const intent = {
+    at: new Date().toISOString(),
+    text,
+    side,
+    symbol,
+    summary,
+  };
+  state.coinswitchIntents = [intent, ...(state.coinswitchIntents || [])].slice(0, 12);
+  saveCoinSwitchPref();
+  updateCoinSwitchUi();
+  return intent;
+}
+
+function coinswitchStatusSpeech() {
+  const on = state.coinswitchConnected ? 'connected' : 'not connected';
+  const intents = state.coinswitchIntents || [];
+  const last = intents[0];
+  const lastLine = last
+    ? ` Last intent: ${last.summary || last.text}.`
+    : ' No live intents yet.';
+  return `CoinSwitch India is primary live broker path. Status: ${on} — local preference only. Live orders are executed by DGS AI assistant with your API keys server-side, not from this page.${lastLine} Say buy or sell a coin on coinswitch to log an intent. Link keys in DGS AI chat to execute.`;
+}
+
+function parseCoinSwitchTrade(t) {
+  const buy = /\b(buy|long)\b/.test(t);
+  const sell = /\b(sell|short)\b/.test(t);
+  let side = buy ? 'BUY' : (sell ? 'SELL' : 'TRADE');
+  let symbol = '';
+  const m = t.match(/\b(buy|sell|long|short)\s+([a-z0-9]{2,10})\b/i);
+  if (m) symbol = m[2].toUpperCase().replace(/USDT$|USD$|INR$/, '');
+  if (!symbol) {
+    const named = Object.keys(NAME_TO_SYM).find((n) => t.includes(n));
+    if (named) symbol = NAME_TO_SYM[named];
+    else {
+      const tick = t.toUpperCase().match(/\b([A-Z]{2,5})\b/);
+      if (tick && (CRYPTO.has(tick[1]) || DEMO_QUOTES[tick[1]])) symbol = tick[1];
+    }
+  }
+  return { side, symbol };
+}
+
 function loadBrokerStubs() {
   try {
     const raw = localStorage.getItem(BROKER_LS_KEY);
@@ -1302,13 +1443,8 @@ function loadBrokerStubs() {
     if (data.alpacaKey && $('alpacaKey')) $('alpacaKey').value = data.alpacaKey;
     if (data.alpacaSecret && $('alpacaSecret')) $('alpacaSecret').value = data.alpacaSecret;
     if (typeof data.alpacaPaper === 'boolean' && $('alpacaPaper')) $('alpacaPaper').checked = data.alpacaPaper;
-    if (data.coinswitchKey && $('coinswitchKey')) $('coinswitchKey').value = data.coinswitchKey;
-    if (data.coinswitchSecret && $('coinswitchSecret')) $('coinswitchSecret').value = data.coinswitchSecret;
     if (data.alpacaOk && $('alpacaStatus')) {
       $('alpacaStatus').textContent = 'Format OK · stored locally · orders still disabled';
-    }
-    if (data.coinswitchOk && $('coinswitchStatus')) {
-      $('coinswitchStatus').textContent = 'Format OK · stored locally · orders still disabled';
     }
     refreshBrokerConnectButtons();
   } catch (_) {}
@@ -1323,35 +1459,27 @@ function saveBrokerStubs(extra = {}) {
     alpacaKey: $('alpacaKey')?.value || '',
     alpacaSecret: $('alpacaSecret')?.value || '',
     alpacaPaper: !!($('alpacaPaper')?.checked),
-    coinswitchKey: $('coinswitchKey')?.value || '',
-    coinswitchSecret: $('coinswitchSecret')?.value || '',
     ...extra,
   };
+  // CoinSwitch secrets intentionally NOT stored — preference lives in CS_LS_KEY
+  delete data.coinswitchKey;
+  delete data.coinswitchSecret;
   localStorage.setItem(BROKER_LS_KEY, JSON.stringify(data));
 }
 
 function alpacaFormatOk(key, secret) {
   const k = (key || '').trim();
   const s = (secret || '').trim();
-  // Official-ish: keys are non-empty alphanumerics; paper keys often start with PK
   return k.length >= 8 && s.length >= 8 && /^[A-Za-z0-9_-]+$/.test(k) && /^[A-Za-z0-9_-]+$/.test(s);
-}
-
-function coinswitchFormatOk(key, secret) {
-  const k = (key || '').trim();
-  const s = (secret || '').trim();
-  return k.length >= 8 && s.length >= 8;
 }
 
 function refreshBrokerConnectButtons() {
   const aOk = alpacaFormatOk($('alpacaKey')?.value, $('alpacaSecret')?.value);
-  const cOk = coinswitchFormatOk($('coinswitchKey')?.value, $('coinswitchSecret')?.value);
   if ($('alpacaConnectBtn')) $('alpacaConnectBtn').disabled = !aOk;
-  if ($('coinswitchConnectBtn')) $('coinswitchConnectBtn').disabled = !cOk;
 }
 
 function bindBrokerStubs() {
-  ['alpacaKey', 'alpacaSecret', 'alpacaPaper', 'coinswitchKey', 'coinswitchSecret'].forEach((id) => {
+  ['alpacaKey', 'alpacaSecret', 'alpacaPaper'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.addEventListener('input', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
@@ -1370,26 +1498,19 @@ function bindBrokerStubs() {
       if ($('alpacaStatus')) {
         $('alpacaStatus').textContent = 'Format OK · stored locally · orders still disabled';
       }
-      speak('Alpaca credentials look valid in format and are stored only in this browser. Connect is a stub — DGS AI will not send live or paper broker orders yet. Paper autopilot remains default.');
+      speak('Alpaca credentials look valid in format and are stored only in this browser. Connect is a stub — DGS AI will not send live or paper broker orders from this page. CoinSwitch India remains the primary live path via DGS AI assistant.');
     };
   }
   const cBtn = $('coinswitchConnectBtn');
   if (cBtn) {
-    cBtn.onclick = () => {
-      const key = $('coinswitchKey')?.value || '';
-      const secret = $('coinswitchSecret')?.value || '';
-      if (!coinswitchFormatOk(key, secret)) {
-        if ($('coinswitchStatus')) $('coinswitchStatus').textContent = 'Invalid format · check key/secret';
-        return;
-      }
-      saveBrokerStubs({ coinswitchOk: true, coinswitchCheckedAt: new Date().toISOString() });
-      if ($('coinswitchStatus')) {
-        $('coinswitchStatus').textContent = 'Format OK · stored locally · orders still disabled';
-      }
-      speak('CoinSwitch credentials look valid in format and are stored only in this browser. Connect is a stub — no orders are sent. Paper autopilot remains default.');
-    };
+    cBtn.onclick = () => setCoinSwitchConnected(true);
+  }
+  const dBtn = $('coinswitchDisconnectBtn');
+  if (dBtn) {
+    dBtn.onclick = () => setCoinSwitchConnected(false);
   }
   loadBrokerStubs();
+  loadCoinSwitchPref();
 }
 
 function forceHalt() {
@@ -1434,7 +1555,7 @@ function statusSpeech() {
 }
 
 function helpSpeech() {
-  return 'I am DGS AI. Say find a trade or scan market for a paper setup, take the trade to enter when the gate is open, start autopilot or stop autopilot for the paper loop, how is my book or P and L for marks, and close trade followed by a symbol. Also brief, quote, chart, send to phone. Paper only. Not a broker. Not advice. No guaranteed profit.';
+  return 'I am DGS AI. Say speak or talk to me to enable voice replies. Say find a trade, take the trade, start or stop autopilot, how is my book, close trade, brief, quote, chart, send to phone. For live India crypto say coinswitch status, trade on coinswitch, or buy BTC on coinswitch — intents are logged here; DGS AI assistant executes with keys linked in chat. Paper default. Not advice. No guaranteed profit.';
 }
 
 function wake() {
@@ -1462,7 +1583,7 @@ function quickAnswer(q) {
     return 'No profit is guaranteed. DGS AI blocks bad paper size. It does not promise returns.';
   }
   if (/(broker|live order|real money|place a trade)/.test(t)) {
-    return 'Paper autopilot is the default. Broker connectors are stubs only — Alpaca and CoinSwitch store keys locally and do not send orders yet. Robinhood has no official bot API; we will not ask for your password.';
+    return 'Paper autopilot is the default. CoinSwitch India is the primary live path — orders are executed by DGS AI assistant with your keys server-side, not from this page. Say coinswitch status or buy BTC on coinswitch to log an intent. Alpaca is an optional stub. Robinhood has no official bot API; we will not ask for your password.';
   }
   if (/(social|instagram|linkedin|twitter|post)/.test(t)) {
     openDrawer('social');
@@ -1479,9 +1600,36 @@ function quickAnswer(q) {
 }
 
 async function handleVoiceCommand(text) {
-  const t = text.toLowerCase();
+  const t = text.toLowerCase().trim();
   markUserSpoke();
   addLine('user', text);
+
+  // Explicit TTS enable — quiet by default until speak/talk or user utterance/buttons
+  if (/^(speak|talk|talk to me|you can speak)[.!]?$/.test(t) || /\b(you can speak|talk to me)\b/.test(t)) {
+    state.ttsEnabled = true;
+    setStatus(state.talkActive ? 'LISTENING' : 'IDLE');
+    if ($('voiceLog')) $('voiceLog').textContent = 'Speaking on · listening for commands…';
+    await speak('Speaking on. I am listening for commands.', { force: true });
+    return;
+  }
+
+  // CoinSwitch primary live intents (no secrets / no signed orders from Pages)
+  if (/(coin\s*switch status|coinswitch status)/.test(t)) {
+    await speak(coinswitchStatusSpeech());
+    return;
+  }
+  if (/(trade on coin\s*switch|trade on coinswitch|buy .+ on coin\s*switch|buy .+ on coinswitch|sell .+ on coin\s*switch|sell .+ on coinswitch|coin\s*switch|coinswitch)/.test(t)) {
+    const { side, symbol } = parseCoinSwitchTrade(t);
+    const summary = symbol
+      ? `${side} ${symbol} on CoinSwitch`
+      : (side === 'TRADE' ? 'Trade on CoinSwitch' : `${side} on CoinSwitch`);
+    appendCoinSwitchIntent(text, { side, symbol, summary });
+    const linked = state.coinswitchConnected
+      ? 'This device shows Connected as a preference flag.'
+      : 'This device shows Not connected — mark connected in Risk, or link keys in chat.';
+    await speak(`${summary} intent logged. ${linked} Live CoinSwitch orders are executed by DGS AI assistant with your API keys server-side when linked in chat — not from this static page. Never paste signing secrets here.`);
+    return;
+  }
 
   if (/(start autopilot|enable autopilot|autopilot on|begin autopilot|turn on autopilot)/.test(t)) {
     startAutopilot();
@@ -1603,7 +1751,7 @@ async function handleVoiceCommand(text) {
     await assetPipeline(parseSymbol(text));
     return;
   }
-  await speak('Got it. Say find a trade to scan, take the trade to paper-enter, start autopilot or stop autopilot, how is my book, or close trade. Also brief, quote, chart, send to phone. Paper only. No guaranteed profit.');
+  await speak('Got it. Say speak to enable voice, find a trade, take the trade, start or stop autopilot, how is my book, close trade, brief, quote, chart, send to phone, or coinswitch status. Paper default. No guaranteed profit.');
 }
 
 function startVoiceListen() {
