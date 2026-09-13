@@ -1154,3 +1154,122 @@ body[data-gate="open"] #gate { display: none !important; }
   letter-spacing: 0.04em;
   cursor: pointer;
 }
+
+
+/* —— plan paywall cards —— */
+.gate-card.gate-pay {
+  width: min(760px, 100%);
+  text-align: center;
+}
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0.4rem 0 0.75rem;
+  text-align: left;
+}
+@media (max-width: 640px) {
+  .plan-grid { grid-template-columns: 1fr; }
+}
+.plan-card {
+  padding: 1rem 0.95rem 1.05rem;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.plan-card-pro {
+  border-color: rgba(191,90,242,0.35);
+  background:
+    linear-gradient(160deg, rgba(10,132,255,0.12), rgba(191,90,242,0.1) 55%, rgba(255,255,255,0.03));
+}
+.plan-kicker {
+  margin: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(245,245,247,0.5);
+}
+.plan-price {
+  margin: 0.35rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.plan-price span {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(245,245,247,0.5);
+}
+.plan-alt {
+  margin: 0.15rem 0 0.55rem;
+  font-size: 0.72rem;
+  color: rgba(100,210,255,0.85);
+}
+.plan-meta {
+  margin: 0 0 0.55rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: rgba(245,245,247,0.55);
+}
+.plan-bullets {
+  margin: 0 0 0.75rem;
+  padding: 0 0 0 1rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(245,245,247,0.72);
+}
+.plan-bullets .plan-no {
+  color: rgba(245,245,247,0.4);
+}
+.plan-card .gate-btn { margin-top: 0.28rem; }
+
+.account-chip[data-tier="limited"],
+.account-chip[data-tier="owner"] {
+  border-color: rgba(48,209,88,0.28);
+  color: rgba(48,209,88,0.9);
+}
+.account-chip[data-tier="limited"] {
+  border-color: rgba(255,214,10,0.3);
+  color: rgba(255,214,10,0.9);
+}
+
+/* Pro feature locks on Starter */
+[data-feature].plan-locked {
+  opacity: 0.42;
+  filter: grayscale(0.25);
+  pointer-events: none;
+}
+body[data-plan="limited"] .bot-upgrade {
+  display: block;
+}
+.bot-upgrade {
+  margin: 0.45rem 0 0;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: rgba(255,214,10,0.85);
+}
+.bot-sltp {
+  margin: 0.25rem 0 0.35rem;
+  font-size: 0.64rem;
+  color: rgba(48,209,88,0.8);
+}
+.bot-budget {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: end;
+  margin: 0.35rem 0 0.5rem;
+}
+.bot-budget-label {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 140px;
+  font-size: 0.62rem;
+  color: rgba(245,245,247,0.5);
+}
+.bot-budget-label input {
+  min-height: 36px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}

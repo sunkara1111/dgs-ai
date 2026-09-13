@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser } from './gate.js';
+import { onUnlocked, signOutUser, getPlan, hasFeature } from './gate.js';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -136,10 +136,110 @@ const state = {
   autopilotBusy: false,
   coinswitchConnected: false,
   coinswitchIntents: [],
+  tradingBudget: 1000,
 };
 
-const CACHE_BUST = '20260913gate';
+const CACHE_BUST = '20260913tiers';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
+
+const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
+
+function requireFeature(name, upgradeMsg) {
+  if (hasFeature(name)) return true;
+  const msg = upgradeMsg || 'That feature needs DGS AI Pro. Starter covers voice, chart, send-to-phone, and manual paper trades. No guaranteed profit.';
+  speak(msg);
+  const hint = $('botUpgradeHint');
+  if (hint) {
+    hint.hidden = false;
+    hint.textContent = msg;
+  }
+  return false;
+}
+
+function applyPlanGates() {
+  const plan = getPlan() || '';
+  document.body.dataset.plan = plan;
+  const pro = hasFeature('autopilot');
+  document.querySelectorAll('[data-feature]').forEach((el) => {
+    const feat = el.getAttribute('data-feature');
+    const ok = hasFeature(feat);
+    el.classList.toggle('plan-locked', !ok);
+    if (el.matches('button, input, select, textarea')) {
+      if (!ok) {
+        el.setAttribute('aria-disabled', 'true');
+        if (el.tagName === 'BUTTON') el.disabled = true;
+      } else {
+        el.removeAttribute('aria-disabled');
+      }
+    }
+  });
+  const hint = $('botUpgradeHint');
+  if (hint) hint.hidden = pro;
+  if (pro) {
+    ['autopilotBtn', 'scanBtn', 'budgetRunBtn', 'saveConnectAppsBtn', 'clearConnectAppsBtn', 'openConnectBtn'].forEach((id) => {
+      const el = $(id);
+      if (el && el.tagName === 'BUTTON') el.disabled = false;
+    });
+    const csConnect = $('coinswitchConnectBtn');
+    if (csConnect) csConnect.disabled = false;
+  }
+  updateBotCard();
+}
+
+function loadConnectApps() {
+  try {
+    const raw = localStorage.getItem(CONNECT_APPS_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    if ($('openaiCompatKey') && typeof data.openaiKey === 'string') {
+      $('openaiCompatKey').value = data.openaiKey;
+    }
+    if ($('coinswitchFlagToggle')) {
+      $('coinswitchFlagToggle').checked = !!data.coinswitchFlag;
+    }
+    const st = $('connectAppsStatus');
+    if (st) st.textContent = data.savedAt ? `Saved locally · ${new Date(data.savedAt).toLocaleString()}` : 'Not saved';
+  } catch (_) {}
+}
+
+function saveConnectApps() {
+  if (!requireFeature('connectApps')) return;
+  const openaiKey = String(($('openaiCompatKey') && $('openaiCompatKey').value) || '').trim();
+  const coinswitchFlag = !!($('coinswitchFlagToggle') && $('coinswitchFlagToggle').checked);
+  localStorage.setItem(CONNECT_APPS_KEY, JSON.stringify({
+    openaiKey,
+    coinswitchFlag,
+    savedAt: Date.now(),
+  }));
+  if (coinswitchFlag !== !!state.coinswitchConnected) {
+    setCoinSwitchConnected(coinswitchFlag, false);
+  }
+  const st = $('connectAppsStatus');
+  if (st) st.textContent = `Saved locally · ${new Date().toLocaleString()}`;
+  speak('Saved Connect AI preferences on this device only. Live CoinSwitch still needs keys linked in DGS AI assistant chat. No secrets leave this browser from this panel.');
+}
+
+function clearConnectApps() {
+  if (!requireFeature('connectApps')) return;
+  localStorage.removeItem(CONNECT_APPS_KEY);
+  if ($('openaiCompatKey')) $('openaiCompatKey').value = '';
+  if ($('coinswitchFlagToggle')) $('coinswitchFlagToggle').checked = false;
+  const st = $('connectAppsStatus');
+  if (st) st.textContent = 'Cleared';
+  speak('Cleared local Connect AI preferences.');
+}
+
+function runWithinBudget() {
+  if (!requireFeature('budget')) return;
+  const raw = Number(($('tradingBudget') && $('tradingBudget').value) || state.tradingBudget || 0);
+  const budget = Math.max(100, raw || 1000);
+  state.tradingBudget = budget;
+  saveState();
+  setAutopilotAction(`Budget $${budget.toFixed(0)} · arming paper autopilot`);
+  speak(`Paper budget set to ${budget} dollars. Starting autopilot within that budget. Auto stop-loss and take-profit manage open marks. Paper only. Not advice. No guaranteed profit.`);
+  if (!state.autopilot) startAutopilot({ quiet: true });
+  else updateBotCard();
+}
+
 
 let talkLoop = null;
 let shareBlob = null;
@@ -159,6 +259,10 @@ function loadState() {
     if (data.proposal && typeof data.proposal === 'object') state.proposal = data.proposal;
     if (typeof data.autopilot === 'boolean') state.autopilot = data.autopilot;
     if (typeof data.autopilotLastAction === 'string') state.autopilotLastAction = data.autopilotLastAction;
+    if (typeof data.tradingBudget === 'number') {
+      state.tradingBudget = data.tradingBudget;
+      if ($('tradingBudget')) $('tradingBudget').value = data.tradingBudget;
+    }
   } catch (_) {}
 }
 
@@ -173,6 +277,7 @@ function saveState() {
     proposal: state.proposal,
     autopilot: !!state.autopilot,
     autopilotLastAction: state.autopilotLastAction || '',
+    tradingBudget: Number(state.tradingBudget) || 1000,
   }));
 }
 
@@ -947,6 +1052,10 @@ function analyzeRisk() {
 
 async function scanMarket(opts = {}) {
   const quiet = !!(opts && opts.quiet);
+  if (!hasFeature('scan')) {
+    if (!quiet) requireFeature('scan', 'Market scan and find-a-trade are Pro features. On Starter, use the risk drawer to analyze and paper-enter manually.');
+    return;
+  }
   if (!quiet) markUserSpoke();
   if (!quiet) setStatus('LISTENING');
   const filler = (opts.silent || quiet) ? Promise.resolve() : speakFiller();
@@ -1269,6 +1378,10 @@ async function autopilotTick() {
 
 function startAutopilot(opts = {}) {
   const announce = !(opts && opts.quiet);
+  if (!hasFeature('autopilot')) {
+    if (announce) requireFeature('autopilot', 'Paper autopilot is a Pro feature. Starter includes manual paper enter. Upgrade to Pro for the quiet scan loop with auto stop-loss and take-profit.');
+    return;
+  }
   if (state.autopilot) {
     if (announce) speak('Autopilot is already on. Paper only — scanning quietly. No guaranteed profit.');
     updateBotCard();
@@ -1375,6 +1488,10 @@ function updateCoinSwitchUi() {
 }
 
 function setCoinSwitchConnected(on, announce = true) {
+  if (on && !hasFeature('coinswitch')) {
+    if (announce) requireFeature('coinswitch', 'CoinSwitch connect and live intents are Pro features. Starter stays paper-manual. Live brokers need official APIs via DGS AI assistant.');
+    return;
+  }
   state.coinswitchConnected = !!on;
   saveCoinSwitchPref();
   updateCoinSwitchUi();
@@ -1388,6 +1505,10 @@ function setCoinSwitchConnected(on, announce = true) {
 }
 
 function appendCoinSwitchIntent(rawText, extras = {}) {
+  if (!hasFeature('coinswitch')) {
+    requireFeature('coinswitch', 'CoinSwitch trade intents are a Pro feature. Upgrade to log live intents; execution still happens via DGS AI assistant keys, not this page.');
+    return null;
+  }
   const text = String(rawText || '').trim();
   const side = extras.side || '';
   const symbol = (extras.symbol || '').toUpperCase();

@@ -42,5 +42,11 @@ Bot card + Risk drawer surface CoinSwitch first — not buried.
 - **Robinhood** — no official bot API. Label only. **Never ask for Robinhood password.**
 
 ## Gated launch
-Unauthenticated visitors only see the DGS AI login landing (founder credit: Dineshgopi Sunkara). Google and/or email+password required. Owner allowlist is private (hashed in gate.js).com, [redacted], [redacted], [redacted]. Everyone else pays ₹499/mo or $9/mo before the Siri orb / trading app unlocks. Entitlement is client-side localStorage MVP — production needs webhooks.
+Unauthenticated visitors only see the DGS AI login landing (founder credit: Dineshgopi Sunkara). Google and/or email+password required. Owner access is a private hashed allowlist in `gate.js` (never list emails in UI or docs). Paid plans:
+
+1. **Owner** — full access (private allowlist).
+2. **Starter (limited)** — $19/mo or ₹1,499/mo — voice, chart, send-to-phone, manual paper; no autopilot / CoinSwitch intents / bot scan loop / budget autopilot.
+3. **Pro** — $49/mo or ₹3,999/mo — autopilot, scan, budget, SL/TP, CoinSwitch intents, Connect AI apps panel. Meta-agent copy: “works like a mobile AI assistant for trading”; App Store / Play = roadmap only.
+
+Entitlement: `localStorage` `{ paid: true, plan: 'limited'|'pro', ... }`. Feature gates via `getPlan()` / `hasFeature(...)`. Client-side MVP — production needs webhooks. No guaranteed profits. Paper default; live brokers need official APIs.
 

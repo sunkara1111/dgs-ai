@@ -6,9 +6,21 @@ Live: https://sunkara1111.github.io/dgs-ai/
 
 This GitHub Pages app ships a working login + paywall UI. It stays locked until Firebase Auth is configured. Checkout links stay placeholders until Razorpay / Stripe URLs are pasted. No secrets belong in this repo (no Admin SDK, no service-account JSON, no API signing keys).
 
-## Free access
+## Plans
 
-A private owner allowlist is enforced in `js/gate.js` via hashed emails. Do not publish owner emails in UI or docs.
+| Plan | Price | Access |
+|------|-------|--------|
+| Owner | free (private hashed allowlist) | Full — never list owner emails in UI/docs |
+| Starter (`limited`) | **$19/mo** or **₹1,499/mo** | Sign-in, orb, voice Q&A, chart, send-to-phone, manual paper |
+| Pro (`pro`) | **$49/mo** or **₹3,999/mo** | Everything Starter + autopilot, scan, budget, SL/TP, CoinSwitch intents, Connect AI panel |
+
+Entitlement shape: `{ paid: true, plan: 'limited'|'pro', ... }` in `localStorage`. Feature gates: `getPlan()`, `hasFeature('autopilot'|…)`.
+
+Honest copy: no guaranteed profits; paper default; live brokers need official APIs; App Store / Play Store = future roadmap.
+
+## Free owner access
+
+A private owner allowlist is enforced in `js/gate.js` via hashed emails. Do not publish owner emails in UI or docs. Allowlisted accounts unlock automatically with full Pro-equivalent features.
 
 ## 1. Firebase Auth (`js/firebase-config.js`)
 
@@ -22,32 +34,31 @@ Firebase CLI was not logged in on the build box, so no project was created autom
 
 When placeholders remain (`YOUR_FIREBASE_API_KEY`), the landing page still renders and explains that sign-in is inactive.
 
-## 2. Razorpay ₹499 (`js/billing-config.js`)
+## 2. Starter checkout (`js/billing-config.js`)
 
-1. Razorpay Dashboard → Payment Links or Payment Button, amount **₹499**.
-2. Success / callback URL: `https://sunkara1111.github.io/dgs-ai/?paid=1`
-3. Paste the hosted URL into `RAZORPAY_PAYMENT_LINK_INR`.
+**Stripe $19 (USD):** Payment Link → amount **$19** → success `https://sunkara1111.github.io/dgs-ai/?paid=1` → paste into `STRIPE_PAYMENT_LINK_USD_STARTER`.
 
-## 3. Stripe $9 (`js/billing-config.js`)
+**Razorpay ₹1,499 (INR):** Payment Link → amount **₹1,499** → callback `https://sunkara1111.github.io/dgs-ai/?paid=1` → paste into `RAZORPAY_PAYMENT_LINK_INR_STARTER`.
 
-1. Stripe Dashboard → Payment Links, amount **$9**.
-2. Success URL: `https://sunkara1111.github.io/dgs-ai/?paid=1`
-3. Cancel URL: `https://sunkara1111.github.io/dgs-ai/`
-4. Paste the hosted URL into `STRIPE_PAYMENT_LINK_USD`.
+Pay $19 or ₹1,499 → plan `limited`.
+
+## 3. Pro checkout (`js/billing-config.js`)
+
+**Stripe $49 (USD):** Payment Link → amount **$49** → success URL same as above → `STRIPE_PAYMENT_LINK_USD_PRO`.
+
+**Razorpay ₹3,999 (INR):** Payment Link → amount **₹3,999** → callback same → `RAZORPAY_PAYMENT_LINK_INR_PRO`.
+
+Pay $49 or ₹3,999 → plan `pro`.
 
 ## 4. How customers pay
 
 1. Open the site → **Continue with Google** or **Create account** / **Sign in** with email + password.
-2. If their email is not on the free list, they see **DGS AI Pro — ₹499/mo or $9/mo**.
-3. **Pay ₹499** opens the Razorpay link; **Pay $9** opens the Stripe link.
-4. After checkout they return with `?paid=1`, or they tap **I’ve paid** → **Confirm — I’ve paid**.
-5. The page stores a client-side entitlement in `localStorage` keyed by Firebase uid / email (MVP).
+2. Non-owner accounts see two cards: **Starter** ($19 / ₹1,499) and **Pro** ($49 / ₹3,999).
+3. Pay buttons open the matching Stripe / Razorpay link.
+4. After checkout they return with `?paid=1`, or tap **I’ve paid Starter** / **I’ve paid Pro**.
+5. The page stores `{ paid: true, plan: 'limited'|'pro', ... }` in `localStorage` keyed by Firebase uid / email (MVP).
 
 **Honest limit:** client-side `?paid=1` / “I’ve paid” is not fraud-proof. Production needs Razorpay/Stripe webhooks plus server-side entitlement before this can be trusted.
-
-## 5. How owners get in free
-
-Sign in with Google or email+password Owner accounts unlock automatically. The paywall never shows for allowlisted accounts.
 
 ## Session
 

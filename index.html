@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant. Paper default. CoinSwitch India primary live via DGS AI assistant." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913gate2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913tiers" />
 </head>
 <body data-gate="locked">
   
@@ -20,7 +20,7 @@
       <p class="gate-brand">DGS AI</p>
       <h1 class="gate-title">Voice trading, gated.</h1>
       <p class="gate-credit">Founder Dineshgopi Sunkara</p>
-      <p class="gate-lead">Sign in with Google or create an account to open DGS AI. Pro unlocks with ₹499/mo or $9/mo.</p>
+      <p class="gate-lead">Sign in with Google or create an account. Choose Starter ($19 / ₹1,499) or Pro ($49 / ₹3,999). Paper default · no guaranteed profit.</p>
 
       <button type="button" class="gate-btn gate-btn-google" id="googleSignInBtn">
         <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
@@ -47,18 +47,51 @@
       <p class="gate-msg" id="gateMsg" role="status"></p>
     </section>
 
-    <section id="gatePay" class="gate-card gate-pay" hidden aria-label="DGS AI Pro paywall">
+    <section id="gatePay" class="gate-card gate-pay" hidden aria-label="DGS AI plans paywall">
       <p class="gate-brand">DGS AI</p>
-      <h1 class="gate-title">DGS AI Pro — ₹499/mo or $9/mo</h1>
+      <h1 class="gate-title">Choose your plan</h1>
       <p class="gate-credit">Unlock the trading app</p>
       <p class="gate-lead" id="payAccount"></p>
-      <p class="gate-lead">Pay once per plan on Razorpay (India) or Stripe (USD) to unlock Pro.</p>
+      <p class="gate-lead">Paper default. No guaranteed profit. Live brokers need official APIs. App Store / Play Store = future roadmap.</p>
 
-      <button type="button" class="gate-btn gate-btn-accent" id="payInrBtn">Pay ₹499</button>
-      <button type="button" class="gate-btn gate-btn-usd" id="payUsdBtn">Pay $9</button>
-      <button type="button" class="gate-btn gate-btn-ghost" id="ivePaidBtn">I’ve paid</button>
+      <div class="plan-grid">
+        <article class="plan-card" data-plan="limited">
+          <p class="plan-kicker">Starter</p>
+          <h2 class="plan-price">$19 <span>/ mo</span></h2>
+          <p class="plan-alt">or ₹1,499 / mo</p>
+          <ul class="plan-bullets">
+            <li>Sign-in · Siri orb · voice Q&amp;A</li>
+            <li>TradingView chart · send to phone</li>
+            <li>Manual paper trade · risk drawer</li>
+            <li class="plan-no">No autopilot · no live CoinSwitch intents</li>
+            <li class="plan-no">No bot scan loop · no budget autopilot</li>
+          </ul>
+          <button type="button" class="gate-btn gate-btn-usd" id="payStarterUsdBtn">Pay $19</button>
+          <button type="button" class="gate-btn gate-btn-ghost" id="payStarterInrBtn">Pay ₹1,499</button>
+          <button type="button" class="gate-btn gate-btn-text" id="ivePaidStarterBtn">I’ve paid Starter</button>
+        </article>
+
+        <article class="plan-card plan-card-pro" data-plan="pro">
+          <p class="plan-kicker">Pro</p>
+          <h2 class="plan-price">$49 <span>/ mo</span></h2>
+          <p class="plan-alt">or ₹3,999 / mo</p>
+          <p class="plan-meta">Works like a mobile AI assistant for trading — App Store / Play listing is roadmap, not live yet.</p>
+          <ul class="plan-bullets">
+            <li>Everything in Starter</li>
+            <li>Paper autopilot · auto stop-loss / take-profit</li>
+            <li>Scan / find-a-trade · full bot card</li>
+            <li>Trading budget · autonomous paper run</li>
+            <li>CoinSwitch connect + trade intents</li>
+            <li>Connect AI / trading apps panel</li>
+          </ul>
+          <button type="button" class="gate-btn gate-btn-accent" id="payProUsdBtn">Pay $49</button>
+          <button type="button" class="gate-btn gate-btn-ghost" id="payProInrBtn">Pay ₹3,999</button>
+          <button type="button" class="gate-btn gate-btn-text" id="ivePaidProBtn">I’ve paid Pro</button>
+        </article>
+      </div>
+
+      <button type="button" class="gate-btn gate-btn-ghost" id="ivePaidBtn" hidden>I’ve paid</button>
       <button type="button" class="gate-btn gate-btn-text" id="paySignOutBtn">Sign out</button>
-
       <p class="gate-msg" id="payMsg" role="status"></p>
     </section>
   </div>
@@ -90,21 +123,29 @@
             <p class="bot-kicker">Bot · paper only</p>
             <p class="bot-fine">Not financial advice · no guaranteed profit</p>
           </div>
-          <div class="bot-card-actions">
-            <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false">Autopilot OFF</button>
-            <button type="button" class="bot-scan" id="scanBtn">Scan</button>
+          <div class="bot-card-actions" data-feature="botCardFull">
+            <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false" data-feature="autopilot">Autopilot OFF</button>
+            <button type="button" class="bot-scan" id="scanBtn" data-feature="scan">Scan</button>
           </div>
         </div>
-        <div class="bot-proposal" id="botProposal">
+        <div class="bot-proposal" id="botProposal" data-feature="scan">
           <p class="bot-empty">No setup yet — say <em>find a trade</em> or tap Scan</p>
         </div>
-        <p class="bot-auto-line" id="botAutoLine">Autopilot OFF · paper default</p>
+        <p class="bot-auto-line" id="botAutoLine" data-feature="autopilot">Autopilot OFF · paper default</p>
+        <p class="bot-sltp" id="botSltp" data-feature="slTpManage">Auto stop-loss / take-profit managed while autopilot is on (paper marks).</p>
+        <div class="bot-budget" id="botBudgetWrap" data-feature="budget">
+          <label class="bot-budget-label">Trading budget (paper)
+            <input id="tradingBudget" type="number" min="100" step="100" value="1000" inputmode="decimal" />
+          </label>
+          <button type="button" class="bot-scan" id="budgetRunBtn">Run within budget</button>
+        </div>
         <div class="bot-meta">
           <span id="botGate" data-open="0">Gate CLOSED</span>
           <span id="botDayPnl">Day $0.00</span>
           <button type="button" class="bot-enter" id="botEnterBtn" disabled>Paper enter</button>
         </div>
-        <div class="bot-cs" id="botCs" aria-label="CoinSwitch primary live broker">
+        <p class="bot-upgrade" id="botUpgradeHint" hidden>Starter includes manual paper enter. Upgrade to Pro for autopilot, scan, budget, and CoinSwitch intents.</p>
+        <div class="bot-cs" id="botCs" aria-label="CoinSwitch primary live broker" data-feature="coinswitch">
           <div class="bot-cs-top">
             <span class="bot-cs-label">CoinSwitch · India · PRIMARY</span>
             <span class="bot-cs-status" id="botCsStatus" data-on="0">Not connected</span>
@@ -147,6 +188,9 @@
       </button>
       <button type="button" class="tab" data-mode="work" title="Work" aria-label="Work">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+      </button>
+      <button type="button" id="openConnectBtn" title="Connect AI apps" aria-label="Connect AI and trading apps" data-feature="connectApps">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>
       </button>
     </nav>
   </div>
@@ -220,7 +264,21 @@
     <video id="gestureCam" playsinline muted></video>
     <p class="log" id="voiceLog">DGS AI idle. Paper risk guard armed.</p>
 
-    <details id="liveBrokers" open>
+    <details id="connectAppsPanel" data-feature="connectApps">
+      <summary>Connect AI / trading apps</summary>
+      <p class="fine">Works like a mobile AI assistant for trading. Keys stay in <strong>localStorage only</strong> on this device. Live CoinSwitch still runs via DGS AI assistant keys later — this panel is a preference stub. App Store / Play Store listing is roadmap, not live.</p>
+      <label>OpenAI-compatible API key (optional stub)
+        <input id="openaiCompatKey" type="password" autocomplete="off" placeholder="sk-… local only" />
+      </label>
+      <label class="check"><input id="coinswitchFlagToggle" type="checkbox" /> CoinSwitch connected preference</label>
+      <div class="btn-row">
+        <button type="button" class="btn" id="saveConnectAppsBtn">Save locally</button>
+        <button type="button" class="btn" id="clearConnectAppsBtn">Clear</button>
+      </div>
+      <p class="broker-status" id="connectAppsStatus">Not saved</p>
+    </details>
+
+    <details id="liveBrokers" open data-feature="coinswitch">
       <summary>CoinSwitch (India) · PRIMARY live</summary>
       <p class="fine">Honest: Live CoinSwitch orders are executed by <strong>DGS AI assistant</strong> with your API keys <em>server-side</em>. This static GitHub Pages app never embeds Ed25519 secrets or signs real orders (insecure + CORS). Here you only store a “connected” preference and last trade intents.</p>
       <p class="broker-tip">TradingView webhook stub (future backend): <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code> — static Pages cannot receive webhooks alone.</p>
@@ -332,6 +390,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913gate2"></script>
+  <script type="module" src="js/app.js?v=20260913tiers"></script>
 </body>
 </html>

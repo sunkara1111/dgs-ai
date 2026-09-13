@@ -1,9 +1,19 @@
 /**
- * DGS AI launch gate — Google / email auth + Pro paywall.
- * Free whitelist bypasses payment. Entitlement is client-side (localStorage) MVP.
+ * DGS AI launch gate — Google / email auth + Starter/Pro paywall.
+ * Owner allowlist (hashed) bypasses payment with full access.
+ * Entitlement is client-side (localStorage) MVP.
+ *
+ * Plans: owner (private) | limited/starter | pro
+ * Do NOT list free owner emails in UI or docs.
  */
 import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js';
-import { BILLING, isPayLinkReady } from './billing-config.js';
+import {
+  BILLING,
+  isPayLinkReady,
+  payLinkFor,
+  planFromPayKind,
+  payKindLabel,
+} from './billing-config.js';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -15,11 +25,38 @@ const FREE_EMAIL_HASHES = new Set([
 
 const ENT_PREFIX = 'dgs-ai-pro';
 
+/** Features available on Starter (limited). Everything else needs Pro/owner. */
+const LIMITED_FEATURES = new Set([
+  'signin',
+  'orb',
+  'voice',
+  'brief',
+  'quote',
+  'chart',
+  'sendPhone',
+  'manualPaper',
+  'riskBasic',
+]);
+
+/** Pro-only (also granted to owner). */
+const PRO_FEATURES = new Set([
+  'autopilot',
+  'scan',
+  'botCardFull',
+  'coinswitch',
+  'budget',
+  'connectApps',
+  'generateBot',
+  'slTpManage',
+]);
+
 const unlockListeners = [];
 let unlocked = false;
 let auth = null;
 let currentUser = null;
 let paidConfirmArmed = false;
+let ownerSession = false;
+let cachedPlan = null;
 
 export function onUnlocked(fn) {
   if (typeof fn !== 'function') return;
@@ -29,6 +66,34 @@ export function onUnlocked(fn) {
 
 export function isUnlocked() {
   return unlocked;
+}
+
+/** Current plan: 'owner' | 'pro' | 'limited' | null */
+export function getPlan() {
+  if (!unlocked) return null;
+  if (ownerSession) return 'owner';
+  if (cachedPlan === 'pro' || cachedPlan === 'limited') return cachedPlan;
+  const ent = currentUser ? readEntitlement(currentUser) : null;
+  if (ent && (ent.plan === 'pro' || ent.plan === 'limited')) return ent.plan;
+  // Legacy entitlements (paid without plan) → treat as pro for backward compat
+  if (ent && ent.paid === true) return 'pro';
+  return null;
+}
+
+/**
+ * Feature gate.
+ * Owner & Pro: all features.
+ * Limited/Starter: sign-in, orb, voice Q&A, chart, send-to-phone, manual paper.
+ */
+export function hasFeature(name) {
+  const plan = getPlan();
+  if (!plan) return false;
+  if (plan === 'owner' || plan === 'pro') return true;
+  if (plan === 'limited') {
+    // Starter: everything except Pro-only features
+    return !PRO_FEATURES.has(name);
+  }
+  return false;
 }
 
 export async function signOutUser() {
@@ -87,10 +152,12 @@ function hasEntitlement(user) {
   return !!readEntitlement(user);
 }
 
-function markEntitlement(user, source) {
+function markEntitlement(user, source, plan) {
   if (!user) return;
+  const resolved = plan === 'pro' ? 'pro' : 'limited';
   const record = {
     paid: true,
+    plan: resolved,
     email: normalizeEmail(user.email),
     uid: user.uid || '',
     source: source || 'unknown',
@@ -99,6 +166,7 @@ function markEntitlement(user, source) {
   for (const key of entitlementKeys(user)) {
     localStorage.setItem(key, JSON.stringify(record));
   }
+  cachedPlan = resolved;
 }
 
 function setGate(mode) {
@@ -127,7 +195,13 @@ function consumePaidQuery() {
   try {
     const params = new URLSearchParams(location.search);
     if (params.get(BILLING.returnFlag) !== '1') return false;
+    const planParam = (params.get('plan') || '').toLowerCase();
+    if (planParam === 'pro' || planParam === 'limited' || planParam === 'starter') {
+      const p = planParam === 'pro' ? 'pro' : 'limited';
+      try { sessionStorage.setItem('dgs-pay-plan', p); } catch (_) {}
+    }
     params.delete(BILLING.returnFlag);
+    params.delete('plan');
     const q = params.toString();
     const next = `${location.pathname}${q ? `?${q}` : ''}${location.hash}`;
     history.replaceState({}, '', next);
@@ -148,6 +222,16 @@ function takePaidPending() {
   return false;
 }
 
+function resolvePendingPlan() {
+  try {
+    const stored = sessionStorage.getItem('dgs-pay-plan');
+    if (stored === 'pro' || stored === 'limited') return stored;
+    const kind = sessionStorage.getItem('dgs-pay-kind');
+    if (kind) return planFromPayKind(kind);
+  } catch (_) {}
+  return 'limited';
+}
+
 async function fireUnlock() {
   if (unlocked) return;
   unlocked = true;
@@ -156,9 +240,13 @@ async function fireUnlock() {
   if (chip && currentUser) {
     chip.hidden = false;
     chip.textContent = normalizeEmail(currentUser.email) || 'Signed in';
-    if (await isFreeEmail(currentUser.email)) chip.dataset.tier = 'free';
-    else chip.dataset.tier = 'pro';
+    const plan = getPlan();
+    if (plan === 'owner') chip.dataset.tier = 'owner';
+    else if (plan === 'pro') chip.dataset.tier = 'pro';
+    else if (plan === 'limited') chip.dataset.tier = 'limited';
+    else chip.dataset.tier = '';
   }
+  document.body.dataset.plan = getPlan() || '';
   unlockListeners.splice(0).forEach((fn) => {
     try { fn(); } catch (err) { console.error(err); }
   });
@@ -166,6 +254,8 @@ async function fireUnlock() {
 
 async function applyUser(user) {
   currentUser = user;
+  ownerSession = false;
+  cachedPlan = null;
   if (!user) {
     unlocked = false;
     setGate('locked');
@@ -173,7 +263,9 @@ async function applyUser(user) {
     if (chip) {
       chip.hidden = true;
       chip.textContent = '';
+      delete chip.dataset.tier;
     }
+    document.body.dataset.plan = '';
     return;
   }
 
@@ -182,22 +274,26 @@ async function applyUser(user) {
   if (payAccount) payAccount.textContent = email ? `Signed in as ${email}` : 'Signed in';
 
   if (await isFreeEmail(email)) {
+    ownerSession = true;
+    cachedPlan = 'owner';
     fireUnlock();
     return;
   }
 
   if (takePaidPending()) {
-    markEntitlement(user, 'return-url');
+    markEntitlement(user, 'return-url', resolvePendingPlan());
   }
 
   if (hasEntitlement(user)) {
+    const ent = readEntitlement(user);
+    cachedPlan = (ent && ent.plan === 'limited') ? 'limited' : (ent && ent.plan === 'pro') ? 'pro' : 'pro';
     fireUnlock();
     return;
   }
 
   unlocked = false;
   setGate('paywall');
-  setPayMsg('Choose ₹499 or $9 to unlock DGS AI Pro.', '');
+  setPayMsg('Choose Starter or Pro to unlock DGS AI. Paper default · no guaranteed profit.', '');
 }
 
 function authErrorMessage(err) {
@@ -309,40 +405,52 @@ async function emailSignIn(ev) {
 }
 
 function startCheckout(kind) {
-  const url = kind === 'inr' ? BILLING.RAZORPAY_PAYMENT_LINK_INR : BILLING.STRIPE_PAYMENT_LINK_USD;
-  const label = kind === 'inr' ? '₹499 Razorpay' : '$9 Stripe';
+  const url = payLinkFor(kind);
+  const label = payKindLabel(kind);
+  const plan = planFromPayKind(kind);
   if (!isPayLinkReady(url)) {
     setPayMsg(
-      `${label} link is not configured yet. Owner: set the URL in js/billing-config.js. If you already completed checkout, tap I’ve paid.`,
+      `${label} link is not configured yet. Set the URL in js/billing-config.js. If you already completed checkout, tap I’ve paid.`,
       'warn'
     );
+    try {
+      sessionStorage.setItem('dgs-pay-kind', kind);
+      sessionStorage.setItem('dgs-pay-plan', plan);
+    } catch (_) {}
     return;
   }
-  try { sessionStorage.setItem('dgs-pay-kind', kind); } catch (_) {}
+  try {
+    sessionStorage.setItem('dgs-pay-kind', kind);
+    sessionStorage.setItem('dgs-pay-plan', plan);
+  } catch (_) {}
   setPayMsg(`Opening ${label}…`, '');
   location.href = url;
 }
 
-async function ivePaid() {
+async function ivePaid(forcedPlan) {
   if (!currentUser) {
     setPayMsg('Sign in first, then confirm payment.', 'err');
     return;
   }
   if (await isFreeEmail(currentUser.email)) {
+    ownerSession = true;
+    cachedPlan = 'owner';
     fireUnlock();
     return;
   }
+  const plan = forcedPlan || resolvePendingPlan();
   if (!paidConfirmArmed) {
     paidConfirmArmed = true;
+    const label = plan === 'pro' ? 'Pro' : 'Starter';
     setPayMsg(
-      'This marks Pro on this browser for your signed-in account (MVP). Production needs a webhook. Tap Confirm — I’ve paid if checkout succeeded.',
+      `This marks ${label} on this browser for your signed-in account (MVP). Production needs a webhook. Tap Confirm — I’ve paid if checkout succeeded.`,
       'warn'
     );
     const btn = $('ivePaidBtn');
     if (btn) btn.textContent = 'Confirm — I’ve paid';
     return;
   }
-  markEntitlement(currentUser, 'self-verify');
+  markEntitlement(currentUser, 'self-verify', plan);
   fireUnlock();
 }
 
@@ -356,14 +464,39 @@ function bindGateUi() {
   const signIn = $('emailSignInBtn');
   if (signIn) signIn.onclick = emailSignIn;
 
-  const payInr = $('payInrBtn');
-  if (payInr) payInr.onclick = () => { startCheckout('inr'); };
-
-  const payUsd = $('payUsdBtn');
-  if (payUsd) payUsd.onclick = () => { startCheckout('usd'); };
+  const map = [
+    ['payStarterUsdBtn', 'starter-usd'],
+    ['payStarterInrBtn', 'starter-inr'],
+    ['payProUsdBtn', 'pro-usd'],
+    ['payProInrBtn', 'pro-inr'],
+    // legacy ids if present
+    ['payUsdBtn', 'starter-usd'],
+    ['payInrBtn', 'pro-inr'],
+  ];
+  for (const [id, kind] of map) {
+    const el = $(id);
+    if (el) el.onclick = () => { startCheckout(kind); };
+  }
 
   const paid = $('ivePaidBtn');
   if (paid) paid.onclick = () => { ivePaid(); };
+
+  const paidStarter = $('ivePaidStarterBtn');
+  if (paidStarter) {
+    paidStarter.onclick = () => {
+      try { sessionStorage.setItem('dgs-pay-plan', 'limited'); } catch (_) {}
+      paidConfirmArmed = false;
+      ivePaid('limited');
+    };
+  }
+  const paidPro = $('ivePaidProBtn');
+  if (paidPro) {
+    paidPro.onclick = () => {
+      try { sessionStorage.setItem('dgs-pay-plan', 'pro'); } catch (_) {}
+      paidConfirmArmed = false;
+      ivePaid('pro');
+    };
+  }
 
   const payOut = $('paySignOutBtn');
   if (payOut) payOut.onclick = () => { signOutUser(); };
