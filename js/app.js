@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 const $ = (id) => document.getElementById(id);
+const STORAGE_KEY = 'dinesh-ai-fund-v1';
 const state = {
   status: 'IDLE',
   agents: ['SUNKARA', 'DINESH', 'OPS', 'RISK', 'SIZE', 'HALT', 'CHART', 'BRIEF', 'GUARD'],
@@ -8,7 +9,35 @@ const state = {
   dayPnL: 0,
   peakEquity: 10000,
   lastOpen: false,
+  halted: false,
+  gestureOn: false,
 };
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.book)) state.book = data.book;
+    if (typeof data.dayPnL === 'number') state.dayPnL = data.dayPnL;
+    if (typeof data.peakEquity === 'number') state.peakEquity = data.peakEquity;
+    if (typeof data.equity === 'number') {
+      const el = document.getElementById('equity');
+      if (el) el.value = data.equity;
+    }
+    if (typeof data.halted === 'boolean') state.halted = data.halted;
+  } catch (_) {}
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    book: state.book,
+    dayPnL: state.dayPnL,
+    peakEquity: state.peakEquity,
+    equity: Number(document.getElementById('equity')?.value || 10000),
+    halted: state.halted,
+  }));
+}
 
 function setStatus(s) {
   state.status = s;
@@ -91,7 +120,7 @@ function analyzeRisk() {
 
   const dailyHalt = Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss;
   const ddHalt = dd >= maxDd;
-  const open = score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0;
+  const open = !state.halted && score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0;
   state.lastOpen = open;
 
   $('riskScore').textContent = String(score);
@@ -100,7 +129,7 @@ function analyzeRisk() {
   const gate = $('gateMsg');
   gate.textContent = open
     ? `Gate: OPEN — ${shares} sh ${symbol} ${side} · risk ${money(dollarRisk)} · R:R ${rr.toFixed(2)}`
-    : `Gate: CLOSED — score ${score}${dailyHalt ? ' · daily loss halt' : ''}${ddHalt ? ' · drawdown halt' : ''}`;
+    : `Gate: CLOSED — score ${score}${state.halted ? ' · FORCE HALT' : ''}${dailyHalt ? ' · daily loss halt' : ''}${ddHalt ? ' · drawdown halt' : ''}`;
   gate.className = `gate ${open ? 'open' : 'closed'}`;
   $('paperBtn').disabled = !open;
   updateStats(dd, open);
@@ -141,6 +170,7 @@ function paperEnter() {
   state.peakEquity = Math.max(state.peakEquity, eq);
   renderBook();
   speak(`Paper entry allowed. ${r.shares} shares ${r.symbol} ${r.side}. Risk score ${r.score}.`);
+  saveState();
   analyzeRisk();
 }
 
@@ -299,6 +329,75 @@ function initHumanoid() {
   frame();
 }
 
+
+function forceHalt() {
+  state.halted = true;
+  saveState();
+  analyzeRisk();
+  speak('Force halt engaged. All paper entries blocked until you reset the day.');
+}
+
+function resetDay() {
+  state.dayPnL = 0;
+  state.halted = false;
+  state.peakEquity = Math.max(state.peakEquity, num('equity'));
+  saveState();
+  analyzeRisk();
+  speak('Day P and L reset. Risk gate re-armed.');
+}
+
+function clearBook() {
+  state.book = [];
+  saveState();
+  renderBook();
+  speak('Paper book cleared.');
+}
+
+function dist(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
+  return Math.hypot(dx, dy, dz);
+}
+
+async function enablePinchCamera() {
+  if (state.gestureOn) {
+    speak('Pinch camera already on.');
+    return;
+  }
+  if (!window.Hands || !window.Camera) {
+    speak('Pinch camera library failed to load. Use Wake or voice instead.');
+    return;
+  }
+  const video = $('gestureCam');
+  video.style.display = 'block';
+  const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5,
+  });
+  let cool = 0;
+  hands.onResults((results) => {
+    if (cool > 0) { cool -= 1; return; }
+    const hand = results.multiHandLandmarks?.[0];
+    if (!hand) return;
+    const pinch = dist(hand[4], hand[8]);
+    if (pinch < 0.05) {
+      cool = 45;
+      setStatus('LISTENING');
+      speak('Pinch recognized. Risk guard listening.');
+    }
+  });
+  const camera = new Camera(video, {
+    onFrame: async () => { await hands.send({ image: video }); },
+    width: 320,
+    height: 240,
+  });
+  await camera.start();
+  state.gestureOn = true;
+  speak('Pinch camera enabled. Pinch thumb and index to wake.');
+}
+
 function bindMicWake() {
   if (!navigator.mediaDevices?.getUserMedia) return;
   navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
@@ -329,14 +428,20 @@ $('wakeBtn').onclick = wake;
 $('briefBtn').onclick = marketBrief;
 $('chartBtn').onclick = openChart;
 $('listenBtn').onclick = startVoiceListen;
+$('gestureBtn').onclick = () => { enablePinchCamera().catch(() => speak('Could not start pinch camera.')); };
+$('haltBtn').onclick = forceHalt;
+$('resetDayBtn').onclick = resetDay;
+$('clearBookBtn').onclick = clearBook;
 ['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target'].forEach((id) => {
-  $(id).addEventListener('change', analyzeRisk);
+  $(id).addEventListener('change', () => { analyzeRisk(); if (id === 'equity') saveState(); });
   $(id).addEventListener('input', analyzeRisk);
 });
 
+loadState();
 renderAgents();
 renderBook();
 analyzeRisk();
 initHumanoid();
 bindMicWake();
 setStatus('IDLE');
+if (state.halted) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';

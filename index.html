@@ -68,6 +68,13 @@
           <button id="chartBtn" class="btn">Open chart</button>
         </div>
         <button id="listenBtn" class="btn">Start voice listen</button>
+        <button id="gestureBtn" class="btn">Enable pinch camera</button>
+        <div class="btn-row">
+          <button id="haltBtn" class="btn btn-danger">Force halt</button>
+          <button id="resetDayBtn" class="btn">Reset day P&amp;L</button>
+          <button id="clearBookBtn" class="btn">Clear book</button>
+        </div>
+        <video id="gestureCam" playsinline muted style="display:none;width:100%;max-height:120px;border-radius:10px;margin:0.4rem 0;object-fit:cover;border:1px solid #1b2733"></video>
         <p class="log" id="voiceLog">Humanoid idle. Risk guard armed.</p>
 
         <h2>Paper book</h2>
@@ -76,6 +83,8 @@
       </aside>
     </main>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

@@ -103,3 +103,5 @@ input, select {
   .stage { min-height: 420px; }
   .btn-row, .stats { grid-template-columns: 1fr; }
 }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: rgba(255,77,109,0.1); }
