@@ -42,5 +42,5 @@ Bot card + Risk drawer surface CoinSwitch first — not buried.
 - **Robinhood** — no official bot API. Label only. **Never ask for Robinhood password.**
 
 ## Gated launch
-Unauthenticated visitors only see the DGS AI login landing (founder credit: Dineshgopi Sunkara). Google and/or email+password required. Free whitelist (lowercase): millionmacq@gmail.com, dineshgopi730@gmail.com, dineshgopi.sunkara@gmail.com, ckharichandana@gmail.com. Everyone else pays ₹499/mo or $9/mo before the Siri orb / trading app unlocks. Entitlement is client-side localStorage MVP — production needs webhooks.
+Unauthenticated visitors only see the DGS AI login landing (founder credit: Dineshgopi Sunkara). Google and/or email+password required. Owner allowlist is private (hashed in gate.js).com, [redacted], [redacted], [redacted]. Everyone else pays ₹499/mo or $9/mo before the Siri orb / trading app unlocks. Entitlement is client-side localStorage MVP — production needs webhooks.
 

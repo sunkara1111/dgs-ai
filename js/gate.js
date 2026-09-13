@@ -5,11 +5,12 @@
 import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js';
 import { BILLING, isPayLinkReady } from './billing-config.js';
 
-const FREE_EMAILS = new Set([
-  'millionmacq@gmail.com',
-  'dineshgopi730@gmail.com',
-  'dineshgopi.sunkara@gmail.com',
-  'ckharichandana@gmail.com',
+// Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
+const FREE_EMAIL_HASHES = new Set([
+  'dde7cd1c31944a9e4da8f269097b17ae994c98a891e2758d458c8612077e3b33',
+  'ce8ed17c471cdbdbaf43108f8e9e85f463d1375fb08fa8617c032b583ed2e479',
+  '8e063abf8918468efd6cc3c66e343ad500259168af3701c41b8e155ec2092274',
+  '82fc4b54ab93e2870c6d245c06138aafed8ce2aa5598a2e71d23d9c9dec4c321',
 ]);
 
 const ENT_PREFIX = 'dgs-ai-pro';
@@ -50,8 +51,16 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
-function isFreeEmail(email) {
-  return FREE_EMAILS.has(normalizeEmail(email));
+async function hashEmail(email) {
+  const data = new TextEncoder().encode(normalizeEmail(email));
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function isFreeEmail(email) {
+  if (!email) return false;
+  const h = await hashEmail(email);
+  return FREE_EMAIL_HASHES.has(h);
 }
 
 function entitlementKeys(user) {
@@ -139,7 +148,7 @@ function takePaidPending() {
   return false;
 }
 
-function fireUnlock() {
+async function fireUnlock() {
   if (unlocked) return;
   unlocked = true;
   setGate('open');
@@ -147,7 +156,7 @@ function fireUnlock() {
   if (chip && currentUser) {
     chip.hidden = false;
     chip.textContent = normalizeEmail(currentUser.email) || 'Signed in';
-    if (isFreeEmail(currentUser.email)) chip.dataset.tier = 'free';
+    if (await isFreeEmail(currentUser.email)) chip.dataset.tier = 'free';
     else chip.dataset.tier = 'pro';
   }
   unlockListeners.splice(0).forEach((fn) => {
@@ -155,7 +164,7 @@ function fireUnlock() {
   });
 }
 
-function applyUser(user) {
+async function applyUser(user) {
   currentUser = user;
   if (!user) {
     unlocked = false;
@@ -172,7 +181,7 @@ function applyUser(user) {
   const payAccount = $('payAccount');
   if (payAccount) payAccount.textContent = email ? `Signed in as ${email}` : 'Signed in';
 
-  if (isFreeEmail(email)) {
+  if (await isFreeEmail(email)) {
     fireUnlock();
     return;
   }
@@ -314,12 +323,12 @@ function startCheckout(kind) {
   location.href = url;
 }
 
-function ivePaid() {
+async function ivePaid() {
   if (!currentUser) {
     setPayMsg('Sign in first, then confirm payment.', 'err');
     return;
   }
-  if (isFreeEmail(currentUser.email)) {
+  if (await isFreeEmail(currentUser.email)) {
     fireUnlock();
     return;
   }

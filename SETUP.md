@@ -6,16 +6,9 @@ Live: https://sunkara1111.github.io/dgs-ai/
 
 This GitHub Pages app ships a working login + paywall UI. It stays locked until Firebase Auth is configured. Checkout links stay placeholders until Razorpay / Stripe URLs are pasted. No secrets belong in this repo (no Admin SDK, no service-account JSON, no API signing keys).
 
-## Free access (no payment)
+## Free access
 
-If the signed-in email (normalized lowercase) is one of these, the trading app unlocks immediately:
-
-- `millionmacq@gmail.com`
-- `dineshgopi730@gmail.com`
-- `dineshgopi.sunkara@gmail.com`
-- `ckharichandana@gmail.com`
-
-Everyone else must pay **₹499/mo** or **$9/mo** before the app is usable.
+A private owner allowlist is enforced in `js/gate.js` via hashed emails. Do not publish owner emails in UI or docs.
 
 ## 1. Firebase Auth (`js/firebase-config.js`)
 
@@ -54,7 +47,7 @@ When placeholders remain (`YOUR_FIREBASE_API_KEY`), the landing page still rende
 
 ## 5. How owners get in free
 
-Sign in with Google or email+password using a whitelist address above. The paywall never shows for those emails, even with no payment record.
+Sign in with Google or email+password Owner accounts unlock automatically. The paywall never shows for allowlisted accounts.
 
 ## Session
 
