@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 const $ = (id) => document.getElementById(id);
-const STORAGE_KEY = 'dgs-ai-v1';
+const STORAGE_KEY = 'dgs-ai-v2';
 const state = {
   status: 'IDLE',
   agents: ['DGS', 'TRADE', 'SCALP', 'SESSION', 'RISK', 'SOCIAL', 'WORK', 'HALT', 'FLAT'],
@@ -213,18 +213,73 @@ function wake() {
   setTimeout(() => speak('Go ahead. DGS AI day-trading risk guard is online.'), 200);
 }
 
+let talkLoop = null;
+let talkActive = false;
+
+function quickAnswer(q) {
+  const t = q.toLowerCase();
+  // Trading-first fast answers
+  if (/(who are you|your name|what are you)/.test(t)) {
+    return 'I am DGS AI, built for Dineshgopi Sunkara. Trading first, then social and work.';
+  }
+  if (/(risk|size|position)/.test(t) && /(how|what|explain)/.test(t)) {
+    return 'Size from stop distance. Risk only a fraction of equity per trade. If the gate is closed, do not enter.';
+  }
+  if (/(day trade|intraday|scalp)/.test(t)) {
+    return 'Intraday mode: hard daily loss halt, max trades, max hold, and flat by session end. No overnight when that lock is on.';
+  }
+  if (/(stop|stop loss)/.test(t)) {
+    return 'A stop is required. Wrong-side stops close the gate. Place stop first, then size.';
+  }
+  if (/(profit|guarantee|guaranteed)/.test(t)) {
+    return 'No profit is guaranteed. DGS AI blocks bad size; it does not promise returns.';
+  }
+  if (/(social|instagram|linkedin|twitter|post)/.test(t)) {
+    return 'Open the Social tab for drafts and checklists. I draft fast; you approve before posting.';
+  }
+  if (/(work|email|sop|priority|priorities)/.test(t)) {
+    return 'Open the Work tab for priorities, emails, actions, and SOP checklists.';
+  }
+  if (/(chart|tradingview|nvidia|nvda)/.test(t)) {
+    openChart();
+    return null; // openChart already speaks
+  }
+  if (/(brief|market)/.test(t)) {
+    marketBrief();
+    return null;
+  }
+  if (/(analyze|gate)/.test(t)) {
+    analyzeRisk();
+    return state.lastOpen ? 'Risk gate is open for this setup.' : 'Risk gate is closed for this setup.';
+  }
+  if (/(halt|stop trading)/.test(t)) {
+    forceHalt();
+    return null;
+  }
+  if (/(hello|hi |hey|wake)/.test(t)) {
+    return 'Listening. Ask a trading, social, or work question.';
+  }
+  // Generic fast fallback
+  return 'Got it. For trading I can analyze risk, open charts, or brief the session. For social or work, switch tabs or ask specifically.';
+}
+
 function handleVoiceCommand(text) {
   const t = text.toLowerCase();
-  if (t.includes('brief') || t.includes('market')) return marketBrief();
-  if (t.includes('chart') || t.includes('tradingview') || t.includes('trading view')) return openChart();
-  if (t.includes('analyze') || t.includes('risk')) {
+  if (t.includes('brief') || (t.includes('market') && !t.includes('question'))) {
+    return marketBrief();
+  }
+  if (t.includes('open chart') || t.includes('tradingview') || t.includes('trading view')) {
+    return openChart();
+  }
+  if (t.includes('analyze') && t.includes('risk')) {
     analyzeRisk();
     return speak(state.lastOpen ? 'Risk gate is open for this setup.' : 'Risk gate is closed for this setup.');
   }
-  if (t.includes('wake') || t.includes('hello') || t.includes('apex') === false) {
-    if (t.includes('wake') || t.includes('hello') || t.includes('go ahead')) return wake();
+  if (t.includes('wake') || t === 'hello' || t === 'hi') {
+    return wake();
   }
-  speak('I can run market brief, open chart, or analyze risk.');
+  const ans = quickAnswer(text);
+  if (ans) speak(ans);
 }
 
 function startVoiceListen() {
@@ -233,24 +288,40 @@ function startVoiceListen() {
     speak('Voice recognition is not available in this browser. Use the buttons.');
     return;
   }
+  if (talkActive) {
+    talkActive = false;
+    try { talkLoop && talkLoop.stop(); } catch (_) {}
+    $('listenBtn').textContent = 'Start talk mode';
+    setStatus('IDLE');
+    $('voiceLog').textContent = 'Talk mode off.';
+    return;
+  }
+  talkActive = true;
+  $('listenBtn').textContent = 'Stop talk mode';
   const rec = new SR();
+  talkLoop = rec;
   rec.lang = 'en-US';
   rec.interimResults = false;
-  setStatus('LISTENING');
-  $('voiceLog').textContent = 'Listening…';
+  rec.continuous = false;
+  const arm = () => {
+    if (!talkActive) return;
+    setStatus('LISTENING');
+    $('voiceLog').textContent = 'Talk to DGS AI…';
+    try { rec.start(); } catch (_) {}
+  };
   rec.onresult = (e) => {
     const text = e.results[0][0].transcript;
     $('voiceLog').textContent = `Heard: ${text}`;
     handleVoiceCommand(text);
   };
   rec.onerror = () => {
-    setStatus('IDLE');
-    $('voiceLog').textContent = 'Listen failed — try again or use buttons.';
+    if (talkActive) setTimeout(arm, 300);
   };
   rec.onend = () => {
-    if (state.status === 'LISTENING') setStatus('IDLE');
+    if (talkActive) setTimeout(arm, 250);
   };
-  rec.start();
+  arm();
+  speak('Talk mode on. Ask anything.');
 }
 
 function initHumanoid() {
