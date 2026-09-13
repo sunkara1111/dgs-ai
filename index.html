@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dinesh AI Fund — Trading Humanoid</title>
+  <meta name="description" content="Risk-first AI trading humanoid by Dineshgopi Sunkara. Paper trading, hard risk gates, voice status." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <p class="brand">Dinesh AI Fund</p>
+        <p class="sub">Founded by Dineshgopi Sunkara · Risk-first trading humanoid</p>
+      </div>
+      <div class="status-pill" id="statusPill">STATUS : IDLE</div>
+    </header>
+
+    <main class="grid">
+      <section class="stage">
+        <canvas id="humanoid"></canvas>
+        <div class="stage-overlay">
+          <p class="hint">Say “market brief” or click Wake · Snap/clap wake when mic allowed</p>
+          <div class="agent-row" id="agentRow"></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>Risk Gate</h2>
+        <label>Equity (paper) <input id="equity" type="number" value="10000" min="100" step="100" /></label>
+        <label>Max risk / trade % <input id="riskPct" type="number" value="1" min="0.1" max="5" step="0.1" /></label>
+        <label>Max daily loss % <input id="dailyLoss" type="number" value="3" min="0.5" max="10" step="0.5" /></label>
+        <label>Max drawdown % <input id="maxDd" type="number" value="10" min="1" max="30" step="1" /></label>
+        <div class="meter"><span id="riskScoreLabel">Risk score</span><div class="bar"><i id="riskBar"></i></div><strong id="riskScore">0</strong></div>
+        <p class="gate" id="gateMsg">Gate: CLOSED until a setup is proposed</p>
+
+        <h2>Proposed setup</h2>
+        <label>Symbol <input id="symbol" type="text" value="NVDA" /></label>
+        <label>Side
+          <select id="side"><option>LONG</option><option>SHORT</option></select>
+        </label>
+        <label>Entry <input id="entry" type="number" value="120" step="0.01" /></label>
+        <label>Stop <input id="stop" type="number" value="114" step="0.01" /></label>
+        <label>Target <input id="target" type="number" value="135" step="0.01" /></label>
+        <button id="analyzeBtn" class="btn">Analyze risk</button>
+        <button id="paperBtn" class="btn btn-accent" disabled>Paper enter (if gate opens)</button>
+        <pre id="analysis" class="analysis"></pre>
+
+        <h2>Voice / commands</h2>
+        <div class="btn-row">
+          <button id="wakeBtn" class="btn">Wake</button>
+          <button id="briefBtn" class="btn">Market brief</button>
+          <button id="chartBtn" class="btn">Open chart</button>
+        </div>
+        <p class="log" id="voiceLog">Humanoid idle.</p>
+
+        <h2>Paper book</h2>
+        <ul id="book" class="book"></ul>
+        <p class="fine">Paper mode only. No broker connection. No profit guarantee. Risk gates can halt trading.</p>
+      </aside>
+    </main>
+  </div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
