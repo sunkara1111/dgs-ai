@@ -1134,170 +1134,20 @@ function fibShoulderCape(count, yTop, yBot) {
 }
 
 function initHumanoid() {
+  // WebGL glow kept washing into an orb — CSS bust is the only home silhouette.
   const canvas = $('humanoid');
-  if (!canvas) return;
-  // CSS bust is the readable silhouette — never hide it under glow soup
+  if (canvas) {
+    canvas.style.display = 'none';
+    canvas.setAttribute('aria-hidden', 'true');
+  }
   const fallback = $('bustFallback');
-  if (fallback) fallback.classList.remove('is-hidden');
-
-  try {
-    const renderer = new THREE.WebGLRenderer({
-      canvas, antialias: true, alpha: true, powerPreference: 'high-performance',
-    });
-    renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    camera.position.set(0, 0.05, 3.1);
-
-    const teal = 0x5eead4;
-    const violet = 0xa78bfa;
-    const cTeal = new THREE.Color(teal);
-    const cViolet = new THREE.Color(violet);
-    const cWhite = new THREE.Color(0xffffff);
-
-    const bust = new THREE.Group();
-    scene.add(bust);
-
-    // Solid readable silhouette (NormalBlending — must read as head/neck/shoulders)
-    const headMat = new THREE.MeshBasicMaterial({
-      color: 0x0f1720, transparent: true, opacity: 0.78, depthWrite: true,
-    });
-    const headRim = new THREE.MeshBasicMaterial({
-      color: teal, transparent: true, opacity: 0.35, depthWrite: false,
-      wireframe: true,
-    });
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), headMat);
-    headMesh.scale.set(0.7, 0.88, 0.62);
-    headMesh.position.set(0, 0.62, 0);
-    bust.add(headMesh);
-    const headWire = new THREE.Mesh(new THREE.SphereGeometry(1.02, 24, 18), headRim);
-    headWire.scale.copy(headMesh.scale);
-    headWire.position.copy(headMesh.position);
-    bust.add(headWire);
-
-    const neckMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0.2, 0.36, 20),
-      new THREE.MeshBasicMaterial({ color: 0x121820, transparent: true, opacity: 0.85 })
-    );
-    neckMesh.position.set(0, 0.1, 0.02);
-    bust.add(neckMesh);
-
-    const shoulderMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 36, 24),
-      new THREE.MeshBasicMaterial({ color: 0x0c1218, transparent: true, opacity: 0.82 })
-    );
-    shoulderMesh.scale.set(1.45, 0.52, 0.55);
-    shoulderMesh.position.set(0, -0.48, 0);
-    bust.add(shoulderMesh);
-
-    // Soft face core (small — not a screen-filling orb)
-    const faceCore = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 24, 24),
-      new THREE.MeshBasicMaterial({
-        color: teal, transparent: true, opacity: 0.55,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      })
-    );
-    faceCore.position.set(0, 0.68, 0.42);
-    bust.add(faceCore);
-
-    // Surface points ON the figure only (no giant sprites)
-    const headCount = 1600;
-    const capeCount = 1000;
-    const headPos = fibEllipsoid(headCount, 0.7, 0.88, 0.62, 0.62, (x, y, z) => {
-      let xx = x, yy = y, zz = z;
-      if (yy < 0.4) { xx *= 0.82; zz *= 0.85; }
-      return { x: xx, y: yy, z: zz };
-    });
-    const capePos = fibShoulderCape(capeCount, 0.0, -1.05);
-    const total = headCount + capeCount;
-    const positions = new Float32Array(total * 3);
-    const colors = new Float32Array(total * 3);
-    const bases = new Float32Array(total * 3);
-    positions.set(headPos, 0);
-    positions.set(capePos, headCount * 3);
-    bases.set(positions);
-    for (let i = 0; i < total; i++) {
-      const onHead = i < headCount;
-      const y = positions[i * 3 + 1];
-      const x = positions[i * 3];
-      const z = positions[i * 3 + 2];
-      let col = onHead ? cTeal : cViolet;
-      if (onHead) {
-        const le = Math.hypot(x + 0.2, y - 0.75, z - 0.4);
-        const re = Math.hypot(x - 0.2, y - 0.75, z - 0.4);
-        if (Math.min(le, re) < 0.1) col = cWhite;
-      }
-      colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
-    }
-    const cloudGeo = new THREE.BufferGeometry();
-    cloudGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    cloudGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const cloud = new THREE.Points(cloudGeo, new THREE.PointsMaterial({
-      size: 0.028, vertexColors: true, transparent: true, opacity: 0.75,
-      depthWrite: false, sizeAttenuation: true,
-    }));
-    bust.add(cloud);
-
-    // Thin rings — subtle, not the hero
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1.35, 0.006, 8, 160),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.22 })
-    );
-    ring.rotation.x = Math.PI / 2.3;
-    ring.position.y = 0.02;
-    scene.add(ring);
-    const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(1.6, 0.004, 8, 160),
-      new THREE.MeshBasicMaterial({ color: violet, transparent: true, opacity: 0.14 })
-    );
-    ring2.rotation.x = Math.PI / 2.15;
-    ring2.rotation.z = 0.35;
-    scene.add(ring2);
-
-    function resize() {
-      const parent = canvas.parentElement;
-      const w = Math.max(parent.clientWidth || 0, 280);
-      const h = Math.max(parent.clientHeight || 0, 360);
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
-    resize();
-    window.addEventListener('resize', resize);
-
-    let t = 0;
-    const posAttr = cloudGeo.attributes.position;
-    function frame() {
-      t += 0.01;
-      const speakNow = state.status === 'SPEAKING';
-      const listen = state.status === 'LISTENING';
-      const amp = speakNow ? 0.016 : listen ? 0.01 : 0.005;
-      const pulse = speakNow ? 1.045 + Math.sin(t * 6) * 0.02 : listen ? 1.02 + Math.sin(t * 3) * 0.01 : 1 + Math.sin(t) * 0.006;
-      for (let i = 0; i < total; i++) {
-        const bx = bases[i * 3], by = bases[i * 3 + 1], bz = bases[i * 3 + 2];
-        posAttr.array[i * 3] = bx + Math.sin(t * 1.4 + by * 2) * amp;
-        posAttr.array[i * 3 + 1] = by + Math.cos(t * 1.2 + bx * 2) * amp * 0.6;
-        posAttr.array[i * 3 + 2] = bz + Math.sin(t + bx) * amp * 0.4;
-      }
-      posAttr.needsUpdate = true;
-      bust.rotation.y = Math.sin(t * 0.18) * 0.14;
-      bust.scale.setScalar(pulse);
-      faceCore.material.opacity = speakNow ? 0.75 : listen ? 0.62 : 0.5;
-      ring.rotation.z = t * 0.07;
-      ring2.rotation.z = -t * 0.05;
-      renderer.render(scene, camera);
-      requestAnimationFrame(frame);
-    }
-    frame();
-  } catch (err) {
-    console.error('Humanoid WebGL failed', err);
-    if (fallback) fallback.classList.remove('is-hidden');
+  if (fallback) {
+    fallback.classList.remove('is-hidden');
+    fallback.style.opacity = '1';
+    fallback.style.visibility = 'visible';
   }
 }
+
 
 
 function bindUi() {

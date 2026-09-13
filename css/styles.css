@@ -105,7 +105,7 @@ body {
       transparent 55%);
 }
 
-/* CSS premium bust fallback (must read as humanoid, not a logo orb) */
+/* CSS humanoid bust — primary home silhouette (WebGL off) */
 .bust-fallback {
   position: absolute;
   inset: 0;
@@ -113,208 +113,143 @@ body {
   place-items: center;
   pointer-events: none;
   z-index: 2;
-  transition: opacity 0.55s ease;
 }
 .bust-fallback.is-hidden {
-  /* keep silhouette visible — WebGL is accent only */
-  opacity: 0.92;
+  opacity: 1;
   visibility: visible;
 }
 .bust-figure {
   position: relative;
-  width: min(220px, 52vw);
-  height: min(300px, 72vw);
+  width: min(260px, 62vw);
+  height: min(340px, 78vw);
   z-index: 3;
-  transform-origin: 50% 58%;
-  animation: bustIdle 8s ease-in-out infinite;
+  transform-origin: 50% 55%;
+  animation: bustIdle 7s ease-in-out infinite;
 }
+/* soft aura — kept SMALL so it doesn't read as an orb logo */
 .bust-bloom {
   position: absolute;
   left: 50%;
-  top: 38%;
-  width: 160%;
-  height: 130%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 45%,
-    rgba(126,224,200,0.16) 0%,
-    rgba(155,140,255,0.08) 32%,
-    rgba(232,213,163,0.03) 52%,
-    transparent 72%);
-  filter: blur(28px);
-  animation: bustGlow 6.5s ease-in-out infinite;
-}
-.bust-chest-glow {
-  position: absolute;
-  left: 50%;
-  top: 68%;
-  width: 78%;
-  height: 42%;
+  top: 42%;
+  width: 90%;
+  height: 70%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 40%,
-    rgba(155,140,255,0.28) 0%,
-    rgba(126,224,200,0.12) 40%,
-    transparent 72%);
-  filter: blur(16px);
-  animation: bustGlow 5.8s ease-in-out infinite 0.2s;
+    rgba(94,234,212,0.12) 0%,
+    rgba(167,139,250,0.06) 45%,
+    transparent 70%);
+  filter: blur(18px);
+  z-index: 0;
 }
+.bust-chest-glow,
 .bust-head-glow {
-  position: absolute;
-  left: 50%;
-  top: 26%;
-  width: 72%;
-  height: 48%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle at 48% 42%,
-    rgba(255,252,245,0.22) 0%,
-    rgba(126,224,200,0.32) 28%,
-    rgba(155,140,255,0.14) 55%,
-    transparent 78%);
-  filter: blur(12px);
-  animation: bustGlow 6.2s ease-in-out infinite 0.1s;
+  display: none; /* remove orb-like glow layers */
 }
 .bust-head {
   position: absolute;
   left: 50%;
-  top: 8%;
-  width: 46%;
-  height: 38%;
+  top: 4%;
+  width: 42%;
+  height: 34%;
   transform: translateX(-50%);
-  border-radius: 50% 50% 46% 46% / 56% 56% 44% 44%;
+  z-index: 5;
+  border-radius: 48% 48% 42% 42% / 54% 54% 46% 46%;
   background:
-    radial-gradient(circle at 38% 32%,
-      rgba(255,255,255,0.55) 0%,
-      rgba(126,224,200,0.55) 22%,
-      rgba(155,140,255,0.28) 48%,
-      rgba(20,24,32,0.55) 78%,
-      rgba(8,10,14,0.85) 100%);
+    linear-gradient(160deg,
+      rgba(180,255,240,0.95) 0%,
+      rgba(94,234,212,0.75) 28%,
+      rgba(45,80,90,0.9) 62%,
+      rgba(10,14,20,0.98) 100%);
   box-shadow:
-    0 0 24px rgba(126,224,200,0.35),
-    0 0 60px rgba(126,224,200,0.16),
-    0 0 90px rgba(155,140,255,0.12),
-    inset 0 -10px 22px rgba(0,0,0,0.35);
+    0 0 28px rgba(94,234,212,0.45),
+    0 0 60px rgba(94,234,212,0.18),
+    inset 0 -14px 24px rgba(0,0,0,0.4);
+  border: 1px solid rgba(94,234,212,0.35);
 }
 .bust-face-core {
   position: absolute;
   left: 50%;
-  top: 46%;
-  width: 34%;
-  height: 28%;
+  top: 48%;
+  width: 28%;
+  height: 22%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(255,255,255,0.85) 0%,
-    rgba(126,224,200,0.55) 40%,
-    rgba(155,140,255,0.2) 70%,
-    transparent 100%);
-  filter: blur(1px);
-  box-shadow: 0 0 18px rgba(126,224,200,0.55);
+    rgba(255,255,255,0.95) 0%,
+    rgba(94,234,212,0.7) 45%,
+    transparent 75%);
+  box-shadow: 0 0 14px rgba(94,234,212,0.7);
 }
+/* explicit neck column */
 .bust-neck {
   position: absolute;
   left: 50%;
-  top: 42%;
-  width: 14%;
-  height: 14%;
+  top: 36%;
+  width: 12%;
+  height: 16%;
   transform: translateX(-50%);
-  border-radius: 40% / 20%;
+  z-index: 4;
+  border-radius: 10px;
   background: linear-gradient(180deg,
-    rgba(126,224,200,0.42) 0%,
-    rgba(155,140,255,0.22) 55%,
-    rgba(20,24,32,0.7) 100%);
-  box-shadow: 0 0 16px rgba(126,224,200,0.2);
+    rgba(94,234,212,0.7) 0%,
+    rgba(30,40,50,0.95) 100%);
+  box-shadow: 0 0 12px rgba(94,234,212,0.25);
 }
+/* wide shoulders — trapezoid silhouette, NOT a circle */
 .bust-shoulders {
   position: absolute;
   left: 50%;
-  top: 52%;
+  top: 48%;
   width: 100%;
-  height: 46%;
+  height: 50%;
   transform: translateX(-50%);
-  border-radius: 48% 48% 42% 42% / 38% 38% 62% 62%;
+  z-index: 3;
+  clip-path: polygon(8% 18%, 92% 18%, 100% 100%, 0% 100%);
+  border-radius: 0;
   background:
-    radial-gradient(ellipse 70% 55% at 50% 28%,
-      rgba(126,224,200,0.22) 0%,
-      rgba(155,140,255,0.14) 35%,
-      rgba(12,14,20,0.75) 70%,
-      rgba(0,0,0,0.9) 100%);
-  box-shadow:
-    0 0 40px rgba(155,140,255,0.14),
-    0 20px 50px rgba(0,0,0,0.55),
-    inset 0 12px 28px rgba(126,224,200,0.08);
-  clip-path: ellipse(50% 48% at 50% 42%);
+    linear-gradient(180deg,
+      rgba(94,234,212,0.35) 0%,
+      rgba(167,139,250,0.25) 35%,
+      rgba(12,16,24,0.95) 100%);
+  box-shadow: 0 0 40px rgba(167,139,250,0.2);
+  border: none;
 }
 .bust-orbit {
   position: absolute;
   left: 50%;
-  top: 46%;
-  border: 1px solid rgba(126,224,200,0.14);
+  top: 48%;
+  border: 1px solid rgba(94,234,212,0.18);
   border-radius: 50%;
-  transform: translate(-50%, -50%) rotateX(68deg);
-  box-shadow: 0 0 24px rgba(126,224,200,0.06);
-  animation: orbitSpin 42s linear infinite;
-  z-index: 2;
+  transform: translate(-50%, -50%) rotateX(72deg);
+  animation: orbitSpin 40s linear infinite;
+  z-index: 1;
+  pointer-events: none;
 }
-.bust-orbit.o1 {
-  width: min(280px, 68vw);
-  height: min(108px, 26vw);
-  border-color: rgba(126,224,200,0.18);
-}
+.bust-orbit.o1 { width: min(300px, 72vw); height: min(300px, 72vw); }
 .bust-orbit.o2 {
-  width: min(340px, 80vw);
-  height: min(128px, 30vw);
-  border-color: rgba(232,213,163,0.12);
-  animation-direction: reverse;
-  animation-duration: 58s;
-  top: 50%;
+  width: min(350px, 82vw); height: min(350px, 82vw);
+  border-color: rgba(167,139,250,0.14);
+  animation-duration: 56s; animation-direction: reverse;
 }
 .bust-orbit.o3 {
-  width: min(400px, 92vw);
-  height: min(150px, 36vw);
-  border-color: rgba(155,140,255,0.1);
-  animation-duration: 76s;
-  top: 54%;
+  width: min(400px, 90vw); height: min(400px, 90vw);
+  border-color: rgba(94,234,212,0.08);
+  animation-duration: 72s;
 }
-
-.app[data-voice="LISTENING"] .bust-head-glow,
-.app[data-voice="LISTENING"] .bust-chest-glow {
-  filter: blur(14px) brightness(1.25);
-}
-.app[data-voice="SPEAKING"] .bust-head-glow,
-.app[data-voice="SPEAKING"] .bust-chest-glow,
-.app[data-voice="SPEAKING"] .bust-face-core {
-  filter: blur(12px) brightness(1.45);
-}
-.app[data-voice="SPEAKING"] .bust-figure {
-  animation-duration: 4.2s;
-}
-.app[data-voice="LISTENING"] .bust-figure {
-  animation-duration: 5.5s;
-}
-
 @keyframes bustIdle {
-  0%,100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-4px) scale(1.018); }
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-6px) scale(1.02); }
 }
 @keyframes bustGlow {
-  0%,100% { opacity: 0.78; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
 }
-@keyframes orbitSpin {
-  to { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(360deg); }
-}
+@keyframes orbitSpin { to { transform: translate(-50%, -50%) rotateX(72deg) rotateZ(360deg); } }
+
 
 #humanoid {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.55;
+  display: none !important;
 }
 
 /* —— transcript: barely there —— */
