@@ -1071,7 +1071,7 @@ function runWork() {
 }
 
 function seedCssFallback() {
-  // CSS bust left dormant; WebGL spiral orb is the home stage.
+  // Home stage uses cinematic lab hero image; CSS bust + WebGL spiral demoted.
 }
 
 function makeGlowTexture(size, stops) {
@@ -1178,18 +1178,22 @@ function fibHalo(count, rMin, rMax) {
 
 function initHumanoid() {
   const canvas = $('humanoid');
-  if (!canvas) return;
-
-  // Re-enable WebGL canvas; keep CSS bust dormant
-  canvas.style.display = 'block';
-  canvas.removeAttribute('aria-hidden');
-  canvas.setAttribute('aria-hidden', 'true');
+  // Home hero is the lab image — keep WebGL spiral off the open screen.
+  if (canvas) {
+    canvas.style.display = 'none';
+    canvas.style.opacity = '0';
+    canvas.setAttribute('aria-hidden', 'true');
+  }
   const fallback = $('bustFallback');
   if (fallback) {
     fallback.classList.add('is-hidden');
     fallback.setAttribute('hidden', '');
     fallback.style.display = 'none';
   }
+  // Skip WebGL spiral init to save GPU; image stage is primary.
+  return;
+
+  if (!canvas) return;
 
   try {
     const renderer = new THREE.WebGLRenderer({
