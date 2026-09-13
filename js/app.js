@@ -1071,42 +1071,69 @@ function seedCssNodes() {
   const box = $('cssNodes');
   if (box) {
     const spots = [];
-    // Elegant constellation on three sparse orbits (not noisy scatter)
-    const rings = [
-      { r: 22, n: 5, tealEvery: 2 },
-      { r: 34, n: 7, tealEvery: 3 },
-      { r: 44, n: 6, tealEvery: 2 },
+    // Parallax constellation shells — varied radii & sizes (not flat ring dots)
+    const shells = [
+      { r: 18, n: 4, tealEvery: 2, lgEvery: 2, depth: 'near' },
+      { r: 28, n: 6, tealEvery: 3, lgEvery: 3, depth: 'mid' },
+      { r: 38, n: 8, tealEvery: 2, lgEvery: 4, depth: 'mid' },
+      { r: 48, n: 7, tealEvery: 3, lgEvery: 5, depth: 'far' },
     ];
-    rings.forEach((ring, ri) => {
-      for (let i = 0; i < ring.n; i++) {
-        const a = (i / ring.n) * Math.PI * 2 + ri * 0.35;
-        const x = 50 + Math.cos(a) * ring.r;
-        const y = 50 + Math.sin(a) * ring.r * 0.92;
-        spots.push({ x, y, teal: i % ring.tealEvery === 0, lg: i % 4 === 0 });
+    shells.forEach((shell, si) => {
+      for (let i = 0; i < shell.n; i++) {
+        const a = (i / shell.n) * Math.PI * 2 + si * 0.41 + 0.12;
+        const wobble = 0.92 + ((i * 17) % 7) * 0.018;
+        const x = 50 + Math.cos(a) * shell.r * wobble;
+        const y = 50 + Math.sin(a) * shell.r * 0.88 * wobble;
+        spots.push({
+          x, y,
+          teal: i % shell.tealEvery === 0,
+          lg: i % shell.lgEvery === 0,
+          depth: shell.depth,
+          delay: (i * 0.19 + si * 0.35).toFixed(2),
+        });
       }
     });
-    box.innerHTML = spots.map((s, i) => {
-      const cls = ['node', s.teal ? 'teal' : '', s.lg ? 'lg' : ''].filter(Boolean).join(' ');
-      return `<span class="${cls}" style="left:${s.x.toFixed(1)}%;top:${s.y.toFixed(1)}%;animation-delay:${(i * 0.22).toFixed(2)}s"></span>`;
+    box.innerHTML = spots.map((s) => {
+      const cls = ['node', s.teal ? 'teal' : '', s.lg ? 'lg' : '', s.depth].filter(Boolean).join(' ');
+      return `<span class="${cls}" style="left:${s.x.toFixed(1)}%;top:${s.y.toFixed(1)}%;animation-delay:${s.delay}s"></span>`;
     }).join('');
+  }
+  const dust = $('cssDust');
+  if (dust) {
+    const bits = [];
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2 + 0.4;
+      const rr = 26 + (i % 5) * 7 + ((i * 13) % 9);
+      const x = 50 + Math.cos(a) * rr * (0.85 + (i % 3) * 0.06);
+      const y = 50 + Math.sin(a * 1.07) * rr * 0.78;
+      bits.push(`<span class="dust" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;animation-delay:${(i * 0.31).toFixed(2)}s"></span>`);
+    }
+    dust.innerHTML = bits.join('');
   }
   const spokes = $('cssSpokes');
   if (spokes) {
     const cx = 100, cy = 100;
     const lines = [];
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 + 0.08;
-      const r = 82;
-      const x2 = cx + Math.cos(a) * r;
-      const y2 = cy + Math.sin(a) * r;
-      lines.push(`<line class="spoke" x1="${cx}" y1="${cy}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`);
+    // Soft curved arcs (quadratic paths) — not flat radial SVG spokes
+    for (let i = 0; i < 8; i++) {
+      const a0 = (i / 8) * Math.PI * 2 + 0.15;
+      const a1 = a0 + 0.55 + (i % 3) * 0.08;
+      const r0 = 34 + (i % 3) * 8;
+      const r1 = 52 + (i % 2) * 10;
+      const x1 = cx + Math.cos(a0) * r0;
+      const y1 = cy + Math.sin(a0) * r0 * 0.92;
+      const x2 = cx + Math.cos(a1) * r1;
+      const y2 = cy + Math.sin(a1) * r1 * 0.92;
+      const mx = cx + Math.cos((a0 + a1) / 2) * ((r0 + r1) / 2 + 14);
+      const my = cy + Math.sin((a0 + a1) / 2) * ((r0 + r1) / 2 + 14) * 0.9;
+      lines.push(`<path class="arc" d="M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}" />`);
     }
     spokes.innerHTML = lines.join('');
   }
   const guides = $('cssGuides');
   if (guides) {
-    guides.innerHTML = [48, 68, 86].map((r) =>
-      `<circle class="guide" cx="100" cy="100" r="${r}" />`
+    guides.innerHTML = [52, 72, 92].map((r, i) =>
+      `<ellipse class="guide" cx="100" cy="100" rx="${r}" ry="${(r * (0.86 + i * 0.02)).toFixed(1)}" />`
     ).join('');
   }
 }
@@ -1115,12 +1142,43 @@ function fibSphere(count, radius) {
   const pts = [];
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1)) * 2;
+    const y = 1 - (i / Math.max(1, count - 1)) * 2;
     const rr = Math.sqrt(Math.max(0, 1 - y * y));
     const theta = golden * i;
     pts.push(
       Math.cos(theta) * rr * radius,
       y * radius,
+      Math.sin(theta) * rr * radius,
+    );
+  }
+  return pts;
+}
+
+function makeGlowTexture(size, stops) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  stops.forEach(([t, col]) => g.addColorStop(t, col));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function shellPoints(count, rMin, rMax, seed) {
+  const pts = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / Math.max(1, count - 1)) * 2;
+    const rr = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = golden * i + seed;
+    const jitter = 0.88 + ((i * 17 + seed * 10) % 11) * 0.02;
+    const radius = (rMin + (rMax - rMin) * ((i * 13 + seed * 7) % 10) / 9) * jitter;
+    pts.push(
+      Math.cos(theta) * rr * radius,
+      y * radius * (0.92 + (i % 5) * 0.02),
       Math.sin(theta) * rr * radius,
     );
   }
@@ -1134,109 +1192,258 @@ function initHumanoid() {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-    camera.position.set(0, 0.04, 3.55);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    camera.position.set(0, 0.05, 3.62);
 
     const teal = 0x7ee0c8;
     const gold = 0xe8d5a3;
+    const violet = 0x9b8cff;
     const white = 0xffffff;
     const cTeal = new THREE.Color(teal);
     const cGold = new THREE.Color(gold);
+    const cViolet = new THREE.Color(violet);
+    const cWhite = new THREE.Color(white);
 
-    // Layered celestial core — soft bloom stack, no hard silhouette
-    const bloom = new THREE.Mesh(
-      new THREE.SphereGeometry(1.05, 48, 48),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.035, depthWrite: false, blending: THREE.AdditiveBlending })
+    const softGlow = makeGlowTexture(256, [
+      [0, 'rgba(255,255,255,1)'],
+      [0.12, 'rgba(255,248,235,0.85)'],
+      [0.28, 'rgba(126,224,200,0.45)'],
+      [0.52, 'rgba(155,140,255,0.18)'],
+      [0.78, 'rgba(155,140,255,0.04)'],
+      [1, 'rgba(0,0,0,0)'],
+    ]);
+    const nodeGlow = makeGlowTexture(128, [
+      [0, 'rgba(255,255,255,0.95)'],
+      [0.2, 'rgba(126,224,200,0.7)'],
+      [0.55, 'rgba(232,213,163,0.25)'],
+      [1, 'rgba(0,0,0,0)'],
+    ]);
+    const dustGlow = makeGlowTexture(64, [
+      [0, 'rgba(255,255,255,0.7)'],
+      [0.35, 'rgba(232,213,163,0.25)'],
+      [1, 'rgba(0,0,0,0)'],
+    ]);
+
+    // —— Multi-layer emissive core: hot → gold → teal → violet falloff ——
+    const bloomViolet = new THREE.Mesh(
+      new THREE.SphereGeometry(1.45, 48, 48),
+      new THREE.MeshBasicMaterial({
+        color: violet, transparent: true, opacity: 0.028,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
-    scene.add(bloom);
-    const aura = new THREE.Mesh(
-      new THREE.SphereGeometry(0.72, 48, 48),
-      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.05, depthWrite: false, blending: THREE.AdditiveBlending })
+    scene.add(bloomViolet);
+
+    const bloomTeal = new THREE.Mesh(
+      new THREE.SphereGeometry(1.12, 48, 48),
+      new THREE.MeshBasicMaterial({
+        color: teal, transparent: true, opacity: 0.045,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
-    scene.add(aura);
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(0.34, 64, 64),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })
+    scene.add(bloomTeal);
+
+    const bloomGold = new THREE.Mesh(
+      new THREE.SphereGeometry(0.78, 48, 48),
+      new THREE.MeshBasicMaterial({
+        color: gold, transparent: true, opacity: 0.06,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
-    scene.add(core);
+    scene.add(bloomGold);
+
+    const coreTeal = new THREE.Mesh(
+      new THREE.SphereGeometry(0.38, 64, 64),
+      new THREE.MeshBasicMaterial({
+        color: teal, transparent: true, opacity: 0.26,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    scene.add(coreTeal);
+
     const coreWarm = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 48, 48),
-      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending })
+      new THREE.SphereGeometry(0.24, 48, 48),
+      new THREE.MeshBasicMaterial({
+        color: gold, transparent: true, opacity: 0.22,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
     scene.add(coreWarm);
+
     const coreHot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.11, 32, 32),
-      new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })
+      new THREE.SphereGeometry(0.105, 32, 32),
+      new THREE.MeshBasicMaterial({
+        color: white, transparent: true, opacity: 0.72,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
     scene.add(coreHot);
 
-    // Sparse elegant constellation (not dense particle noise)
-    const nodeCount = 22;
-    const nodePos = fibSphere(nodeCount, 1.18);
-    const nodeCols = new Float32Array(nodeCount * 3);
-    for (let i = 0; i < nodeCount; i++) {
-      const col = i % 3 === 0 ? cTeal : cGold;
-      nodeCols[i * 3] = col.r;
-      nodeCols[i * 3 + 1] = col.g;
-      nodeCols[i * 3 + 2] = col.b;
-    }
-    const nodeGeo = new THREE.BufferGeometry();
-    nodeGeo.setAttribute('position', new THREE.Float32BufferAttribute(nodePos, 3));
-    nodeGeo.setAttribute('color', new THREE.BufferAttribute(nodeCols, 3));
-    const nodes = new THREE.Points(nodeGeo, new THREE.PointsMaterial({
-      size: 0.028, vertexColors: true, transparent: true, opacity: 0.78,
-      depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
-    }));
-    scene.add(nodes);
+    // Soft volumetric sprite bloom (billboard) — cinematic depth without post FX
+    const volMat = new THREE.SpriteMaterial({
+      map: softGlow, color: 0xffffff, transparent: true, opacity: 0.55,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const volCore = new THREE.Sprite(volMat);
+    volCore.scale.set(1.35, 1.35, 1);
+    scene.add(volCore);
 
-    // Fainter outer dust — few points only
-    const dustPos = fibSphere(14, 1.48);
+    const volOuterMat = volMat.clone();
+    volOuterMat.opacity = 0.32;
+    volOuterMat.color = new THREE.Color(violet);
+    const volOuter = new THREE.Sprite(volOuterMat);
+    volOuter.scale.set(2.55, 2.55, 1);
+    scene.add(volOuter);
+
+    const volTealMat = volMat.clone();
+    volTealMat.opacity = 0.28;
+    volTealMat.color = new THREE.Color(teal);
+    const volTeal = new THREE.Sprite(volTealMat);
+    volTeal.scale.set(1.9, 1.9, 1);
+    scene.add(volTeal);
+
+    // —— Parallax node layers (varied sizes, independent yaw) ——
+    function makeNodeLayer(count, rMin, rMax, size, opacity, seed, colorMix) {
+      const pos = shellPoints(count, rMin, rMax, seed);
+      const cols = new Float32Array(count * 3);
+      const sizes = new Float32Array(count);
+      for (let i = 0; i < count; i++) {
+        let col;
+        if (colorMix === 'teal') col = i % 3 === 0 ? cGold : cTeal;
+        else if (colorMix === 'violet') col = i % 4 === 0 ? cViolet : cTeal;
+        else col = i % 2 === 0 ? cGold : cWhite;
+        cols[i * 3] = col.r;
+        cols[i * 3 + 1] = col.g;
+        cols[i * 3 + 2] = col.b;
+        sizes[i] = size * (0.65 + (i % 5) * 0.12);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      const mat = new THREE.PointsMaterial({
+        size,
+        map: nodeGlow,
+        vertexColors: true,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      });
+      const pts = new THREE.Points(geo, mat);
+      pts.userData.basePos = pos;
+      return { pts, pos, count };
+    }
+
+    const nearLayer = makeNodeLayer(14, 0.88, 1.05, 0.055, 0.88, 0.2, 'gold');
+    const midLayer = makeNodeLayer(20, 1.15, 1.38, 0.038, 0.72, 1.1, 'teal');
+    const farLayer = makeNodeLayer(16, 1.48, 1.72, 0.026, 0.48, 2.3, 'violet');
+    scene.add(nearLayer.pts, midLayer.pts, farLayer.pts);
+
+    // Soft connecting arcs (3D beziers) — not flat SVG spokes
+    const arcGroup = new THREE.Group();
+    const layersForArcs = [nearLayer, midLayer];
+    let arcSeed = 0;
+    layersForArcs.forEach((layer) => {
+      for (let i = 0; i < layer.count; i += 3) {
+        const j = (i + 2 + (arcSeed % 3)) % layer.count;
+        const ax = layer.pos[i * 3], ay = layer.pos[i * 3 + 1], az = layer.pos[i * 3 + 2];
+        const bx = layer.pos[j * 3], by = layer.pos[j * 3 + 1], bz = layer.pos[j * 3 + 2];
+        const a = new THREE.Vector3(ax, ay, az);
+        const b = new THREE.Vector3(bx, by, bz);
+        const mid = a.clone().add(b).multiplyScalar(0.5);
+        const lift = mid.clone().normalize().multiplyScalar(mid.length() * 1.18 + 0.12);
+        const curve = new THREE.QuadraticBezierCurve3(a, lift, b);
+        const samples = curve.getPoints(28);
+        const arcPos = [];
+        const arcCol = [];
+        for (let s = 0; s < samples.length; s++) {
+          const p = samples[s];
+          arcPos.push(p.x, p.y, p.z);
+          const t = s / (samples.length - 1);
+          const col = cTeal.clone().lerp(cViolet, t * 0.65);
+          arcCol.push(col.r, col.g, col.b);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(arcPos, 3));
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(arcCol, 3));
+        const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.14 + (arcSeed % 3) * 0.03,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }));
+        arcGroup.add(line);
+        arcSeed += 1;
+      }
+    });
+    scene.add(arcGroup);
+
+    // Soft particle dust field — subtle shell, not noisy soup
+    const dustCount = 72;
+    const dustPos = shellPoints(dustCount, 1.25, 2.05, 4.2);
+    const dustCols = new Float32Array(dustCount * 3);
+    for (let i = 0; i < dustCount; i++) {
+      const col = i % 5 === 0 ? cViolet : (i % 3 === 0 ? cTeal : cGold);
+      dustCols[i * 3] = col.r;
+      dustCols[i * 3 + 1] = col.g;
+      dustCols[i * 3 + 2] = col.b;
+      // push a few slightly inward for depth
+      if (i % 7 === 0) {
+        dustPos[i * 3] *= 0.72;
+        dustPos[i * 3 + 1] *= 0.72;
+        dustPos[i * 3 + 2] *= 0.72;
+      }
+    }
     const dustGeo = new THREE.BufferGeometry();
     dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dustPos, 3));
+    dustGeo.setAttribute('color', new THREE.BufferAttribute(dustCols, 3));
     const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-      color: gold, size: 0.014, transparent: true, opacity: 0.35,
-      depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+      size: 0.018,
+      map: dustGlow,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
     }));
     scene.add(dust);
 
-    // Thin radial spokes to a curated subset of nodes
-    const spokePos = [];
-    const spokeCols = [];
-    for (let i = 0; i < nodeCount; i += 2) {
-      const ix = i * 3;
-      spokePos.push(0, 0, 0, nodePos[ix], nodePos[ix + 1], nodePos[ix + 2]);
-      spokeCols.push(cTeal.r, cTeal.g, cTeal.b, cGold.r, cGold.g, cGold.b);
-    }
-    const spokeGeo = new THREE.BufferGeometry();
-    spokeGeo.setAttribute('position', new THREE.Float32BufferAttribute(spokePos, 3));
-    spokeGeo.setAttribute('color', new THREE.Float32BufferAttribute(spokeCols, 3));
-    const spokes = new THREE.LineSegments(spokeGeo, new THREE.LineBasicMaterial({
-      vertexColors: true, transparent: true, opacity: 0.16,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    scene.add(spokes);
-
-    // Slow elegant orbit rings (no wireframe cage)
+    // Soft orbit ribbons (thin tori + faint glow feel)
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1.28, 0.0035, 8, 180),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending })
+      new THREE.TorusGeometry(1.32, 0.0042, 10, 220),
+      new THREE.MeshBasicMaterial({
+        color: teal, transparent: true, opacity: 0.22,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
-    ring.rotation.x = Math.PI / 2.15;
+    ring.rotation.x = Math.PI / 2.18;
     scene.add(ring);
+
     const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(1.52, 0.0028, 8, 180),
-      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending })
+      new THREE.TorusGeometry(1.58, 0.0032, 10, 220),
+      new THREE.MeshBasicMaterial({
+        color: gold, transparent: true, opacity: 0.13,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
-    ring2.rotation.x = Math.PI / 2.35;
-    ring2.rotation.z = 0.42;
+    ring2.rotation.x = Math.PI / 2.42;
+    ring2.rotation.z = 0.48;
     scene.add(ring2);
+
     const ring3 = new THREE.Mesh(
-      new THREE.TorusGeometry(1.72, 0.0022, 8, 160),
-      new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending })
+      new THREE.TorusGeometry(1.82, 0.0024, 8, 200),
+      new THREE.MeshBasicMaterial({
+        color: violet, transparent: true, opacity: 0.08,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
     );
-    ring3.rotation.x = Math.PI / 1.95;
-    ring3.rotation.y = 0.18;
+    ring3.rotation.x = Math.PI / 1.92;
+    ring3.rotation.y = 0.22;
     scene.add(ring3);
 
     function resize() {
@@ -1250,7 +1457,6 @@ function initHumanoid() {
     resize();
     window.addEventListener('resize', resize);
 
-    // WebGL is live — retire CSS double-orb so the stage stays cinematic
     const fallback = $('orbFallback');
     if (fallback) fallback.classList.add('is-hidden');
 
@@ -1260,24 +1466,44 @@ function initHumanoid() {
       const speakNow = state.status === 'SPEAKING';
       const listen = state.status === 'LISTENING';
       const pulse = speakNow
-        ? 1.07 + Math.sin(t * 6.2) * 0.03
+        ? 1.08 + Math.sin(t * 6.2) * 0.035
         : listen
-          ? 1.035 + Math.sin(t * 3.4) * 0.015
-          : 1 + Math.sin(t * 0.85) * 0.01;
-      bloom.scale.setScalar(pulse * 1.02);
-      aura.scale.setScalar(pulse);
-      core.scale.setScalar(pulse);
-      coreWarm.scale.setScalar(pulse);
-      coreHot.scale.setScalar(pulse * 1.02);
-      const yaw = t * 0.065;
-      nodes.rotation.y = yaw;
-      nodes.rotation.x = Math.sin(t * 0.12) * 0.08;
-      dust.rotation.y = -yaw * 0.7;
-      spokes.rotation.y = yaw;
-      spokes.rotation.x = nodes.rotation.x;
-      ring.rotation.z = t * 0.075;
-      ring2.rotation.z = -t * 0.055;
-      ring3.rotation.z = t * 0.04;
+          ? 1.04 + Math.sin(t * 3.4) * 0.018
+          : 1 + Math.sin(t * 0.82) * 0.012;
+
+      bloomViolet.scale.setScalar(pulse * 1.03);
+      bloomTeal.scale.setScalar(pulse * 1.01);
+      bloomGold.scale.setScalar(pulse);
+      coreTeal.scale.setScalar(pulse);
+      coreWarm.scale.setScalar(pulse * 1.01);
+      coreHot.scale.setScalar(pulse * 1.03);
+      volCore.scale.set(1.35 * pulse, 1.35 * pulse, 1);
+      volTeal.scale.set(1.9 * pulse, 1.9 * pulse, 1);
+      volOuter.scale.set(2.55 * pulse * 1.02, 2.55 * pulse * 1.02, 1);
+
+      // Parallax: independent yaw / pitch per depth shell
+      const yawNear = t * 0.055;
+      const yawMid = -t * 0.038;
+      const yawFar = t * 0.022;
+      nearLayer.pts.rotation.y = yawNear;
+      nearLayer.pts.rotation.x = Math.sin(t * 0.11) * 0.07;
+      midLayer.pts.rotation.y = yawMid;
+      midLayer.pts.rotation.x = Math.sin(t * 0.09 + 0.6) * 0.1;
+      farLayer.pts.rotation.y = yawFar;
+      farLayer.pts.rotation.z = Math.sin(t * 0.07) * 0.05;
+
+      arcGroup.rotation.y = yawMid * 0.85;
+      arcGroup.rotation.x = midLayer.pts.rotation.x * 0.8;
+
+      dust.rotation.y = -t * 0.018;
+      dust.rotation.x = Math.sin(t * 0.05) * 0.04;
+      // gentle dust shimmer
+      dust.material.opacity = 0.22 + Math.sin(t * 0.6) * 0.06;
+
+      ring.rotation.z = t * 0.07;
+      ring2.rotation.z = -t * 0.048;
+      ring3.rotation.z = t * 0.032;
+
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
