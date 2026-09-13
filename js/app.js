@@ -1,17 +1,81 @@
 import * as THREE from 'three';
 
 const $ = (id) => document.getElementById(id);
-const STORAGE_KEY = 'dgs-ai-v2';
+const STORAGE_KEY = 'dgs-ai-v3';
+
+const DEMO_QUOTES = {
+  NVDA: { last: 178.40, chg: 2.15, chgPct: 1.22, name: 'NVIDIA' },
+  AAPL: { last: 228.10, chg: -0.84, chgPct: -0.37, name: 'Apple' },
+  MSFT: { last: 432.55, chg: 1.90, chgPct: 0.44, name: 'Microsoft' },
+  TSLA: { last: 241.20, chg: 4.10, chgPct: 1.73, name: 'Tesla' },
+  AMZN: { last: 191.75, chg: 0.62, chgPct: 0.32, name: 'Amazon' },
+  META: { last: 548.30, chg: -3.20, chgPct: -0.58, name: 'Meta' },
+  GOOGL: { last: 172.88, chg: 0.95, chgPct: 0.55, name: 'Alphabet' },
+  SPY: { last: 562.40, chg: 1.12, chgPct: 0.20, name: 'S&P 500 ETF' },
+  QQQ: { last: 491.15, chg: 2.04, chgPct: 0.42, name: 'Nasdaq 100 ETF' },
+  IWM: { last: 218.60, chg: -0.40, chgPct: -0.18, name: 'Russell 2000 ETF' },
+  AMD: { last: 156.22, chg: 1.48, chgPct: 0.96, name: 'AMD' },
+  AVGO: { last: 172.10, chg: 0.88, chgPct: 0.51, name: 'Broadcom' },
+  SMCI: { last: 46.80, chg: -1.10, chgPct: -2.30, name: 'Super Micro' },
+  COIN: { last: 212.40, chg: 5.30, chgPct: 2.56, name: 'Coinbase' },
+  PLTR: { last: 38.95, chg: 0.72, chgPct: 1.88, name: 'Palantir' },
+  BTC: { last: 64250, chg: 380, chgPct: 0.59, name: 'Bitcoin' },
+  ETH: { last: 2680, chg: 22, chgPct: 0.83, name: 'Ethereum' },
+};
+
+const NAME_TO_SYM = {
+  nvidia: 'NVDA', nvda: 'NVDA',
+  apple: 'AAPL', aapl: 'AAPL',
+  microsoft: 'MSFT', msft: 'MSFT',
+  tesla: 'TSLA', tsla: 'TSLA',
+  amazon: 'AMZN', amzn: 'AMZN',
+  meta: 'META', facebook: 'META',
+  google: 'GOOGL', alphabet: 'GOOGL', googl: 'GOOGL', goog: 'GOOGL',
+  spy: 'SPY', 's&p': 'SPY',
+  qqq: 'QQQ', nasdaq: 'QQQ',
+  iwm: 'IWM', russell: 'IWM',
+  amd: 'AMD',
+  broadcom: 'AVGO', avgo: 'AVGO',
+  smci: 'SMCI',
+  coin: 'COIN', coinbase: 'COIN',
+  palantir: 'PLTR', pltr: 'PLTR',
+  bitcoin: 'BTC', btc: 'BTC',
+  ethereum: 'ETH', eth: 'ETH',
+};
+
+const TV_MAP = {
+  NVDA: 'NASDAQ:NVDA', AAPL: 'NASDAQ:AAPL', MSFT: 'NASDAQ:MSFT',
+  TSLA: 'NASDAQ:TSLA', AMZN: 'NASDAQ:AMZN', META: 'NASDAQ:META',
+  GOOGL: 'NASDAQ:GOOGL', SPY: 'AMEX:SPY', QQQ: 'NASDAQ:QQQ',
+  IWM: 'AMEX:IWM', AMD: 'NASDAQ:AMD', AVGO: 'NASDAQ:AVGO',
+  SMCI: 'NASDAQ:SMCI', COIN: 'NASDAQ:COIN', PLTR: 'NYSE:PLTR',
+  BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT',
+};
+
+const FILLERS = [
+  'Give the cloud a breath…',
+  'One moment while I pull the tape…',
+  'Packaging that now…',
+];
+
 const state = {
   status: 'IDLE',
-  agents: ['DGS', 'TRADE', 'SCALP', 'SESSION', 'RISK', 'SOCIAL', 'WORK', 'HALT', 'FLAT'],
   book: [],
   dayPnL: 0,
   peakEquity: 10000,
   lastOpen: false,
   halted: false,
   gestureOn: false,
+  lastSymbol: 'NVDA',
+  lastQuote: null,
+  chartOpen: false,
+  talkActive: false,
+  speaking: false,
 };
+
+let talkLoop = null;
+let shareBlob = null;
+let shareUrl = '';
 
 function loadState() {
   try {
@@ -21,11 +85,9 @@ function loadState() {
     if (Array.isArray(data.book)) state.book = data.book;
     if (typeof data.dayPnL === 'number') state.dayPnL = data.dayPnL;
     if (typeof data.peakEquity === 'number') state.peakEquity = data.peakEquity;
-    if (typeof data.equity === 'number') {
-      const el = document.getElementById('equity');
-      if (el) el.value = data.equity;
-    }
+    if (typeof data.equity === 'number' && $('equity')) $('equity').value = data.equity;
     if (typeof data.halted === 'boolean') state.halted = data.halted;
+    if (typeof data.lastSymbol === 'string') state.lastSymbol = data.lastSymbol;
   } catch (_) {}
 }
 
@@ -34,35 +96,71 @@ function saveState() {
     book: state.book,
     dayPnL: state.dayPnL,
     peakEquity: state.peakEquity,
-    equity: Number(document.getElementById('equity')?.value || 10000),
+    equity: Number($('equity')?.value || 10000),
     halted: state.halted,
+    lastSymbol: state.lastSymbol,
   }));
 }
 
 function setStatus(s) {
   state.status = s;
   const pill = $('statusPill');
+  if (!pill) return;
   pill.textContent = `STATUS : ${s}`;
   pill.dataset.state = s;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function addLine(who, text) {
+  const box = $('transcript');
+  if (!box || !text) return;
+  const el = document.createElement('div');
+  el.className = `bubble ${who}`;
+  el.innerHTML = `<span class="who">${who === 'user' ? 'You' : 'DGS AI'}</span><p>${escapeHtml(text)}</p>`;
+  box.appendChild(el);
+  while (box.children.length > 8) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+
+function hideHint() {
+  const h = $('hint');
+  if (h) h.style.opacity = '0.25';
+}
+
 function speak(text) {
-  $('voiceLog').textContent = text;
+  if (!text) return Promise.resolve();
+  addLine('dgs', text);
+  if ($('voiceLog')) $('voiceLog').textContent = text;
+  hideHint();
   setStatus('SPEAKING');
-  if ('speechSynthesis' in window) {
+  state.speaking = true;
+  return new Promise((resolve) => {
+    const done = () => {
+      state.speaking = false;
+      if (!state.talkActive) setStatus('IDLE');
+      else setStatus('LISTENING');
+      resolve();
+    };
+    if (!('speechSynthesis' in window)) {
+      setTimeout(done, 900);
+      return;
+    }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.02;
-    u.onend = () => setStatus('IDLE');
+    u.onend = done;
+    u.onerror = done;
     window.speechSynthesis.speak(u);
-  } else {
-    setTimeout(() => setStatus('IDLE'), 1400);
-  }
+  });
 }
 
-function renderAgents() {
-  $('agentCount').textContent = `${state.agents.length} agents online`;
-  $('agentRow').innerHTML = state.agents.map((a) => `<span>${a} · online</span>`).join('');
+function speakFiller() {
+  return speak(FILLERS[Math.floor(Math.random() * FILLERS.length)]);
 }
 
 function num(id) { return Number($(id).value); }
@@ -72,12 +170,285 @@ function money(n) {
   return `${sign}$${Math.abs(n).toFixed(2)}`;
 }
 
+function parseSymbol(text) {
+  const t = (text || '').toLowerCase();
+  for (const [name, sym] of Object.entries(NAME_TO_SYM)) {
+    if (t.includes(name)) return sym;
+  }
+  const m = t.toUpperCase().match(/\b([A-Z]{1,5})\b/);
+  if (m && DEMO_QUOTES[m[1]]) return m[1];
+  const raw = ($('symbol')?.value || state.lastSymbol || 'NVDA').trim().toUpperCase();
+  return raw || 'NVDA';
+}
+
+function tvSymbol(sym) {
+  return TV_MAP[sym] || `NASDAQ:${sym}`;
+}
+
+function chartPageUrl(sym) {
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol(sym))}`;
+}
+
+function embedUrl(sym) {
+  const q = new URLSearchParams({
+    symbol: tvSymbol(sym),
+    interval: '15',
+    hidesidetoolbar: '1',
+    hidetoptoolbar: '0',
+    symboledit: '1',
+    saveimage: '1',
+    toolbarbg: '050508',
+    theme: 'dark',
+    style: '1',
+    timezone: 'Etc/UTC',
+    withdateranges: '1',
+    hideideas: '1',
+    locale: 'en',
+  });
+  return `https://s.tradingview.com/widgetembed/?${q.toString()}`;
+}
+
+function fakeSpark(last, chg) {
+  const n = 24;
+  const out = [];
+  let v = last - chg * 3;
+  for (let i = 0; i < n; i++) {
+    v += (Math.random() - 0.45) * Math.max(0.4, Math.abs(chg) * 0.6);
+    out.push(v);
+  }
+  out[out.length - 1] = last;
+  return out;
+}
+
+async function fetchQuote(symbol) {
+  const ysym = symbol === 'BTC' ? 'BTC-USD' : symbol === 'ETH' ? 'ETH-USD' : symbol;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=5d`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3200);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, mode: 'cors' });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('http');
+    const data = await res.json();
+    const r = data.chart.result[0];
+    const meta = r.meta;
+    const closes = (r.indicators?.quote?.[0]?.close || []).filter((x) => x != null);
+    const last = meta.regularMarketPrice ?? closes.at(-1);
+    const prev = meta.previousClose ?? meta.chartPreviousClose ?? closes.at(-2) ?? last;
+    const chg = last - prev;
+    const chgPct = prev ? (chg / prev) * 100 : 0;
+    const q = {
+      symbol, last, chg, chgPct,
+      name: meta.shortName || symbol,
+      source: 'live',
+      spark: closes.length > 2 ? closes : fakeSpark(last, chg),
+    };
+    state.lastQuote = q;
+    state.lastSymbol = symbol;
+    return q;
+  } catch (_) {
+    clearTimeout(timer);
+    const d = DEMO_QUOTES[symbol] || { last: 100, chg: 0.35, chgPct: 0.35, name: symbol };
+    const q = { symbol, ...d, source: 'demo', spark: fakeSpark(d.last, d.chg) };
+    state.lastQuote = q;
+    state.lastSymbol = symbol;
+    return q;
+  }
+}
+
+function fmtPx(n) {
+  if (n >= 1000) return n.toFixed(0);
+  if (n >= 100) return n.toFixed(2);
+  return n.toFixed(2);
+}
+
+function spokenQuote(q) {
+  const dir = q.chg >= 0 ? 'up' : 'down';
+  const src = q.source === 'live' ? 'Live quote.' : 'Delayed demo quote. Live tape was blocked.';
+  return `${q.name}, ${q.symbol}, last ${fmtPx(q.last)}, ${dir} ${fmtPx(Math.abs(q.chg))} or ${Math.abs(q.chgPct).toFixed(2)} percent. ${src}`;
+}
+
+async function marketBrief() {
+  setStatus('LISTENING');
+  const filler = speakFiller();
+  const [spy, qqq, nvda] = await Promise.all([
+    fetchQuote('SPY'), fetchQuote('QQQ'), fetchQuote(state.lastSymbol || 'NVDA'),
+  ]);
+  await filler;
+  const src = [spy, qqq, nvda].every((q) => q.source === 'live')
+    ? 'Live tape.'
+    : 'Delayed demo tape if the live feed is blocked.';
+  const line = `${src} SPY ${fmtPx(spy.last)}, ${spy.chg >= 0 ? 'up' : 'down'} ${Math.abs(spy.chgPct).toFixed(2)} percent. QQQ ${fmtPx(qqq.last)}, ${qqq.chg >= 0 ? 'up' : 'down'} ${Math.abs(qqq.chgPct).toFixed(2)} percent. ${nvda.symbol} ${fmtPx(nvda.last)}. Paper only. Want me to open a chart?`;
+  await speak(line);
+}
+
+function openChart(symbol) {
+  const sym = (symbol || state.lastSymbol || $('symbol')?.value || 'NVDA').toUpperCase();
+  state.lastSymbol = sym;
+  if ($('symbol')) $('symbol').value = sym;
+  const title = $('chartTitle');
+  if (title) title.textContent = `${sym} · ${tvSymbol(sym)}`;
+  const frame = $('tvFrame');
+  if (frame) frame.src = embedUrl(sym);
+  const overlay = $('chartOverlay');
+  if (overlay) overlay.classList.remove('hidden');
+  state.chartOpen = true;
+  speak(`Opening ${sym} on the main screen. Paper only. Say send to my phone when you want the handoff.`);
+}
+
+function closeChart() {
+  const overlay = $('chartOverlay');
+  if (overlay) overlay.classList.add('hidden');
+  state.chartOpen = false;
+}
+
+function paintShareCard(q) {
+  const c = $('shareCanvas');
+  const ctx = c.getContext('2d');
+  const w = c.width;
+  const h = c.height;
+  ctx.fillStyle = '#050508';
+  ctx.fillRect(0, 0, w, h);
+  const g = ctx.createRadialGradient(w * 0.5, h * 0.32, 20, w * 0.5, h * 0.32, 420);
+  g.addColorStop(0, 'rgba(94,234,212,0.28)');
+  g.addColorStop(0.55, 'rgba(167,139,250,0.10)');
+  g.addColorStop(1, 'rgba(5,5,8,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = '#5eead4';
+  ctx.font = '700 36px IBM Plex Sans, sans-serif';
+  ctx.fillText('DGS AI', 72, 110);
+  ctx.fillStyle = '#8b9bb0';
+  ctx.font = '400 26px IBM Plex Sans, sans-serif';
+  ctx.fillText('Voice trading assistant · paper only', 72, 150);
+
+  ctx.fillStyle = '#eef3f8';
+  ctx.font = '700 86px IBM Plex Sans, sans-serif';
+  ctx.fillText(q.symbol, 72, 320);
+  ctx.fillStyle = '#a5b4fc';
+  ctx.font = '400 32px IBM Plex Sans, sans-serif';
+  ctx.fillText(q.name || q.symbol, 72, 370);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '600 92px IBM Plex Mono, monospace';
+  ctx.fillText(fmtPx(q.last), 72, 500);
+  ctx.fillStyle = q.chg >= 0 ? '#34d399' : '#fb7185';
+  ctx.font = '500 40px IBM Plex Mono, monospace';
+  const sign = q.chg >= 0 ? '+' : '';
+  ctx.fillText(`${sign}${fmtPx(q.chg)}   ${sign}${q.chgPct.toFixed(2)}%`, 72, 560);
+
+  const spark = q.spark || fakeSpark(q.last, q.chg);
+  const sx = 72;
+  const sy = 640;
+  const sw = w - 144;
+  const sh = 220;
+  const min = Math.min(...spark);
+  const max = Math.max(...spark);
+  const span = Math.max(0.0001, max - min);
+  ctx.beginPath();
+  spark.forEach((v, i) => {
+    const x = sx + (i / Math.max(1, spark.length - 1)) * sw;
+    const y = sy + sh - ((v - min) / span) * sh;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = q.chg >= 0 ? '#2dd4bf' : '#fb7185';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#8b9bb0';
+  ctx.font = '400 26px IBM Plex Sans, sans-serif';
+  const src = q.source === 'live' ? 'Quote path: live feed' : 'Quote path: DELAYED DEMO (live tape blocked)';
+  ctx.fillText(src, 72, 920);
+  ctx.fillText(chartPageUrl(q.symbol), 72, 970);
+  ctx.fillText('Dineshgopi Sunkara · No broker · No guaranteed profit', 72, 1040);
+  ctx.fillStyle = '#5eead4';
+  ctx.font = '500 24px IBM Plex Mono, monospace';
+  ctx.fillText('dgs-ai · send to phone', 72, 1220);
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+}
+
+async function sendChartToPhone(symbol) {
+  const sym = (symbol || state.lastSymbol || 'NVDA').toUpperCase();
+  state.lastSymbol = sym;
+  const fillerP = speak('Give the cloud a breath while I package the chart…');
+  const q = state.lastQuote?.symbol === sym ? state.lastQuote : await fetchQuote(sym);
+  paintShareCard(q);
+  const canvas = $('shareCanvas');
+  shareBlob = await canvasToBlob(canvas);
+  shareUrl = chartPageUrl(sym);
+  await fillerP;
+
+  const file = shareBlob ? new File([shareBlob], `dgs-ai-${sym}.png`, { type: 'image/png' }) : null;
+  const payload = {
+    title: `DGS AI · ${sym}`,
+    text: `${q.name} ${fmtPx(q.last)} · paper only · ${shareUrl}`,
+    url: shareUrl,
+  };
+
+  try {
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ ...payload, files: [file] });
+      await speak(`Chart card for ${sym} is on its way to your share sheet.`);
+      return;
+    }
+    if (navigator.share) {
+      await navigator.share(payload);
+      await speak(`I sent the ${sym} chart link to your share sheet.`);
+      return;
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      await speak('Share canceled.');
+      return;
+    }
+  }
+
+  openDrawer('share');
+  const prev = $('sharePreview');
+  if (prev && shareBlob) {
+    prev.src = URL.createObjectURL(shareBlob);
+    prev.style.display = 'block';
+  }
+  const qr = $('shareQr');
+  if (qr) {
+    qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&bgcolor=050508&color=5eead4&data=${encodeURIComponent(shareUrl)}`;
+    qr.style.display = 'block';
+  }
+  const link = $('shareLink');
+  if (link) {
+    link.href = shareUrl;
+    link.textContent = shareUrl;
+  }
+  if ($('shareStatus')) {
+    $('shareStatus').textContent = `Web Share is not available here. Save the PNG or scan the QR for ${sym}.`;
+  }
+  await speak(`Share sheet is not available on this browser. I left a PNG and a QR for ${sym}.`);
+}
+
+function downloadShareCard() {
+  if (!shareBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(shareBlob);
+  a.download = `dgs-ai-${state.lastSymbol || 'chart'}.png`;
+  a.click();
+}
+
 function updateStats(dd, open) {
-  $('dayPnl').textContent = money(state.dayPnL);
-  $('dayPnl').style.color = state.dayPnL >= 0 ? 'var(--ok)' : 'var(--danger)';
-  $('ddNow').textContent = `${dd.toFixed(2)}%`;
-  $('gateBadge').textContent = open ? 'OPEN' : 'CLOSED';
-  $('gateBadge').style.color = open ? 'var(--ok)' : 'var(--danger)';
+  const pnl = $('dayPnl');
+  if (pnl) {
+    pnl.textContent = money(state.dayPnL);
+    pnl.style.color = state.dayPnL >= 0 ? 'var(--ok)' : 'var(--danger)';
+  }
+  if ($('ddNow')) $('ddNow').textContent = `${dd.toFixed(2)}%`;
+  if ($('gateBadge')) {
+    $('gateBadge').textContent = open ? 'OPEN' : 'CLOSED';
+    $('gateBadge').style.color = open ? 'var(--ok)' : 'var(--danger)';
+  }
 }
 
 function analyzeRisk() {
@@ -116,11 +487,9 @@ function analyzeRisk() {
     score += 45; reasons.push('Stop on wrong side of entry');
   }
   if (notional > equity * 3) { score += 12; reasons.push('Notional > 3x equity'); }
-  score = Math.max(0, Math.min(100, Math.round(score)));
 
   const dailyHalt = Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss;
   const ddHalt = dd >= maxDd;
-  
   const maxTrades = num('maxTrades');
   const maxHold = num('maxHold');
   const mode = $('mode').value;
@@ -130,16 +499,16 @@ function analyzeRisk() {
   if (mode === 'SCALP' && maxHold > 30) { score += 8; reasons.push('Scalp mode prefers hold ≤ 30m'); }
   if (mode === 'SCALP' && rr < 1.2) { score += 10; reasons.push('Scalp R:R too thin'); }
   if (mode === 'MOMENTUM' && rr < 1.8) { score += 12; reasons.push('Momentum day trade wants stronger R:R'); }
-  if (noOvernight) { reasons.push('Flat-by-close rule ON — no overnight holds'); }
+  if (noOvernight) reasons.push('Flat-by-close rule ON — no overnight holds');
   else { score += 15; reasons.push('Overnight allowed — higher session risk'); }
 
+  score = Math.max(0, Math.min(100, Math.round(score)));
   const open = !state.halted && score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0 && tradesToday < maxTrades;
-
   state.lastOpen = open;
 
   $('riskScore').textContent = String(score);
   $('riskBar').style.width = `${score}%`;
-  $('riskBar').style.background = score < 35 ? 'var(--ok)' : score < 50 ? 'var(--amber)' : 'var(--danger)';
+  $('riskBar').style.background = score < 35 ? 'var(--ok)' : score < 50 ? 'var(--warn)' : 'var(--danger)';
   const gate = $('gateMsg');
   gate.textContent = open
     ? `Gate: OPEN — ${shares} sh ${symbol} ${side} · risk ${money(dollarRisk)} · R:R ${rr.toFixed(2)}`
@@ -149,7 +518,7 @@ function analyzeRisk() {
   updateStats(dd, open);
 
   $('analysis').textContent = [
-    `Founder guard · DGS AI · DAY TRADING`,
+    'Founder guard · DGS AI · PAPER ONLY',
     `Mode: ${mode} · hold≤${maxHold}m · trades ${tradesToday}/${maxTrades}`,
     `Symbol: ${symbol} ${side}`,
     `Entry ${entry} | Stop ${stop} | Target ${target}`,
@@ -168,7 +537,7 @@ function analyzeRisk() {
 function paperEnter() {
   const r = analyzeRisk();
   if (!r.open) {
-    speak('Risk gate is closed. I will not enter this trade.');
+    speak('Risk gate is closed. I will not paper-enter this setup. I do not place live orders.');
     return;
   }
   state.book.unshift({ id: Date.now(), ...r, ts: new Date().toISOString() });
@@ -184,9 +553,9 @@ function paperEnter() {
   $('equity').value = eq.toFixed(2);
   state.peakEquity = Math.max(state.peakEquity, eq);
   renderBook();
-  speak(`Paper entry allowed. ${r.shares} shares ${r.symbol} ${r.side}. Risk score ${r.score}.`);
   saveState();
   analyzeRisk();
+  speak(`Paper entry allowed. ${r.shares} shares ${r.symbol} ${r.side}. Risk score ${r.score}. This is not a live broker order.`);
 }
 
 function renderBook() {
@@ -195,91 +564,132 @@ function renderBook() {
   ).join('') || '<li>No paper trades yet.</li>';
 }
 
-function marketBrief() {
-  setStatus('LISTENING');
-  setTimeout(() => {
-    speak(`${state.agents.length} agents online for the session. Intraday mode. I prioritize day trades and scalps, flat by close, hard daily loss halt. I only size with a stop and your minimum reward to risk.`);
-  }, 280);
+function forceHalt() {
+  state.halted = true;
+  saveState();
+  analyzeRisk();
+  speak('Force halt engaged. All paper entries blocked until you reset the day.');
 }
 
-function openChart() {
-  const symbol = $('symbol').value.trim().toUpperCase() || 'NVDA';
-  window.open(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`, '_blank', 'noopener,noreferrer');
-  speak(`Opening ${symbol} on TradingView.`);
+function resetDay() {
+  state.dayPnL = 0;
+  state.halted = false;
+  state.peakEquity = Math.max(state.peakEquity, num('equity'));
+  saveState();
+  analyzeRisk();
+  speak('Day P and L reset. Risk gate re-armed.');
+}
+
+function clearBook() {
+  state.book = [];
+  saveState();
+  renderBook();
+  speak('Paper book cleared.');
+}
+
+function statusSpeech() {
+  const eq = num('equity');
+  const dd = Math.max(0, (state.peakEquity - eq) / Math.max(state.peakEquity, 1) * 100);
+  const gate = state.lastOpen ? 'open' : 'closed';
+  return `Status. Paper equity ${money(eq)}. Day P and L ${money(state.dayPnL)}. Drawdown ${dd.toFixed(2)} percent. Gate ${gate}. Halt ${state.halted ? 'on' : 'off'}. Paper only.`;
+}
+
+function helpSpeech() {
+  return 'I am DGS AI. Ask for a market brief, a quote, open a chart, or send the chart to your phone. I can analyze risk and paper-enter only if the gate is open. I do not place live trades or control your phone natively.';
 }
 
 function wake() {
   setStatus('LISTENING');
-  setTimeout(() => speak('Go ahead. DGS AI day-trading risk guard is online.'), 200);
+  speak('Go ahead. DGS AI is online. Ask for a market brief, a quote, or a chart.');
 }
 
-let talkLoop = null;
-let talkActive = false;
+async function quoteSpeech(symbol) {
+  const filler = speakFiller();
+  const q = await fetchQuote(symbol);
+  await filler;
+  await speak(`${spokenQuote(q)} Want the ${q.symbol} chart?`);
+}
 
 function quickAnswer(q) {
   const t = q.toLowerCase();
-  // Trading-first fast answers
   if (/(who are you|your name|what are you)/.test(t)) {
-    return 'I am DGS AI, built for Dineshgopi Sunkara. Trading first, then social and work.';
+    return 'I am DGS AI, built for Dineshgopi Sunkara. Voice first. Trading brief, charts, and paper risk. I do not place live orders.';
   }
-  if (/(risk|size|position)/.test(t) && /(how|what|explain)/.test(t)) {
-    return 'Size from stop distance. Risk only a fraction of equity per trade. If the gate is closed, do not enter.';
-  }
-  if (/(day trade|intraday|scalp)/.test(t)) {
-    return 'Intraday mode: hard daily loss halt, max trades, max hold, and flat by session end. No overnight when that lock is on.';
-  }
-  if (/(stop|stop loss)/.test(t)) {
-    return 'A stop is required. Wrong-side stops close the gate. Place stop first, then size.';
-  }
+  if (/(help|what can you|commands)/.test(t)) return helpSpeech();
   if (/(profit|guarantee|guaranteed)/.test(t)) {
-    return 'No profit is guaranteed. DGS AI blocks bad size; it does not promise returns.';
+    return 'No profit is guaranteed. DGS AI blocks bad paper size. It does not promise returns.';
+  }
+  if (/(broker|live order|real money|place a trade)/.test(t)) {
+    return 'Paper only. I will not connect a broker or place a live order.';
   }
   if (/(social|instagram|linkedin|twitter|post)/.test(t)) {
-    return 'Open the Social tab for drafts and checklists. I draft fast; you approve before posting.';
+    openDrawer('social');
+    return 'Social drawer is open. I draft. You approve before posting.';
   }
   if (/(work|email|sop|priority|priorities)/.test(t)) {
-    return 'Open the Work tab for priorities, emails, actions, and SOP checklists.';
+    openDrawer('work');
+    return 'Work drawer is open. Plans and drafts only.';
   }
-  if (/(chart|tradingview|nvidia|nvda)/.test(t)) {
-    openChart();
-    return null; // openChart already speaks
+  if (/(hello|hi |hey )/.test(t) || t === 'hi' || t === 'hey') {
+    return 'Listening. Ask for a market brief, a quote, or show a chart.';
   }
-  if (/(brief|market)/.test(t)) {
-    marketBrief();
-    return null;
-  }
-  if (/(analyze|gate)/.test(t)) {
-    analyzeRisk();
-    return state.lastOpen ? 'Risk gate is open for this setup.' : 'Risk gate is closed for this setup.';
-  }
-  if (/(halt|stop trading)/.test(t)) {
-    forceHalt();
-    return null;
-  }
-  if (/(hello|hi |hey|wake)/.test(t)) {
-    return 'Listening. Ask a trading, social, or work question.';
-  }
-  // Generic fast fallback
-  return 'Got it. For trading I can analyze risk, open charts, or brief the session. For social or work, switch tabs or ask specifically.';
+  return null;
 }
 
-function handleVoiceCommand(text) {
+async function handleVoiceCommand(text) {
   const t = text.toLowerCase();
-  if (t.includes('brief') || (t.includes('market') && !t.includes('question'))) {
-    return marketBrief();
+  addLine('user', text);
+
+  if (/(send (it |the chart )?to (my )?phone|handoff|share (the )?chart|airdrop)/.test(t)) {
+    await sendChartToPhone(parseSymbol(text));
+    return;
   }
-  if (t.includes('open chart') || t.includes('tradingview') || t.includes('trading view')) {
-    return openChart();
+  if (/(open chart|show (the )?chart|chart for|tradingview|trading view|show )\b/.test(t) || /\bchart\b/.test(t)) {
+    openChart(parseSymbol(text));
+    return;
   }
-  if (t.includes('analyze') && t.includes('risk')) {
+  if (/(market brief|brief(ing)?|sentiment|how('?s| is) the market|market today)/.test(t)) {
+    await marketBrief();
+    return;
+  }
+  if (/\b(quote|price|how('?s| is)|what is)\b/.test(t) || NAME_TO_SYM[t.trim()]) {
+    await quoteSpeech(parseSymbol(text));
+    return;
+  }
+  if (/(analyze|risk gate|check risk)/.test(t)) {
+    openDrawer('risk');
     analyzeRisk();
-    return speak(state.lastOpen ? 'Risk gate is open for this setup.' : 'Risk gate is closed for this setup.');
+    await speak(state.lastOpen ? 'Risk gate is open for this paper setup.' : 'Risk gate is closed for this paper setup.');
+    return;
   }
-  if (t.includes('wake') || t === 'hello' || t === 'hi') {
-    return wake();
+  if (/(enter paper|paper enter|take the trade|paper trade)/.test(t)) {
+    paperEnter();
+    return;
+  }
+  if (/(force halt|halt|stop trading)/.test(t)) {
+    forceHalt();
+    return;
+  }
+  if (/(day p|p and l|pnl|status|drawdown)/.test(t)) {
+    analyzeRisk();
+    await speak(statusSpeech());
+    return;
+  }
+  if (/(wake|hey dgs)/.test(t)) {
+    wake();
+    return;
+  }
+  if (/(close chart|hide chart)/.test(t)) {
+    closeChart();
+    await speak('Chart closed.');
+    return;
   }
   const ans = quickAnswer(text);
-  if (ans) speak(ans);
+  if (ans) {
+    await speak(ans);
+    return;
+  }
+  await speak('Got it. I can brief the market, quote a symbol, open a chart, or send that chart to your phone. Paper only.');
 }
 
 function startVoiceListen() {
@@ -288,311 +698,104 @@ function startVoiceListen() {
     speak('Voice recognition is not available in this browser. Use the buttons.');
     return;
   }
-  if (talkActive) {
-    talkActive = false;
+  if (state.talkActive) {
+    state.talkActive = false;
     try { talkLoop && talkLoop.stop(); } catch (_) {}
-    $('listenBtn').textContent = 'Start talk mode';
+    $('listenBtn').textContent = 'Talk';
+    $('listenBtn').dataset.on = '0';
     setStatus('IDLE');
-    $('voiceLog').textContent = 'Talk mode off.';
+    speak('Talk mode off.');
     return;
   }
-  talkActive = true;
-  $('listenBtn').textContent = 'Stop talk mode';
+  state.talkActive = true;
+  $('listenBtn').textContent = 'Stop';
+  $('listenBtn').dataset.on = '1';
   const rec = new SR();
   talkLoop = rec;
   rec.lang = 'en-US';
   rec.interimResults = false;
   rec.continuous = false;
   const arm = () => {
-    if (!talkActive) return;
+    if (!state.talkActive) return;
+    if (state.speaking) {
+      setTimeout(arm, 280);
+      return;
+    }
     setStatus('LISTENING');
-    $('voiceLog').textContent = 'Talk to DGS AI…';
     try { rec.start(); } catch (_) {}
   };
   rec.onresult = (e) => {
     const text = e.results[0][0].transcript;
-    $('voiceLog').textContent = `Heard: ${text}`;
     handleVoiceCommand(text);
   };
-  rec.onerror = () => {
-    if (talkActive) setTimeout(arm, 300);
-  };
-  rec.onend = () => {
-    if (talkActive) setTimeout(arm, 250);
-  };
+  rec.onerror = () => { if (state.talkActive) setTimeout(arm, 350); };
+  rec.onend = () => { if (state.talkActive) setTimeout(arm, 260); };
   arm();
   speak('Talk mode on. Ask anything.');
 }
 
-function initHumanoid() {
-  const canvas = $('humanoid');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setClearColor(0x000000, 0);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-  camera.position.set(0, 0.15, 3.6);
-
-  // Soft core glow (inner head)
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.42, 32, 32),
-    new THREE.MeshBasicMaterial({ color: 0x5eead4, transparent: true, opacity: 0.18 })
-  );
-  core.position.set(0, 0.55, 0);
-  scene.add(core);
-
-  const core2 = new THREE.Mesh(
-    new THREE.SphereGeometry(0.22, 24, 24),
-    new THREE.MeshBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.35 })
-  );
-  core2.position.set(0, 0.58, 0.05);
-  scene.add(core2);
-
-  // Clean surface particles on head ellipsoid + shoulders
-  const count = 2800;
-  const positions = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
-  const bases = new Float32Array(count * 3);
-  const cTeal = new THREE.Color('#5eead4');
-  const cViolet = new THREE.Color('#a78bfa');
-  const cWhite = new THREE.Color('#e2e8f0');
-
-  function sampleHead() {
-    // surface of ellipsoid
-    const u = Math.random() * Math.PI * 2;
-    const v = Math.acos(2 * Math.random() - 1);
-    const rx = 0.72, ry = 0.88, rz = 0.62;
-    let x = rx * Math.sin(v) * Math.cos(u);
-    let y = ry * Math.cos(v) + 0.55;
-    let z = rz * Math.sin(v) * Math.sin(u);
-    // slight jaw taper
-    if (y < 0.35) {
-      const t = (0.35 - y) / 0.7;
-      x *= 1 - t * 0.22;
-      z *= 1 - t * 0.18;
-    }
-    // eye hollows (push inward / dim later)
-    const leftEye = Math.hypot(x + 0.22, y - 0.7, z - 0.35);
-    const rightEye = Math.hypot(x - 0.22, y - 0.7, z - 0.35);
-    const eye = Math.min(leftEye, rightEye) < 0.14;
-    return { x, y, z, eye };
-  }
-
-  function sampleShoulder() {
-    const x = (Math.random() - 0.5) * 1.7;
-    const y = -0.35 - Math.random() * 0.85;
-    const z = (Math.random() - 0.5) * 0.45 - 0.05;
-    // keep under head width curve
-    const maxX = 0.55 + (-y) * 0.55;
-    return { x: Math.max(-maxX, Math.min(maxX, x)), y, z, eye: false };
-  }
-
-  for (let i = 0; i < count; i++) {
-    const onHead = i < count * 0.72;
-    const s = onHead ? sampleHead() : sampleShoulder();
-    positions[i * 3] = s.x;
-    positions[i * 3 + 1] = s.y;
-    positions[i * 3 + 2] = s.z;
-    bases[i * 3] = s.x;
-    bases[i * 3 + 1] = s.y;
-    bases[i * 3 + 2] = s.z;
-    let col = onHead ? cTeal : cViolet;
-    if (s.eye) col = cWhite;
-    if (onHead && s.y > 0.95) col = cViolet.clone().lerp(cTeal, 0.4);
-    colors[i * 3] = col.r;
-    colors[i * 3 + 1] = col.g;
-    colors[i * 3 + 2] = col.b;
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const points = new THREE.Points(
-    geo,
-    new THREE.PointsMaterial({
-      size: 0.022,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.92,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      sizeAttenuation: true,
-    })
-  );
-  scene.add(points);
-
-  // Orbit ring
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1.35, 0.008, 12, 120),
-    new THREE.MeshBasicMaterial({ color: 0x5eead4, transparent: true, opacity: 0.35 })
-  );
-  ring.rotation.x = Math.PI / 2.4;
-  ring.position.y = 0.15;
-  scene.add(ring);
-
-  const ring2 = new THREE.Mesh(
-    new THREE.TorusGeometry(1.55, 0.006, 12, 140),
-    new THREE.MeshBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.22 })
-  );
-  ring2.rotation.x = Math.PI / 2.1;
-  ring2.rotation.z = 0.4;
-  ring2.position.y = 0.05;
-  scene.add(ring2);
-
-  // sparse ambient dust
-  const dustN = 400;
-  const dustPos = new Float32Array(dustN * 3);
-  for (let i = 0; i < dustN; i++) {
-    dustPos[i * 3] = (Math.random() - 0.5) * 6;
-    dustPos[i * 3 + 1] = (Math.random() - 0.5) * 4;
-    dustPos[i * 3 + 2] = -1 - Math.random() * 3;
-  }
-  const dust = new THREE.Points(
-    new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(dustPos, 3)),
-    new THREE.PointsMaterial({ color: 0x64748b, size: 0.012, transparent: true, opacity: 0.35 })
-  );
-  scene.add(dust);
-
-  function resize() {
-    const parent = canvas.parentElement;
-    const w = parent.clientWidth;
-    const h = parent.clientHeight;
-    renderer.setSize(w, h, false);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  let t = 0;
-  const pos = geo.attributes.position;
-  function frame() {
-    t += 0.01;
-    const listen = state.status === 'LISTENING';
-    const speakNow = state.status === 'SPEAKING';
-    const amp = speakNow ? 0.028 : listen ? 0.018 : 0.008;
-    for (let i = 0; i < count; i++) {
-      const bx = bases[i * 3];
-      const by = bases[i * 3 + 1];
-      const bz = bases[i * 3 + 2];
-      // keep motion subtle so silhouette stays readable
-      pos.array[i * 3] = bx + Math.sin(t * 1.6 + by * 3) * amp;
-      pos.array[i * 3 + 1] = by + Math.cos(t * 1.4 + bx * 2.5) * amp * 0.7;
-      pos.array[i * 3 + 2] = bz + Math.sin(t * 1.2 + bx) * amp * 0.5;
-    }
-    pos.needsUpdate = true;
-    points.rotation.y = Math.sin(t * 0.22) * 0.18;
-    const pulse = speakNow ? 1.06 + Math.sin(t * 8) * 0.03 : listen ? 1.03 + Math.sin(t * 4) * 0.015 : 1 + Math.sin(t * 1.5) * 0.008;
-    core.scale.setScalar(pulse);
-    core2.scale.setScalar(pulse * (speakNow ? 1.08 : 1));
-    core.material.opacity = speakNow ? 0.28 : listen ? 0.22 : 0.16;
-    ring.rotation.z = t * 0.15;
-    ring2.rotation.z = -t * 0.1;
-    dust.rotation.y = t * 0.03;
-    renderer.render(scene, camera);
-    requestAnimationFrame(frame);
-  }
-  frame();
+function dist(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
+  return Math.hypot(dx, dy, dz);
 }
 
-function bindMicWake() {
-  if (!navigator.mediaDevices?.getUserMedia) return;
-  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-    const ctx = new AudioContext();
-    const src = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    src.connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    let cool = 0;
-    const loop = () => {
-      analyser.getByteFrequencyData(data);
-      const avg = data.reduce((a, b) => a + b, 0) / data.length;
-      if (cool <= 0 && avg > 58 && state.status === 'IDLE') {
-        cool = 100;
-        wake();
-      }
-      cool = Math.max(0, cool - 1);
-      requestAnimationFrame(loop);
-    };
-    loop();
-  }).catch(() => {});
+async function enablePinchCamera() {
+  if (state.gestureOn) {
+    speak('Pinch camera already on.');
+    return;
+  }
+  if (!window.Hands || !window.Camera) {
+    speak('Pinch camera library failed to load. Use Wake or voice instead.');
+    return;
+  }
+  const video = $('gestureCam');
+  video.style.display = 'block';
+  const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5,
+  });
+  let cool = 0;
+  hands.onResults((results) => {
+    if (cool > 0) { cool -= 1; return; }
+    const hand = results.multiHandLandmarks?.[0];
+    if (!hand) return;
+    if (dist(hand[4], hand[8]) < 0.05) {
+      cool = 45;
+      setStatus('LISTENING');
+      speak('Pinch recognized. DGS AI listening.');
+    }
+  });
+  const camera = new Camera(video, {
+    onFrame: async () => { await hands.send({ image: video }); },
+    width: 320,
+    height: 240,
+  });
+  await camera.start();
+  state.gestureOn = true;
+  speak('Pinch camera enabled. Pinch thumb and index to wake.');
 }
 
-$('analyzeBtn').onclick = () => { analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
-$('paperBtn').onclick = paperEnter;
-$('wakeBtn').onclick = wake;
-$('briefBtn').onclick = marketBrief;
-$('chartBtn').onclick = openChart;
-$('listenBtn').onclick = startVoiceListen;
-$('gestureBtn').onclick = () => { enablePinchCamera().catch(() => speak('Could not start pinch camera.')); };
-$('haltBtn').onclick = forceHalt;
-$('resetDayBtn').onclick = resetDay;
-$('clearBookBtn').onclick = clearBook;
-$('presetScalp').onclick = () => {
-  $('mode').value = 'SCALP';
-  $('riskPct').value = '0.35';
-  $('dailyLoss').value = '1.5';
-  $('minRr').value = '1.3';
-  $('maxHold').value = '15';
-  $('maxTrades').value = '10';
-  $('noOvernight').checked = true;
-  analyzeRisk();
-  speak('Scalp preset loaded.');
-};
-$('presetDay').onclick = () => {
-  $('mode').value = 'INTRADAY';
-  $('riskPct').value = '0.5';
-  $('dailyLoss').value = '2';
-  $('minRr').value = '1.5';
-  $('maxHold').value = '90';
-  $('maxTrades').value = '6';
-  $('noOvernight').checked = true;
-  analyzeRisk();
-  speak('Intraday day-trade preset loaded.');
-};
-$('presetMom').onclick = () => {
-  $('mode').value = 'MOMENTUM';
-  $('riskPct').value = '0.75';
-  $('dailyLoss').value = '2.5';
-  $('minRr').value = '2';
-  $('maxHold').value = '180';
-  $('maxTrades').value = '4';
-  $('noOvernight').checked = true;
-  analyzeRisk();
-  speak('Momentum day-trade preset loaded.');
-};
+function openDrawer(name) {
+  closeDrawers();
+  const el = $(`drawer-${name}`);
+  if (!el) return;
+  el.classList.add('open');
+  $('backdrop').classList.remove('hidden');
+}
 
-['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target','mode','maxTrades','maxHold'].forEach((id) => {
-  $(id).addEventListener('change', () => { analyzeRisk(); if (id === 'equity') saveState(); });
-  $(id).addEventListener('input', analyzeRisk);
-});
+function closeDrawers() {
+  document.querySelectorAll('.drawer').forEach((d) => d.classList.remove('open'));
+  $('backdrop').classList.add('hidden');
+}
 
-$('noOvernight').addEventListener('change', analyzeRisk);
-loadState();
-renderAgents();
-renderBook();
-analyzeRisk();
-initHumanoid();
-bindMicWake();
-setStatus('IDLE');
-if (state.halted) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
-
-
-// --- Mode tabs: Trading (primary) / Social / Work ---
 function setAppMode(mode) {
-  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.mode === mode));
-  document.querySelectorAll('.mode-panel').forEach((panel) => panel.classList.add('hidden'));
-  const panel = document.getElementById(`panel-${mode}`);
-  if (panel) panel.classList.remove('hidden');
-  if (mode === 'trading') speak('Trading mode. Intraday priority.');
-  if (mode === 'social') speak('Social mode. Drafts only until you approve.');
-  if (mode === 'work') speak('Work mode. Plans and drafts ready.');
+  if (mode === 'trading') openDrawer('risk');
+  if (mode === 'social') openDrawer('social');
+  if (mode === 'work') openDrawer('work');
 }
-
-document.querySelectorAll('.tab').forEach((tab) => {
-  tab.addEventListener('click', () => setAppMode(tab.dataset.mode));
-});
 
 function draftSocial() {
   const platform = $('socialPlatform').value;
@@ -605,7 +808,7 @@ function draftSocial() {
     'Founder story': 'I built DGS AI so my day trades answer to risk first, not adrenaline.',
   };
   const hook = hooks[tone] || hooks.Professional;
-  const lines = [
+  $('socialOut').textContent = [
     `PLATFORM: ${platform}`,
     `TONE: ${tone}`,
     '',
@@ -613,11 +816,7 @@ function draftSocial() {
     '',
     `Topic: ${topic}`,
     '',
-    'DGS AI runs:',
-    '- Hard risk percent per trade',
-    '- Daily loss and drawdown halt',
-    '- Flat-by-session for intraday',
-    '',
+    'DGS AI runs hard risk percent, daily loss halt, and flat-by-session for intraday.',
     'Built by Dineshgopi Sunkara. Paper first. No guaranteed profit.',
     '',
     platform === 'LinkedIn'
@@ -625,8 +824,7 @@ function draftSocial() {
       : 'CTA: Save this for the open.',
     '',
     'HASHTAGS: #DayTrading #RiskManagement #DGSAI #Intraday',
-  ];
-  $('socialOut').textContent = lines.join('\n');
+  ].join('\n');
   speak('Social draft ready. Review before posting.');
 }
 
@@ -636,8 +834,7 @@ function socialChecklist() {
     '1) One educational intraday risk post',
     '2) One screenshot of risk gate (no fake P&L claims)',
     '3) Reply to 5 comments with useful risk tips',
-    '4) Ask DGS AI chat to schedule tomorrow draft',
-    '5) Never post broker login screens or account numbers',
+    '4) Never post broker login screens or account numbers',
   ].join('\n');
   speak('Social checklist loaded.');
 }
@@ -659,7 +856,6 @@ function runWork() {
       '1) ',
       '',
       'Trading block: only while risk gate is healthy; flatten before session end.',
-      'Social block: one draft + replies.',
       'Shutdown: review paper book + tomorrow bias.',
     ].join('\n');
   } else if (type === 'Client email') {
@@ -687,9 +883,6 @@ function runWork() {
       'Actions:',
       '[ ] Owner — task — due',
       '[ ] Owner — task — due',
-      '',
-      'Risks / blockers:',
-      '-',
     ].join('\n');
   } else {
     out = [
@@ -708,6 +901,187 @@ function runWork() {
   speak('Work draft ready.');
 }
 
-$('socialDraftBtn').onclick = draftSocial;
-$('socialChecklistBtn').onclick = socialChecklist;
-$('workRunBtn').onclick = runWork;
+function seedCssNodes() {
+  const box = $('cssNodes');
+  if (!box) return;
+  const spots = [
+    [18, 22], [78, 18], [88, 48], [12, 58], [70, 78], [30, 82],
+    [50, 12], [8, 36], [92, 70], [42, 90], [60, 28], [24, 44],
+  ];
+  box.innerHTML = spots.map(([x, y], i) =>
+    `<span class="node" style="left:${x}%;top:${y}%;animation-delay:${i * 0.18}s"></span>`
+  ).join('');
+}
+
+function initHumanoid() {
+  const canvas = $('humanoid');
+  if (!canvas) return;
+  try {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    camera.position.set(0, 0.05, 3.15);
+
+    const teal = 0x5eead4;
+    const violet = 0xa78bfa;
+
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(0.42, 48, 48),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.22 })
+    );
+    scene.add(core);
+    const core2 = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })
+    );
+    scene.add(core2);
+
+    const ico = new THREE.IcosahedronGeometry(1.05, 1);
+    const pos = ico.attributes.position;
+    const n = pos.count;
+    const colors = new Float32Array(n * 3);
+    const cTeal = new THREE.Color(teal);
+    const cViolet = new THREE.Color(violet);
+    for (let i = 0; i < n; i++) {
+      const col = i % 2 ? cTeal : cViolet;
+      colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
+    }
+    ico.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const nodes = new THREE.Points(ico, new THREE.PointsMaterial({
+      size: 0.045, vertexColors: true, transparent: true, opacity: 0.9,
+      depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+    }));
+    scene.add(nodes);
+
+    const lineGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.05, 1));
+    const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
+      color: teal, transparent: true, opacity: 0.16,
+    }));
+    scene.add(lines);
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.28, 0.008, 12, 120),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.42 })
+    );
+    ring.rotation.x = Math.PI / 2.25;
+    scene.add(ring);
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(1.55, 0.006, 12, 140),
+      new THREE.MeshBasicMaterial({ color: violet, transparent: true, opacity: 0.26 })
+    );
+    ring2.rotation.x = Math.PI / 2.05;
+    ring2.rotation.z = 0.4;
+    scene.add(ring2);
+
+    function resize() {
+      const parent = canvas.parentElement;
+      const w = Math.max(parent.clientWidth || 0, 280);
+      const h = Math.max(parent.clientHeight || 0, 360);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    let t = 0;
+    function frame() {
+      t += 0.012;
+      const speakNow = state.status === 'SPEAKING';
+      const listen = state.status === 'LISTENING';
+      const pulse = speakNow ? 1.07 + Math.sin(t * 7) * 0.03 : listen ? 1.03 + Math.sin(t * 4) * 0.015 : 1 + Math.sin(t) * 0.01;
+      core.scale.setScalar(pulse);
+      core2.scale.setScalar(pulse);
+      const yaw = t * 0.12;
+      nodes.rotation.y = yaw;
+      lines.rotation.y = yaw;
+      ring.rotation.z = t * 0.14;
+      ring2.rotation.z = -t * 0.09;
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    }
+    frame();
+  } catch (err) {
+    console.error('Humanoid WebGL failed', err);
+  }
+}
+
+function bindUi() {
+  $('wakeBtn').onclick = wake;
+  $('listenBtn').onclick = startVoiceListen;
+  $('briefBtn').onclick = () => { marketBrief(); };
+  $('chartBtn').onclick = () => openChart(parseSymbol($('symbol')?.value || state.lastSymbol));
+  $('closeChartBtn').onclick = closeChart;
+  $('sendPhoneBtn').onclick = () => { sendChartToPhone(state.lastSymbol); };
+  $('openTvTabBtn').onclick = () => window.open(chartPageUrl(state.lastSymbol), '_blank', 'noopener,noreferrer');
+  $('openRiskBtn').onclick = () => openDrawer('risk');
+  $('backdrop').onclick = closeDrawers;
+  document.querySelectorAll('.drawer-close').forEach((btn) => {
+    btn.onclick = closeDrawers;
+  });
+  document.querySelectorAll('.quiet-tabs .tab').forEach((tab) => {
+    tab.addEventListener('click', () => setAppMode(tab.dataset.mode));
+  });
+
+  $('analyzeBtn').onclick = () => { analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
+  $('paperBtn').onclick = paperEnter;
+  $('haltBtn').onclick = forceHalt;
+  $('resetDayBtn').onclick = resetDay;
+  $('clearBookBtn').onclick = clearBook;
+  $('gestureBtn').onclick = () => { enablePinchCamera().catch(() => speak('Could not start pinch camera.')); };
+  $('downloadCardBtn').onclick = downloadShareCard;
+  $('socialDraftBtn').onclick = draftSocial;
+  $('socialChecklistBtn').onclick = socialChecklist;
+  $('workRunBtn').onclick = runWork;
+
+  $('presetScalp').onclick = () => {
+    $('mode').value = 'SCALP';
+    $('riskPct').value = '0.35';
+    $('dailyLoss').value = '1.5';
+    $('minRr').value = '1.3';
+    $('maxHold').value = '15';
+    $('maxTrades').value = '10';
+    $('noOvernight').checked = true;
+    analyzeRisk();
+    speak('Scalp preset loaded.');
+  };
+  $('presetDay').onclick = () => {
+    $('mode').value = 'INTRADAY';
+    $('riskPct').value = '0.5';
+    $('dailyLoss').value = '2';
+    $('minRr').value = '1.5';
+    $('maxHold').value = '90';
+    $('maxTrades').value = '6';
+    $('noOvernight').checked = true;
+    analyzeRisk();
+    speak('Intraday day-trade preset loaded.');
+  };
+  $('presetMom').onclick = () => {
+    $('mode').value = 'MOMENTUM';
+    $('riskPct').value = '0.75';
+    $('dailyLoss').value = '2.5';
+    $('minRr').value = '2';
+    $('maxHold').value = '180';
+    $('maxTrades').value = '4';
+    $('noOvernight').checked = true;
+    analyzeRisk();
+    speak('Momentum day-trade preset loaded.');
+  };
+
+  ['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target','mode','maxTrades','maxHold'].forEach((id) => {
+    $(id).addEventListener('change', () => { analyzeRisk(); if (id === 'equity') saveState(); });
+    $(id).addEventListener('input', analyzeRisk);
+  });
+  $('noOvernight').addEventListener('change', analyzeRisk);
+}
+
+seedCssNodes();
+loadState();
+bindUi();
+renderBook();
+analyzeRisk();
+initHumanoid();
+setStatus('IDLE');
+if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';

@@ -2,153 +2,208 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DGS AI — Trading · Social · Work</title>
-  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Intraday trading humanoid with hard risk gates, plus social routines and work helpers." />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050508" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>DGS AI</title>
+  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant: market brief, charts, paper risk gates. Paper only. No broker." />
   <link rel="stylesheet" href="css/styles.css" />
   <script type="importmap">
-  { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  { "imports": { "three": "./js/vendor/three.module.js" } }
   </script>
 </head>
 <body>
-  <div class="app">
+  <div class="app" data-ui="voice-stage" id="app">
     <header class="topbar">
-      <div>
-        <p class="brand">DGS AI</p>
-        <p class="sub">Dineshgopi Sunkara · Trading first · Social routines · Work ops · Paper risk guard</p>
-      </div>
+      <p class="brand">DGS AI</p>
       <div class="status-pill" id="statusPill" data-state="IDLE">STATUS : IDLE</div>
     </header>
 
-    <nav class="mode-tabs" role="tablist">
-      <button class="tab active" data-mode="trading" type="button">Trading</button>
-      <button class="tab" data-mode="social" type="button">Social</button>
-      <button class="tab" data-mode="work" type="button">Work</button>
+    <main class="stage" id="stage">
+      <div class="orb-fallback" id="orbFallback" aria-hidden="true">
+        <div class="ring"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="nodes" id="cssNodes"></div>
+        <div class="orb">
+          <div class="orb-halo"></div>
+          <div class="orb-core"></div>
+        </div>
+      </div>
+      <canvas id="humanoid"></canvas>
+
+      <div class="transcript" id="transcript" aria-live="polite"></div>
+      <p class="hint" id="hint">Say wake · market brief · show NVDA chart · send to my phone</p>
+    </main>
+
+    <section class="chart-overlay hidden" id="chartOverlay" data-ui="chart-stage">
+      <div class="chart-head">
+        <div>
+          <p class="chart-kicker">DGS AI · chart</p>
+          <h2 id="chartTitle">NVDA</h2>
+        </div>
+        <button type="button" class="icon-btn" id="closeChartBtn">Close</button>
+      </div>
+      <iframe id="tvFrame" title="TradingView chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <div class="chart-dock">
+        <button type="button" class="btn btn-accent" id="sendPhoneBtn">Send to phone</button>
+        <button type="button" class="btn" id="openTvTabBtn">Open TradingView</button>
+      </div>
+    </section>
+
+    <nav class="dock" id="dock">
+      <button type="button" class="dock-btn" id="wakeBtn"><span>Wake</span></button>
+      <button type="button" class="dock-btn" id="listenBtn"><span>Talk</span></button>
+      <button type="button" class="dock-btn" id="briefBtn"><span>Market brief</span></button>
+      <button type="button" class="dock-btn" id="chartBtn"><span>Open chart</span></button>
     </nav>
 
-    <main class="grid">
-      <section class="stage">
-        <canvas id="humanoid"></canvas>
-        <div class="stage-overlay">
-          <p class="hint" id="hint">Talk to DGS AI · Wake · market brief · open chart · analyze risk</p>
-          <p class="agent-count" id="agentCount">9 agents online</p>
-          <div class="agent-row" id="agentRow"></div>
-        </div>
-      </section>
-
-      <aside class="panel">
-        <!-- TRADING (primary) -->
-        <div class="mode-panel" id="panel-trading">
-          <h2>Session · Intraday</h2>
-          <label>Mode
-            <select id="mode">
-              <option value="SCALP">Scalp (very short)</option>
-              <option value="INTRADAY" selected>Intraday / day trade</option>
-              <option value="MOMENTUM">Momentum day trade</option>
-            </select>
-          </label>
-          <label>Max trades today <input id="maxTrades" type="number" value="6" min="1" max="30" step="1" /></label>
-          <label>Max hold (minutes) <input id="maxHold" type="number" value="90" min="5" max="390" step="5" /></label>
-          <label class="check"><input id="noOvernight" type="checkbox" checked /> Flat by session end (no overnight)</label>
-          <div class="btn-row">
-            <button id="presetScalp" class="btn" type="button">Preset: Scalp</button>
-            <button id="presetDay" class="btn" type="button">Preset: Day</button>
-            <button id="presetMom" class="btn" type="button">Preset: Momentum</button>
-          </div>
-
-          <h2>Risk Gate</h2>
-          <div class="stats">
-            <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
-            <div><span>Drawdown</span><strong id="ddNow">0.00%</strong></div>
-            <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
-          </div>
-          <label>Equity (paper) <input id="equity" type="number" value="10000" min="100" step="100" /></label>
-          <label>Max risk / trade % <input id="riskPct" type="number" value="0.5" min="0.1" max="5" step="0.1" /></label>
-          <label>Max daily loss % <input id="dailyLoss" type="number" value="2" min="0.5" max="10" step="0.5" /></label>
-          <label>Max drawdown % <input id="maxDd" type="number" value="10" min="1" max="30" step="1" /></label>
-          <label>Min reward:risk <input id="minRr" type="number" value="1.5" min="1" max="5" step="0.1" /></label>
-          <div class="meter"><span>Risk score (lower is safer)</span><div class="bar"><i id="riskBar"></i></div><strong id="riskScore">0</strong></div>
-          <p class="gate closed" id="gateMsg">Gate: CLOSED until a setup passes risk</p>
-
-          <h2>Proposed setup</h2>
-          <label>Symbol <input id="symbol" type="text" value="NVDA" /></label>
-          <label>Side
-            <select id="side"><option>LONG</option><option>SHORT</option></select>
-          </label>
-          <label>Entry <input id="entry" type="number" value="120" step="0.01" /></label>
-          <label>Stop <input id="stop" type="number" value="114" step="0.01" /></label>
-          <label>Target <input id="target" type="number" value="135" step="0.01" /></label>
-          <button id="analyzeBtn" class="btn">Analyze risk</button>
-          <button id="paperBtn" class="btn btn-accent" disabled>Paper enter (gate must open)</button>
-          <pre id="analysis" class="analysis"></pre>
-
-          <h2>Voice / commands</h2>
-          <div class="btn-row">
-            <button id="wakeBtn" class="btn">Wake</button>
-            <button id="briefBtn" class="btn">Market brief</button>
-            <button id="chartBtn" class="btn">Open chart</button>
-          </div>
-          <button id="listenBtn" class="btn">Start talk mode</button>
-          <button id="gestureBtn" class="btn">Enable pinch camera</button>
-          <div class="btn-row">
-            <button id="haltBtn" class="btn btn-danger">Force halt</button>
-            <button id="resetDayBtn" class="btn">Reset day P&amp;L</button>
-            <button id="clearBookBtn" class="btn">Clear book</button>
-          </div>
-          <video id="gestureCam" playsinline muted style="display:none;width:100%;max-height:120px;border-radius:10px;margin:0.4rem 0;object-fit:cover;border:1px solid #1b2733"></video>
-          <p class="log" id="voiceLog">DGS AI idle. Day-trading risk guard armed.</p>
-
-          <h2>Paper book</h2>
-          <ul id="book" class="book"></ul>
-          <p class="fine">Primary role: intraday &amp; day trading. Paper only. No broker. No guaranteed profit. Bad size is blocked.</p>
-        </div>
-
-        <!-- SOCIAL -->
-        <div class="mode-panel hidden" id="panel-social">
-          <h2>Social routines</h2>
-          <p class="blurb">Draft posts, captions, and a daily posting checklist. Controlled by DGS AI — you approve before anything goes live.</p>
-          <label>Platform
-            <select id="socialPlatform">
-              <option>LinkedIn</option>
-              <option>Instagram</option>
-              <option>X</option>
-              <option>TikTok</option>
-            </select>
-          </label>
-          <label>Topic / offer <input id="socialTopic" type="text" value="Intraday risk discipline with DGS AI" /></label>
-          <label>Tone
-            <select id="socialTone">
-              <option>Professional</option>
-              <option>Bold</option>
-              <option>Educational</option>
-              <option>Founder story</option>
-            </select>
-          </label>
-          <button id="socialDraftBtn" class="btn btn-accent">Draft post</button>
-          <button id="socialChecklistBtn" class="btn">Today’s social checklist</button>
-          <pre id="socialOut" class="analysis"></pre>
-          <p class="fine">Does not auto-post from this page. Use DGS AI chat to schedule/post after you approve.</p>
-        </div>
-
-        <!-- WORK -->
-        <div class="mode-panel hidden" id="panel-work">
-          <h2>Work ops</h2>
-          <p class="blurb">Turn messy work into a clear plan, email, or SOP — same DGS AI control layer.</p>
-          <label>Task type
-            <select id="workType">
-              <option>Daily priorities</option>
-              <option>Client email</option>
-              <option>Meeting notes → actions</option>
-              <option>SOP checklist</option>
-            </select>
-          </label>
-          <label>Details <textarea id="workInput" rows="5" placeholder="Paste context, bullets, or a messy dump…"></textarea></label>
-          <button id="workRunBtn" class="btn btn-accent">Generate</button>
-          <pre id="workOut" class="analysis"></pre>
-        </div>
-      </aside>
-    </main>
+    <nav class="quiet-tabs" aria-label="Secondary">
+      <button type="button" id="openRiskBtn">Risk &amp; book</button>
+      <button type="button" class="tab" data-mode="social">Social</button>
+      <button type="button" class="tab" data-mode="work">Work</button>
+    </nav>
   </div>
+
+  <div class="backdrop hidden" id="backdrop"></div>
+
+  <aside class="drawer" id="drawer-risk">
+    <div class="drawer-handle"></div>
+    <div class="drawer-head">
+      <h2>Risk &amp; paper book</h2>
+      <button type="button" class="icon-btn drawer-close" data-close="risk">Close</button>
+    </div>
+    <p class="fine">Paper only. No broker connection. DGS AI will not place a live order.</p>
+
+    <div class="stats">
+      <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
+      <div><span>Drawdown</span><strong id="ddNow">0.00%</strong></div>
+      <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
+    </div>
+
+    <details open>
+      <summary>Session</summary>
+      <label>Mode
+        <select id="mode">
+          <option value="SCALP">Scalp (very short)</option>
+          <option value="INTRADAY" selected>Intraday / day trade</option>
+          <option value="MOMENTUM">Momentum day trade</option>
+        </select>
+      </label>
+      <label>Max trades today <input id="maxTrades" type="number" value="6" min="1" max="30" step="1" /></label>
+      <label>Max hold (minutes) <input id="maxHold" type="number" value="90" min="5" max="390" step="5" /></label>
+      <label class="check"><input id="noOvernight" type="checkbox" checked /> Flat by session end (no overnight)</label>
+      <div class="btn-row">
+        <button id="presetScalp" class="btn" type="button">Scalp</button>
+        <button id="presetDay" class="btn" type="button">Day</button>
+        <button id="presetMom" class="btn" type="button">Momentum</button>
+      </div>
+    </details>
+
+    <details>
+      <summary>Risk gates</summary>
+      <label>Equity (paper) <input id="equity" type="number" value="10000" min="100" step="100" /></label>
+      <label>Max risk / trade % <input id="riskPct" type="number" value="0.5" min="0.1" max="5" step="0.1" /></label>
+      <label>Max daily loss % <input id="dailyLoss" type="number" value="2" min="0.5" max="10" step="0.5" /></label>
+      <label>Max drawdown % <input id="maxDd" type="number" value="10" min="1" max="30" step="1" /></label>
+      <label>Min reward:risk <input id="minRr" type="number" value="1.5" min="1" max="5" step="0.1" /></label>
+      <div class="meter"><span>Risk score (lower is safer)</span><div class="bar"><i id="riskBar"></i></div><strong id="riskScore">0</strong></div>
+      <p class="gate closed" id="gateMsg">Gate: CLOSED until a setup passes risk</p>
+    </details>
+
+    <details>
+      <summary>Proposed setup</summary>
+      <label>Symbol <input id="symbol" type="text" value="NVDA" autocomplete="off" /></label>
+      <label>Side
+        <select id="side"><option>LONG</option><option>SHORT</option></select>
+      </label>
+      <label>Entry <input id="entry" type="number" value="120" step="0.01" /></label>
+      <label>Stop <input id="stop" type="number" value="114" step="0.01" /></label>
+      <label>Target <input id="target" type="number" value="135" step="0.01" /></label>
+      <button id="analyzeBtn" class="btn" type="button">Analyze risk</button>
+      <button id="paperBtn" class="btn btn-accent" type="button" disabled>Paper enter (gate must open)</button>
+      <pre id="analysis" class="analysis"></pre>
+    </details>
+
+    <div class="btn-row">
+      <button id="haltBtn" class="btn btn-danger" type="button">Force halt</button>
+      <button id="resetDayBtn" class="btn" type="button">Reset day P&amp;L</button>
+      <button id="clearBookBtn" class="btn" type="button">Clear book</button>
+    </div>
+    <button id="gestureBtn" class="btn" type="button">Enable pinch camera</button>
+    <video id="gestureCam" playsinline muted></video>
+    <p class="log" id="voiceLog">DGS AI idle. Paper risk guard armed.</p>
+
+    <h3>Paper book</h3>
+    <ul id="book" class="book"></ul>
+    <p class="fine">Founder: Dineshgopi Sunkara. Paper only. No guaranteed profit. Bad size is blocked.</p>
+  </aside>
+
+  <aside class="drawer" id="drawer-social">
+    <div class="drawer-handle"></div>
+    <div class="drawer-head">
+      <h2>Social</h2>
+      <button type="button" class="icon-btn drawer-close" data-close="social">Close</button>
+    </div>
+    <p class="blurb">Drafts and checklists only. You approve before anything goes live.</p>
+    <label>Platform
+      <select id="socialPlatform">
+        <option>LinkedIn</option>
+        <option>Instagram</option>
+        <option>X</option>
+        <option>TikTok</option>
+      </select>
+    </label>
+    <label>Topic / offer <input id="socialTopic" type="text" value="Intraday risk discipline with DGS AI" /></label>
+    <label>Tone
+      <select id="socialTone">
+        <option>Professional</option>
+        <option>Bold</option>
+        <option>Educational</option>
+        <option>Founder story</option>
+      </select>
+    </label>
+    <button id="socialDraftBtn" class="btn btn-accent" type="button">Draft post</button>
+    <button id="socialChecklistBtn" class="btn" type="button">Today’s social checklist</button>
+    <pre id="socialOut" class="analysis"></pre>
+  </aside>
+
+  <aside class="drawer" id="drawer-work">
+    <div class="drawer-handle"></div>
+    <div class="drawer-head">
+      <h2>Work</h2>
+      <button type="button" class="icon-btn drawer-close" data-close="work">Close</button>
+    </div>
+    <p class="blurb">Plans, emails, actions, SOPs. Same DGS AI control layer.</p>
+    <label>Task type
+      <select id="workType">
+        <option>Daily priorities</option>
+        <option>Client email</option>
+        <option>Meeting notes → actions</option>
+        <option>SOP checklist</option>
+      </select>
+    </label>
+    <label>Details <textarea id="workInput" rows="5" placeholder="Paste context, bullets, or a messy dump…"></textarea></label>
+    <button id="workRunBtn" class="btn btn-accent" type="button">Generate</button>
+    <pre id="workOut" class="analysis"></pre>
+  </aside>
+
+  <aside class="drawer" id="drawer-share" data-ui="share-sheet">
+    <div class="drawer-handle"></div>
+    <div class="drawer-head">
+      <h2>Send to phone</h2>
+      <button type="button" class="icon-btn drawer-close" data-close="share">Close</button>
+    </div>
+    <p class="blurb" id="shareStatus">Packaging a chart card you can save or open on another device.</p>
+    <img id="sharePreview" alt="DGS AI chart card preview" />
+    <img id="shareQr" alt="QR code to TradingView chart" />
+    <a id="shareLink" class="share-link" target="_blank" rel="noopener noreferrer" href="#">Open chart link</a>
+    <button id="downloadCardBtn" class="btn btn-accent" type="button">Download PNG</button>
+  </aside>
+
+  <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
+
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script type="module" src="js/app.js"></script>
