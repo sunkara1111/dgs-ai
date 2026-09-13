@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#050508" />
+  <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
-  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant: market brief, charts, paper risk gates. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css" />
+  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
+  <link rel="stylesheet" href="css/styles.css?v=20260913orb" />
   <script type="importmap">
   { "imports": { "three": "./js/vendor/three.module.js" } }
   </script>
@@ -17,11 +17,14 @@
   <div class="app" data-ui="voice-stage" id="app">
     <header class="topbar">
       <p class="brand">DGS AI</p>
-      <div class="status-pill" id="statusPill" data-state="IDLE">STATUS : IDLE</div>
+      <div class="status-pill" id="statusPill" data-state="IDLE">IDLE</div>
     </header>
 
     <main class="stage" id="stage">
       <div class="orb-fallback" id="orbFallback" aria-hidden="true">
+        <svg class="orbit-svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+          <g class="spokes" id="cssSpokes"></g>
+        </svg>
         <div class="ring"></div>
         <div class="ring r2"></div>
         <div class="ring r3"></div>
@@ -31,10 +34,16 @@
           <div class="orb-core"></div>
         </div>
       </div>
-      <canvas id="humanoid"></canvas>
+      <canvas id="humanoid" aria-hidden="true"></canvas>
+
+      <div class="stage-labels" aria-hidden="true">
+        <span class="slabel s1">listen</span>
+        <span class="slabel s2">brief</span>
+        <span class="slabel s3">chart</span>
+      </div>
 
       <div class="transcript" id="transcript" aria-live="polite"></div>
-      <p class="hint" id="hint">Say wake · market brief · show NVDA chart · send to my phone</p>
+      <p class="hint" id="hint">say wake · quote bitcoin · crypto brief · show NVDA chart</p>
     </main>
 
     <section class="chart-overlay hidden" id="chartOverlay" data-ui="chart-stage">
@@ -45,24 +54,30 @@
         </div>
         <button type="button" class="icon-btn" id="closeChartBtn">Close</button>
       </div>
-      <iframe id="tvFrame" title="TradingView chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <iframe id="tvFrame" title="DGS AI chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
       <div class="chart-dock">
         <button type="button" class="btn btn-accent" id="sendPhoneBtn">Send to phone</button>
-        <button type="button" class="btn" id="openTvTabBtn">Open TradingView</button>
+        <button type="button" class="btn" id="openTvTabBtn">Open full chart</button>
       </div>
     </section>
 
     <nav class="dock" id="dock">
       <button type="button" class="dock-btn" id="wakeBtn"><span>Wake</span></button>
       <button type="button" class="dock-btn" id="listenBtn"><span>Talk</span></button>
-      <button type="button" class="dock-btn" id="briefBtn"><span>Market brief</span></button>
-      <button type="button" class="dock-btn" id="chartBtn"><span>Open chart</span></button>
+      <button type="button" class="dock-btn" id="briefBtn"><span>Brief</span></button>
+      <button type="button" class="dock-btn" id="chartBtn"><span>Chart</span></button>
     </nav>
 
-    <nav class="quiet-tabs" aria-label="Secondary">
-      <button type="button" id="openRiskBtn">Risk &amp; book</button>
-      <button type="button" class="tab" data-mode="social">Social</button>
-      <button type="button" class="tab" data-mode="work">Work</button>
+    <nav class="corner-rail" aria-label="Modules">
+      <button type="button" id="openRiskBtn" title="Risk &amp; book" aria-label="Risk and paper book">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 19V5M4 19h16M8 15V9M12 15V7M16 15v-3"/></svg>
+      </button>
+      <button type="button" class="tab" data-mode="social" title="Social" aria-label="Social">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg>
+      </button>
+      <button type="button" class="tab" data-mode="work" title="Work" aria-label="Work">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+      </button>
     </nav>
   </div>
 
@@ -74,7 +89,7 @@
       <h2>Risk &amp; paper book</h2>
       <button type="button" class="icon-btn drawer-close" data-close="risk">Close</button>
     </div>
-    <p class="fine">Paper only. No broker connection. DGS AI will not place a live order.</p>
+    <p class="fine">Paper only. No broker. DGS AI will not place a live order.</p>
 
     <div class="stats">
       <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
@@ -137,7 +152,7 @@
 
     <h3>Paper book</h3>
     <ul id="book" class="book"></ul>
-    <p class="fine">Founder: Dineshgopi Sunkara. Paper only. No guaranteed profit. Bad size is blocked.</p>
+    <p class="fine">Founder: Dineshgopi Sunkara. Paper only. No guaranteed profit.</p>
   </aside>
 
   <aside class="drawer" id="drawer-social">
@@ -197,7 +212,7 @@
     </div>
     <p class="blurb" id="shareStatus">Packaging a chart card you can save or open on another device.</p>
     <img id="sharePreview" alt="DGS AI chart card preview" />
-    <img id="shareQr" alt="QR code to TradingView chart" />
+    <img id="shareQr" alt="QR code to chart" />
     <a id="shareLink" class="share-link" target="_blank" rel="noopener noreferrer" href="#">Open chart link</a>
     <button id="downloadCardBtn" class="btn btn-accent" type="button">Download PNG</button>
   </aside>
@@ -206,6 +221,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=20260913orb"></script>
 </body>
 </html>

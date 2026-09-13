@@ -4,24 +4,45 @@ const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
 
 const DEMO_QUOTES = {
-  NVDA: { last: 178.40, chg: 2.15, chgPct: 1.22, name: 'NVIDIA' },
-  AAPL: { last: 228.10, chg: -0.84, chgPct: -0.37, name: 'Apple' },
-  MSFT: { last: 432.55, chg: 1.90, chgPct: 0.44, name: 'Microsoft' },
-  TSLA: { last: 241.20, chg: 4.10, chgPct: 1.73, name: 'Tesla' },
-  AMZN: { last: 191.75, chg: 0.62, chgPct: 0.32, name: 'Amazon' },
-  META: { last: 548.30, chg: -3.20, chgPct: -0.58, name: 'Meta' },
-  GOOGL: { last: 172.88, chg: 0.95, chgPct: 0.55, name: 'Alphabet' },
-  SPY: { last: 562.40, chg: 1.12, chgPct: 0.20, name: 'S&P 500 ETF' },
-  QQQ: { last: 491.15, chg: 2.04, chgPct: 0.42, name: 'Nasdaq 100 ETF' },
-  IWM: { last: 218.60, chg: -0.40, chgPct: -0.18, name: 'Russell 2000 ETF' },
-  AMD: { last: 156.22, chg: 1.48, chgPct: 0.96, name: 'AMD' },
-  AVGO: { last: 172.10, chg: 0.88, chgPct: 0.51, name: 'Broadcom' },
-  SMCI: { last: 46.80, chg: -1.10, chgPct: -2.30, name: 'Super Micro' },
-  COIN: { last: 212.40, chg: 5.30, chgPct: 2.56, name: 'Coinbase' },
-  PLTR: { last: 38.95, chg: 0.72, chgPct: 1.88, name: 'Palantir' },
-  BTC: { last: 64250, chg: 380, chgPct: 0.59, name: 'Bitcoin' },
-  ETH: { last: 2680, chg: 22, chgPct: 0.83, name: 'Ethereum' },
+  NVDA: { last: 178.40, chg: 2.15, chgPct: 1.22, high: 180.10, low: 175.20, name: 'NVIDIA' },
+  AAPL: { last: 228.10, chg: -0.84, chgPct: -0.37, high: 229.40, low: 226.80, name: 'Apple' },
+  MSFT: { last: 432.55, chg: 1.90, chgPct: 0.44, high: 434.20, low: 429.10, name: 'Microsoft' },
+  TSLA: { last: 241.20, chg: 4.10, chgPct: 1.73, high: 243.50, low: 236.80, name: 'Tesla' },
+  AMZN: { last: 191.75, chg: 0.62, chgPct: 0.32, high: 193.00, low: 190.20, name: 'Amazon' },
+  META: { last: 548.30, chg: -3.20, chgPct: -0.58, high: 552.00, low: 545.10, name: 'Meta' },
+  GOOGL: { last: 172.88, chg: 0.95, chgPct: 0.55, high: 174.20, low: 171.40, name: 'Alphabet' },
+  SPY: { last: 562.40, chg: 1.12, chgPct: 0.20, high: 564.00, low: 560.10, name: 'S&P 500 ETF' },
+  QQQ: { last: 491.15, chg: 2.04, chgPct: 0.42, high: 493.20, low: 487.80, name: 'Nasdaq 100 ETF' },
+  IWM: { last: 218.60, chg: -0.40, chgPct: -0.18, high: 220.10, low: 217.20, name: 'Russell 2000 ETF' },
+  AMD: { last: 156.22, chg: 1.48, chgPct: 0.96, high: 157.80, low: 153.90, name: 'AMD' },
+  AVGO: { last: 172.10, chg: 0.88, chgPct: 0.51, high: 173.40, low: 170.20, name: 'Broadcom' },
+  SMCI: { last: 46.80, chg: -1.10, chgPct: -2.30, high: 48.20, low: 46.10, name: 'Super Micro' },
+  COIN: { last: 212.40, chg: 5.30, chgPct: 2.56, high: 214.80, low: 206.50, name: 'Coinbase' },
+  PLTR: { last: 38.95, chg: 0.72, chgPct: 1.88, high: 39.40, low: 37.90, name: 'Palantir' },
+  NFLX: { last: 702.40, chg: 4.20, chgPct: 0.60, high: 708.00, low: 695.50, name: 'Netflix' },
+  CRM: { last: 298.10, chg: -1.40, chgPct: -0.47, high: 301.20, low: 296.00, name: 'Salesforce' },
+  BA: { last: 178.90, chg: 1.10, chgPct: 0.62, high: 180.40, low: 176.80, name: 'Boeing' },
+  DIS: { last: 98.40, chg: -0.55, chgPct: -0.56, high: 99.80, low: 97.90, name: 'Disney' },
+  JPM: { last: 214.60, chg: 0.85, chgPct: 0.40, high: 216.00, low: 212.80, name: 'JPMorgan' },
+  BTC: { last: 64250, chg: 380, chgPct: 0.59, high: 65100, low: 63200, name: 'Bitcoin' },
+  ETH: { last: 2680, chg: 22, chgPct: 0.83, high: 2720, low: 2625, name: 'Ethereum' },
+  SOL: { last: 148.20, chg: 3.40, chgPct: 2.35, high: 151.00, low: 143.80, name: 'Solana' },
+  XRP: { last: 0.62, chg: 0.012, chgPct: 1.97, high: 0.635, low: 0.598, name: 'XRP' },
+  DOGE: { last: 0.128, chg: -0.004, chgPct: -3.03, high: 0.135, low: 0.125, name: 'Dogecoin' },
+  ADA: { last: 0.41, chg: 0.008, chgPct: 1.99, high: 0.422, low: 0.398, name: 'Cardano' },
+  AVAX: { last: 28.40, chg: 0.65, chgPct: 2.34, high: 29.10, low: 27.50, name: 'Avalanche' },
+  LINK: { last: 12.85, chg: 0.22, chgPct: 1.74, high: 13.10, low: 12.40, name: 'Chainlink' },
+  DOT: { last: 4.85, chg: -0.08, chgPct: -1.62, high: 5.02, low: 4.78, name: 'Polkadot' },
+  MATIC: { last: 0.48, chg: 0.01, chgPct: 2.13, high: 0.495, low: 0.462, name: 'Polygon' },
+  BNB: { last: 582.00, chg: 6.40, chgPct: 1.11, high: 590.00, low: 568.00, name: 'BNB' },
+  LTC: { last: 78.20, chg: -0.90, chgPct: -1.14, high: 80.10, low: 77.40, name: 'Litecoin' },
+  UNI: { last: 8.95, chg: 0.18, chgPct: 2.05, high: 9.15, low: 8.70, name: 'Uniswap' },
+  ATOM: { last: 5.42, chg: 0.05, chgPct: 0.93, high: 5.55, low: 5.28, name: 'Cosmos' },
+  NEAR: { last: 4.18, chg: 0.12, chgPct: 2.96, high: 4.30, low: 4.00, name: 'NEAR' },
+  PEPE: { last: 0.0000092, chg: 0.0000003, chgPct: 3.37, high: 0.0000096, low: 0.0000088, name: 'PEPE' },
 };
+
+const CRYPTO = new Set(['BTC','ETH','SOL','XRP','DOGE','ADA','AVAX','LINK','DOT','MATIC','BNB','LTC','UNI','ATOM','NEAR','PEPE']);
 
 const NAME_TO_SYM = {
   nvidia: 'NVDA', nvda: 'NVDA',
@@ -31,7 +52,7 @@ const NAME_TO_SYM = {
   amazon: 'AMZN', amzn: 'AMZN',
   meta: 'META', facebook: 'META',
   google: 'GOOGL', alphabet: 'GOOGL', googl: 'GOOGL', goog: 'GOOGL',
-  spy: 'SPY', 's&p': 'SPY',
+  spy: 'SPY', 's&p': 'SPY', 's and p': 'SPY',
   qqq: 'QQQ', nasdaq: 'QQQ',
   iwm: 'IWM', russell: 'IWM',
   amd: 'AMD',
@@ -39,8 +60,27 @@ const NAME_TO_SYM = {
   smci: 'SMCI',
   coin: 'COIN', coinbase: 'COIN',
   palantir: 'PLTR', pltr: 'PLTR',
+  netflix: 'NFLX', nflx: 'NFLX',
+  salesforce: 'CRM', crm: 'CRM',
+  boeing: 'BA',
+  disney: 'DIS',
+  jpmorgan: 'JPM', 'jp morgan': 'JPM', jpm: 'JPM',
   bitcoin: 'BTC', btc: 'BTC',
-  ethereum: 'ETH', eth: 'ETH',
+  ethereum: 'ETH', eth: 'ETH', ether: 'ETH',
+  solana: 'SOL', sol: 'SOL',
+  ripple: 'XRP', xrp: 'XRP',
+  dogecoin: 'DOGE', doge: 'DOGE',
+  cardano: 'ADA', ada: 'ADA',
+  avalanche: 'AVAX', avax: 'AVAX',
+  chainlink: 'LINK', link: 'LINK',
+  polkadot: 'DOT', dot: 'DOT',
+  polygon: 'MATIC', matic: 'MATIC',
+  binance: 'BNB', bnb: 'BNB',
+  litecoin: 'LTC', ltc: 'LTC',
+  uniswap: 'UNI', uni: 'UNI',
+  cosmos: 'ATOM', atom: 'ATOM',
+  near: 'NEAR',
+  pepe: 'PEPE',
 };
 
 const TV_MAP = {
@@ -49,7 +89,16 @@ const TV_MAP = {
   GOOGL: 'NASDAQ:GOOGL', SPY: 'AMEX:SPY', QQQ: 'NASDAQ:QQQ',
   IWM: 'AMEX:IWM', AMD: 'NASDAQ:AMD', AVGO: 'NASDAQ:AVGO',
   SMCI: 'NASDAQ:SMCI', COIN: 'NASDAQ:COIN', PLTR: 'NYSE:PLTR',
+  NFLX: 'NASDAQ:NFLX', CRM: 'NYSE:CRM', BA: 'NYSE:BA',
+  DIS: 'NYSE:DIS', JPM: 'NYSE:JPM',
   BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT',
+  SOL: 'BINANCE:SOLUSDT', XRP: 'BINANCE:XRPUSDT',
+  DOGE: 'BINANCE:DOGEUSDT', ADA: 'BINANCE:ADAUSDT',
+  AVAX: 'BINANCE:AVAXUSDT', LINK: 'BINANCE:LINKUSDT',
+  DOT: 'BINANCE:DOTUSDT', MATIC: 'BINANCE:MATICUSDT',
+  BNB: 'BINANCE:BNBUSDT', LTC: 'BINANCE:LTCUSDT',
+  UNI: 'BINANCE:UNIUSDT', ATOM: 'BINANCE:ATOMUSDT',
+  NEAR: 'BINANCE:NEARUSDT', PEPE: 'BINANCE:PEPEUSDT',
 };
 
 const FILLERS = [
@@ -106,7 +155,7 @@ function setStatus(s) {
   state.status = s;
   const pill = $('statusPill');
   if (!pill) return;
-  pill.textContent = `STATUS : ${s}`;
+  pill.textContent = s;
   pill.dataset.state = s;
 }
 
@@ -170,19 +219,40 @@ function money(n) {
   return `${sign}$${Math.abs(n).toFixed(2)}`;
 }
 
+function assetKind(sym) {
+  return CRYPTO.has(sym) ? 'crypto' : 'stock';
+}
+
 function parseSymbol(text) {
-  const t = (text || '').toLowerCase();
-  for (const [name, sym] of Object.entries(NAME_TO_SYM)) {
-    if (t.includes(name)) return sym;
+  const raw = (text || '').toLowerCase().replace(/[$#]/g, ' ');
+  // longest name first so "dogecoin" beats "doge" order issues — Object entries already unique
+  const names = Object.keys(NAME_TO_SYM).sort((a, b) => b.length - a.length);
+  for (const name of names) {
+    if (raw.includes(name)) return NAME_TO_SYM[name];
   }
-  const m = t.toUpperCase().match(/\b([A-Z]{1,5})\b/);
-  if (m && DEMO_QUOTES[m[1]]) return m[1];
-  const raw = ($('symbol')?.value || state.lastSymbol || 'NVDA').trim().toUpperCase();
-  return raw || 'NVDA';
+  const upper = (text || '').toUpperCase();
+  const m = upper.match(/\b([A-Z]{1,5})\b/g) || [];
+  for (const tok of m) {
+    if (DEMO_QUOTES[tok] || TV_MAP[tok]) return tok;
+  }
+  const field = ($('symbol')?.value || state.lastSymbol || 'NVDA').trim().toUpperCase();
+  return field || 'NVDA';
+}
+
+function hasTradingCue(t) {
+  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone)\b/.test(t)
+    || Object.keys(NAME_TO_SYM).some((n) => t.includes(n));
 }
 
 function tvSymbol(sym) {
-  return TV_MAP[sym] || `NASDAQ:${sym}`;
+  if (TV_MAP[sym]) return TV_MAP[sym];
+  if (CRYPTO.has(sym)) return `BINANCE:${sym}USDT`;
+  return `NASDAQ:${sym}`;
+}
+
+function yahooSymbol(sym) {
+  if (CRYPTO.has(sym)) return `${sym}-USD`;
+  return sym;
 }
 
 function chartPageUrl(sym) {
@@ -192,12 +262,12 @@ function chartPageUrl(sym) {
 function embedUrl(sym) {
   const q = new URLSearchParams({
     symbol: tvSymbol(sym),
-    interval: '15',
+    interval: CRYPTO.has(sym) ? '60' : '15',
     hidesidetoolbar: '1',
     hidetoptoolbar: '0',
     symboledit: '1',
     saveimage: '1',
-    toolbarbg: '050508',
+    toolbarbg: '000000',
     theme: 'dark',
     style: '1',
     timezone: 'Etc/UTC',
@@ -221,7 +291,7 @@ function fakeSpark(last, chg) {
 }
 
 async function fetchQuote(symbol) {
-  const ysym = symbol === 'BTC' ? 'BTC-USD' : symbol === 'ETH' ? 'ETH-USD' : symbol;
+  const ysym = yahooSymbol(symbol);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=5d`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 3200);
@@ -239,7 +309,10 @@ async function fetchQuote(symbol) {
     const chgPct = prev ? (chg / prev) * 100 : 0;
     const q = {
       symbol, last, chg, chgPct,
-      name: meta.shortName || symbol,
+      high: meta.regularMarketDayHigh ?? meta.dayHigh ?? null,
+      low: meta.regularMarketDayLow ?? meta.dayLow ?? null,
+      name: meta.shortName || meta.symbol || DEMO_QUOTES[symbol]?.name || symbol,
+      kind: assetKind(symbol),
       source: 'live',
       spark: closes.length > 2 ? closes : fakeSpark(last, chg),
     };
@@ -248,8 +321,16 @@ async function fetchQuote(symbol) {
     return q;
   } catch (_) {
     clearTimeout(timer);
-    const d = DEMO_QUOTES[symbol] || { last: 100, chg: 0.35, chgPct: 0.35, name: symbol };
-    const q = { symbol, ...d, source: 'demo', spark: fakeSpark(d.last, d.chg) };
+    const d = DEMO_QUOTES[symbol] || { last: 100, chg: 0.35, chgPct: 0.35, name: symbol, high: 101, low: 99 };
+    const q = {
+      symbol,
+      last: d.last, chg: d.chg, chgPct: d.chgPct,
+      high: d.high ?? null, low: d.low ?? null,
+      name: d.name || symbol,
+      kind: assetKind(symbol),
+      source: 'demo',
+      spark: fakeSpark(d.last, d.chg),
+    };
     state.lastQuote = q;
     state.lastSymbol = symbol;
     return q;
@@ -257,29 +338,84 @@ async function fetchQuote(symbol) {
 }
 
 function fmtPx(n) {
-  if (n >= 1000) return n.toFixed(0);
-  if (n >= 100) return n.toFixed(2);
-  return n.toFixed(2);
+  if (n == null || Number.isNaN(n)) return '—';
+  const a = Math.abs(n);
+  if (a >= 1000) return n.toFixed(0);
+  if (a >= 1) return n.toFixed(2);
+  if (a >= 0.01) return n.toFixed(4);
+  return n.toPrecision(3);
 }
 
 function spokenQuote(q) {
   const dir = q.chg >= 0 ? 'up' : 'down';
+  const kind = q.kind === 'crypto' ? 'Crypto' : 'Stock';
   const src = q.source === 'live' ? 'Live quote.' : 'Delayed demo quote. Live tape was blocked.';
-  return `${q.name}, ${q.symbol}, last ${fmtPx(q.last)}, ${dir} ${fmtPx(Math.abs(q.chg))} or ${Math.abs(q.chgPct).toFixed(2)} percent. ${src}`;
+  let range = '';
+  if (q.high != null && q.low != null) {
+    range = ` Day range ${fmtPx(q.low)} to ${fmtPx(q.high)}.`;
+  }
+  return `${kind}. ${q.name}, ${q.symbol}, last ${fmtPx(q.last)}, ${dir} ${fmtPx(Math.abs(q.chg))} or ${Math.abs(q.chgPct).toFixed(2)} percent.${range} ${src}`;
 }
 
-async function marketBrief() {
+function appendBriefCard(q, nextHint) {
+  const box = $('transcript');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'bubble dgs brief-card';
+  const dirCls = q.chg >= 0 ? 'up' : 'dn';
+  const sign = q.chg >= 0 ? '+' : '';
+  const src = q.source === 'live' ? 'Live' : 'DELAYED DEMO';
+  const range = (q.high != null && q.low != null)
+    ? `${fmtPx(q.low)} – ${fmtPx(q.high)}`
+    : '—';
+  el.innerHTML = `
+    <span class="who">DGS AI · ${escapeHtml(q.kind)} · ${escapeHtml(src)}</span>
+    <p><strong>${escapeHtml(q.symbol)}</strong> · ${escapeHtml(q.name)}</p>
+    <div class="brief-grid">
+      <span class="k">Last</span><span class="v">${escapeHtml(fmtPx(q.last))}</span>
+      <span class="k">Change</span><span class="v ${dirCls}">${sign}${escapeHtml(fmtPx(Math.abs(q.chg)))} (${sign}${Math.abs(q.chgPct).toFixed(2)}%)</span>
+      <span class="k">Day range</span><span class="v">${escapeHtml(range)}</span>
+    </div>
+    <div class="brief-next">${escapeHtml(nextHint || 'Want the chart? Or send to phone?')}</div>`;
+  box.appendChild(el);
+  while (box.children.length > 8) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function marketBrief(kind) {
   setStatus('LISTENING');
   const filler = speakFiller();
-  const [spy, qqq, nvda] = await Promise.all([
-    fetchQuote('SPY'), fetchQuote('QQQ'), fetchQuote(state.lastSymbol || 'NVDA'),
-  ]);
+  const wantCrypto = kind === 'crypto' || kind === 'both';
+  const wantStocks = kind !== 'crypto';
+  const jobs = [];
+  if (wantStocks) jobs.push(fetchQuote('SPY'), fetchQuote('QQQ'), fetchQuote('NVDA'));
+  if (wantCrypto) jobs.push(fetchQuote('BTC'), fetchQuote('ETH'), fetchQuote('SOL'));
+  const quotes = await Promise.all(jobs);
   await filler;
-  const src = [spy, qqq, nvda].every((q) => q.source === 'live')
-    ? 'Live tape.'
-    : 'Delayed demo tape if the live feed is blocked.';
-  const line = `${src} SPY ${fmtPx(spy.last)}, ${spy.chg >= 0 ? 'up' : 'down'} ${Math.abs(spy.chgPct).toFixed(2)} percent. QQQ ${fmtPx(qqq.last)}, ${qqq.chg >= 0 ? 'up' : 'down'} ${Math.abs(qqq.chgPct).toFixed(2)} percent. ${nvda.symbol} ${fmtPx(nvda.last)}. Paper only. Want me to open a chart?`;
+  const anyDemo = quotes.some((q) => q.source !== 'live');
+  const src = anyDemo ? 'Delayed demo tape if live feed is blocked.' : 'Live tape.';
+  const bits = quotes.map((q) => {
+    const d = q.chg >= 0 ? 'up' : 'down';
+    return `${q.symbol} ${fmtPx(q.last)}, ${d} ${Math.abs(q.chgPct).toFixed(2)} percent`;
+  });
+  const label = kind === 'crypto' ? 'Crypto brief.' : kind === 'stocks' ? 'Equity brief.' : 'Market brief — stocks and crypto.';
+  const line = `${src} ${label} ${bits.join('. ')}. Paper only — not advice. Want a chart on any of these?`;
   await speak(line);
+  quotes.slice(0, 3).forEach((q) => appendBriefCard(q, 'Say show chart, or send to phone.'));
+}
+
+async function assetPipeline(symbol) {
+  const filler = speakFiller();
+  const q = await fetchQuote(symbol);
+  await filler;
+  const kind = q.kind === 'crypto' ? 'crypto asset' : 'stock';
+  const dir = q.chg >= 0 ? 'up' : 'down';
+  const src = q.source === 'live' ? 'Live session quote.' : 'Delayed demo — live tape blocked on this host.';
+  let range = '';
+  if (q.high != null && q.low != null) range = ` Session range ${fmtPx(q.low)} to ${fmtPx(q.high)}.`;
+  const line = `${q.name} is a ${kind}. Last ${fmtPx(q.last)}, ${dir} ${Math.abs(q.chgPct).toFixed(2)} percent.${range} ${src} Paper risk only — DGS AI is not a broker and this is not financial advice. Want the chart, send to phone, or analyze a paper setup?`;
+  await speak(line);
+  appendBriefCard(q, 'Next: open chart · send to phone · analyze paper setup');
 }
 
 function openChart(symbol) {
@@ -293,7 +429,7 @@ function openChart(symbol) {
   const overlay = $('chartOverlay');
   if (overlay) overlay.classList.remove('hidden');
   state.chartOpen = true;
-  speak(`Opening ${sym} on the main screen. Paper only. Say send to my phone when you want the handoff.`);
+  speak(`Opening ${sym} chart. Paper only. Say send to my phone when you want the handoff.`);
 }
 
 function closeChart() {
@@ -307,34 +443,34 @@ function paintShareCard(q) {
   const ctx = c.getContext('2d');
   const w = c.width;
   const h = c.height;
-  ctx.fillStyle = '#050508';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, w, h);
   const g = ctx.createRadialGradient(w * 0.5, h * 0.32, 20, w * 0.5, h * 0.32, 420);
-  g.addColorStop(0, 'rgba(94,234,212,0.28)');
-  g.addColorStop(0.55, 'rgba(167,139,250,0.10)');
-  g.addColorStop(1, 'rgba(5,5,8,0)');
+  g.addColorStop(0, 'rgba(126,224,200,0.22)');
+  g.addColorStop(0.55, 'rgba(232,213,163,0.10)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.fillStyle = '#5eead4';
-  ctx.font = '700 36px IBM Plex Sans, sans-serif';
+  ctx.fillStyle = '#7ee0c8';
+  ctx.font = '500 34px Inter, sans-serif';
   ctx.fillText('DGS AI', 72, 110);
-  ctx.fillStyle = '#8b9bb0';
-  ctx.font = '400 26px IBM Plex Sans, sans-serif';
-  ctx.fillText('Voice trading assistant · paper only', 72, 150);
+  ctx.fillStyle = 'rgba(244,241,234,0.45)';
+  ctx.font = '300 24px Inter, sans-serif';
+  ctx.fillText('Voice trading · stocks & crypto · paper only', 72, 150);
 
   ctx.fillStyle = '#eef3f8';
-  ctx.font = '700 86px IBM Plex Sans, sans-serif';
+  ctx.font = '500 86px Inter, sans-serif';
   ctx.fillText(q.symbol, 72, 320);
-  ctx.fillStyle = '#a5b4fc';
-  ctx.font = '400 32px IBM Plex Sans, sans-serif';
+  ctx.fillStyle = '#e8d5a3';
+  ctx.font = '300 30px Inter, sans-serif';
   ctx.fillText(q.name || q.symbol, 72, 370);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = '600 92px IBM Plex Mono, monospace';
+  ctx.font = '500 92px JetBrains Mono, monospace';
   ctx.fillText(fmtPx(q.last), 72, 500);
-  ctx.fillStyle = q.chg >= 0 ? '#34d399' : '#fb7185';
-  ctx.font = '500 40px IBM Plex Mono, monospace';
+  ctx.fillStyle = q.chg >= 0 ? '#7ee0c8' : '#e08a8a';
+  ctx.font = '400 38px JetBrains Mono, monospace';
   const sign = q.chg >= 0 ? '+' : '';
   ctx.fillText(`${sign}${fmtPx(q.chg)}   ${sign}${q.chgPct.toFixed(2)}%`, 72, 560);
 
@@ -353,18 +489,18 @@ function paintShareCard(q) {
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = q.chg >= 0 ? '#2dd4bf' : '#fb7185';
+  ctx.strokeStyle = q.chg >= 0 ? '#7ee0c8' : '#e08a8a';
   ctx.lineWidth = 5;
   ctx.stroke();
 
-  ctx.fillStyle = '#8b9bb0';
-  ctx.font = '400 26px IBM Plex Sans, sans-serif';
+  ctx.fillStyle = 'rgba(244,241,234,0.4)';
+  ctx.font = '300 24px Inter, sans-serif';
   const src = q.source === 'live' ? 'Quote path: live feed' : 'Quote path: DELAYED DEMO (live tape blocked)';
   ctx.fillText(src, 72, 920);
   ctx.fillText(chartPageUrl(q.symbol), 72, 970);
   ctx.fillText('Dineshgopi Sunkara · No broker · No guaranteed profit', 72, 1040);
-  ctx.fillStyle = '#5eead4';
-  ctx.font = '500 24px IBM Plex Mono, monospace';
+  ctx.fillStyle = '#7ee0c8';
+  ctx.font = '400 22px JetBrains Mono, monospace';
   ctx.fillText('dgs-ai · send to phone', 72, 1220);
 }
 
@@ -595,25 +731,26 @@ function statusSpeech() {
 }
 
 function helpSpeech() {
-  return 'I am DGS AI. Ask for a market brief, a quote, open a chart, or send the chart to your phone. I can analyze risk and paper-enter only if the gate is open. I do not place live trades or control your phone natively.';
+  return 'I am DGS AI. Ask anything trading — stocks or crypto. Try market brief, crypto brief, quote bitcoin, how is NVDA, show ETH chart, or send to my phone. Risk and paper stay in the drawer. Not a broker. Not advice.';
 }
 
 function wake() {
   setStatus('LISTENING');
-  speak('Go ahead. DGS AI is online. Ask for a market brief, a quote, or a chart.');
+  speak('Go ahead. DGS AI is online. Stocks or crypto — brief, quote, chart, or send to phone.');
 }
 
 async function quoteSpeech(symbol) {
   const filler = speakFiller();
   const q = await fetchQuote(symbol);
   await filler;
-  await speak(`${spokenQuote(q)} Want the ${q.symbol} chart?`);
+  await speak(`${spokenQuote(q)} Want the ${q.symbol} chart, or send it to your phone?`);
+  appendBriefCard(q, 'Want the chart? Or send to phone?');
 }
 
 function quickAnswer(q) {
   const t = q.toLowerCase();
   if (/(who are you|your name|what are you)/.test(t)) {
-    return 'I am DGS AI, built for Dineshgopi Sunkara. Voice first. Trading brief, charts, and paper risk. I do not place live orders.';
+    return 'I am DGS AI, built for Dineshgopi Sunkara. Voice first. Stocks and crypto brief, charts, and paper risk. I do not place live orders.';
   }
   if (/(help|what can you|commands)/.test(t)) return helpSpeech();
   if (/(profit|guarantee|guaranteed)/.test(t)) {
@@ -631,7 +768,7 @@ function quickAnswer(q) {
     return 'Work drawer is open. Plans and drafts only.';
   }
   if (/(hello|hi |hey )/.test(t) || t === 'hi' || t === 'hey') {
-    return 'Listening. Ask for a market brief, a quote, or show a chart.';
+    return 'Listening. Ask about any stock or crypto — brief, quote, chart, or handoff.';
   }
   return null;
 }
@@ -644,19 +781,43 @@ async function handleVoiceCommand(text) {
     await sendChartToPhone(parseSymbol(text));
     return;
   }
-  if (/(open chart|show (the )?chart|chart for|tradingview|trading view|show )\b/.test(t) || /\bchart\b/.test(t)) {
+  if (/(open chart|show (the )?chart|chart for|tradingview|trading view|show .+ chart|chart )\b/.test(t)
+      || (/\bchart\b/.test(t) && hasTradingCue(t))) {
     openChart(parseSymbol(text));
     return;
   }
-  if (/(market brief|brief(ing)?|sentiment|how('?s| is) the market|market today)/.test(t)) {
-    await marketBrief();
+  if (/(crypto brief|how('?s| is) crypto|crypto (tape|market|today)|crypto overview)/.test(t)) {
+    await marketBrief('crypto');
     return;
   }
-  if (/\b(quote|price|how('?s| is)|what is)\b/.test(t) || NAME_TO_SYM[t.trim()]) {
-    await quoteSpeech(parseSymbol(text));
+  if (/(equity brief|stock brief|stocks brief|how('?s| is) (the )?(stock|equity) market)/.test(t)) {
+    await marketBrief('stocks');
     return;
   }
-  if (/(analyze|risk gate|check risk)/.test(t)) {
+  if (/(market brief|brief(ing)?|sentiment|how('?s| is) the market|market today|tape)/.test(t)) {
+    await marketBrief('both');
+    return;
+  }
+  // Full scrap→end pipeline for asset questions
+  if (/(what('?s| is) happening (with |to )?|should i watch|tell me about|how('?s| is)|what about|price of|quote|last (price|print)|check )\b/.test(t)
+      || NAME_TO_SYM[t.trim()]
+      || (hasTradingCue(t) && parseSymbol(text) && (Object.keys(NAME_TO_SYM).some((n) => t.includes(n)) || /\b[A-Z]{1,5}\b/.test(text.toUpperCase())))) {
+    // Prefer pipeline when asking about a specific asset; plain quote for short "quote X"
+    const sym = parseSymbol(text);
+    if (/\b(quote|price of|last (price|print))\b/.test(t) && !/(happening|watch|tell me|about|should)\b/.test(t)) {
+      await quoteSpeech(sym);
+    } else if (Object.keys(NAME_TO_SYM).some((n) => t.includes(n)) || DEMO_QUOTES[sym] || CRYPTO.has(sym)) {
+      await assetPipeline(sym);
+    } else {
+      await quoteSpeech(sym);
+    }
+    return;
+  }
+  if (/\b(bitcoin|ethereum|solana|dogecoin|crypto|btc|eth|sol)\b/.test(t) && !/\bchart\b/.test(t)) {
+    await assetPipeline(parseSymbol(text));
+    return;
+  }
+  if (/(analyze|risk gate|check risk|paper setup)/.test(t)) {
     openDrawer('risk');
     analyzeRisk();
     await speak(state.lastOpen ? 'Risk gate is open for this paper setup.' : 'Risk gate is closed for this paper setup.');
@@ -689,7 +850,12 @@ async function handleVoiceCommand(text) {
     await speak(ans);
     return;
   }
-  await speak('Got it. I can brief the market, quote a symbol, open a chart, or send that chart to your phone. Paper only.');
+  // Soft trading fallback: if any symbol-ish word, still try pipeline
+  if (hasTradingCue(t)) {
+    await assetPipeline(parseSymbol(text));
+    return;
+  }
+  await speak('Got it. I can brief stocks and crypto, quote any major symbol, open a chart, or send that chart to your phone. Paper only.');
 }
 
 function startVoiceListen() {
@@ -903,14 +1069,29 @@ function runWork() {
 
 function seedCssNodes() {
   const box = $('cssNodes');
-  if (!box) return;
-  const spots = [
-    [18, 22], [78, 18], [88, 48], [12, 58], [70, 78], [30, 82],
-    [50, 12], [8, 36], [92, 70], [42, 90], [60, 28], [24, 44],
-  ];
-  box.innerHTML = spots.map(([x, y], i) =>
-    `<span class="node" style="left:${x}%;top:${y}%;animation-delay:${i * 0.18}s"></span>`
-  ).join('');
+  if (box) {
+    const spots = [
+      [18, 22], [78, 18], [88, 48], [12, 58], [70, 78], [30, 82],
+      [50, 12], [8, 36], [92, 70], [42, 90], [60, 28], [24, 44],
+      [55, 55], [35, 30], [72, 42],
+    ];
+    box.innerHTML = spots.map(([x, y], i) =>
+      `<span class="node" style="left:${x}%;top:${y}%;animation-delay:${i * 0.18}s"></span>`
+    ).join('');
+  }
+  const spokes = $('cssSpokes');
+  if (spokes) {
+    const cx = 100, cy = 100;
+    const lines = [];
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const r = 88;
+      const x2 = cx + Math.cos(a) * r;
+      const y2 = cy + Math.sin(a) * r;
+      lines.push(`<line class="spoke" x1="${cx}" y1="${cy}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`);
+    }
+    spokes.innerHTML = lines.join('');
+  }
 }
 
 function initHumanoid() {
@@ -921,58 +1102,83 @@ function initHumanoid() {
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-    camera.position.set(0, 0.05, 3.15);
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camera.position.set(0, 0.02, 3.35);
 
-    const teal = 0x5eead4;
-    const violet = 0xa78bfa;
+    const teal = 0x7ee0c8;
+    const gold = 0xe8d5a3;
+    const white = 0xffffff;
 
+    // Soft core glow (celestial orb)
     const core = new THREE.Mesh(
-      new THREE.SphereGeometry(0.42, 48, 48),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.22 })
+      new THREE.SphereGeometry(0.38, 64, 64),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.18 })
     );
     scene.add(core);
     const core2 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 24, 24),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })
+      new THREE.SphereGeometry(0.16, 32, 32),
+      new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.42 })
     );
     scene.add(core2);
+    const coreGold = new THREE.Mesh(
+      new THREE.SphereGeometry(0.52, 48, 48),
+      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.06 })
+    );
+    scene.add(coreGold);
 
-    const ico = new THREE.IcosahedronGeometry(1.05, 1);
+    // Orbiting node shell
+    const ico = new THREE.IcosahedronGeometry(1.12, 1);
     const pos = ico.attributes.position;
     const n = pos.count;
     const colors = new Float32Array(n * 3);
     const cTeal = new THREE.Color(teal);
-    const cViolet = new THREE.Color(violet);
+    const cGold = new THREE.Color(gold);
     for (let i = 0; i < n; i++) {
-      const col = i % 2 ? cTeal : cViolet;
+      const col = i % 3 ? cGold : cTeal;
       colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
     }
     ico.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     const nodes = new THREE.Points(ico, new THREE.PointsMaterial({
-      size: 0.045, vertexColors: true, transparent: true, opacity: 0.9,
+      size: 0.038, vertexColors: true, transparent: true, opacity: 0.85,
       depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
     }));
     scene.add(nodes);
 
-    const lineGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.05, 1));
+    // Thin radial spokes from center to outer shell
+    const spokePos = [];
+    const spokeCols = [];
+    const cEdge = new THREE.Color(gold);
+    for (let i = 0; i < n; i += 3) {
+      spokePos.push(0, 0, 0, pos.getX(i), pos.getY(i), pos.getZ(i));
+      spokeCols.push(cTeal.r, cTeal.g, cTeal.b, cEdge.r, cEdge.g, cEdge.b);
+    }
+    const spokeGeo = new THREE.BufferGeometry();
+    spokeGeo.setAttribute('position', new THREE.Float32BufferAttribute(spokePos, 3));
+    spokeGeo.setAttribute('color', new THREE.Float32BufferAttribute(spokeCols, 3));
+    const spokes = new THREE.LineSegments(spokeGeo, new THREE.LineBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.22,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    scene.add(spokes);
+
+    const lineGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.12, 1));
     const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-      color: teal, transparent: true, opacity: 0.16,
+      color: gold, transparent: true, opacity: 0.08,
     }));
     scene.add(lines);
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1.28, 0.008, 12, 120),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.42 })
+      new THREE.TorusGeometry(1.32, 0.005, 12, 160),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.35 })
     );
-    ring.rotation.x = Math.PI / 2.25;
+    ring.rotation.x = Math.PI / 2.2;
     scene.add(ring);
     const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(1.55, 0.006, 12, 140),
-      new THREE.MeshBasicMaterial({ color: violet, transparent: true, opacity: 0.26 })
+      new THREE.TorusGeometry(1.58, 0.004, 12, 160),
+      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.2 })
     );
     ring2.rotation.x = Math.PI / 2.05;
-    ring2.rotation.z = 0.4;
+    ring2.rotation.z = 0.35;
     scene.add(ring2);
 
     function resize() {
@@ -988,23 +1194,25 @@ function initHumanoid() {
 
     let t = 0;
     function frame() {
-      t += 0.012;
+      t += 0.01;
       const speakNow = state.status === 'SPEAKING';
       const listen = state.status === 'LISTENING';
-      const pulse = speakNow ? 1.07 + Math.sin(t * 7) * 0.03 : listen ? 1.03 + Math.sin(t * 4) * 0.015 : 1 + Math.sin(t) * 0.01;
+      const pulse = speakNow ? 1.08 + Math.sin(t * 7) * 0.035 : listen ? 1.04 + Math.sin(t * 4) * 0.018 : 1 + Math.sin(t) * 0.012;
       core.scale.setScalar(pulse);
       core2.scale.setScalar(pulse);
-      const yaw = t * 0.12;
+      coreGold.scale.setScalar(pulse * 0.98);
+      const yaw = t * 0.1;
       nodes.rotation.y = yaw;
       lines.rotation.y = yaw;
-      ring.rotation.z = t * 0.14;
-      ring2.rotation.z = -t * 0.09;
+      spokes.rotation.y = yaw;
+      ring.rotation.z = t * 0.12;
+      ring2.rotation.z = -t * 0.08;
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
     frame();
   } catch (err) {
-    console.error('Humanoid WebGL failed', err);
+    console.error('Orb WebGL failed', err);
   }
 }
 
@@ -1021,9 +1229,18 @@ function bindUi() {
   document.querySelectorAll('.drawer-close').forEach((btn) => {
     btn.onclick = closeDrawers;
   });
-  document.querySelectorAll('.quiet-tabs .tab').forEach((tab) => {
+  document.querySelectorAll('.corner-rail .tab').forEach((tab) => {
     tab.addEventListener('click', () => setAppMode(tab.dataset.mode));
   });
+  const dock = $('dock');
+  if (dock) {
+    dock.querySelectorAll('button').forEach((b) => {
+      b.addEventListener('focus', () => dock.classList.add('has-focus'));
+      b.addEventListener('blur', () => setTimeout(() => {
+        if (!dock.contains(document.activeElement)) dock.classList.remove('has-focus');
+      }, 0));
+    });
+  }
 
   $('analyzeBtn').onclick = () => { analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
   $('paperBtn').onclick = paperEnter;
