@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
 const $ = (id) => document.getElementById(id);
-const STORAGE_KEY = 'dinesh-ai-fund-v1';
+const STORAGE_KEY = 'dgs-ai-v1';
 const state = {
   status: 'IDLE',
-  agents: ['SUNKARA', 'DINESH', 'OPS', 'SCALP', 'SESSION', 'RISK', 'SIZE', 'HALT', 'FLAT'],
+  agents: ['DGS', 'TRADE', 'SCALP', 'SESSION', 'RISK', 'SOCIAL', 'WORK', 'HALT', 'FLAT'],
   book: [],
   dayPnL: 0,
   peakEquity: 10000,
@@ -149,7 +149,7 @@ function analyzeRisk() {
   updateStats(dd, open);
 
   $('analysis').textContent = [
-    `Founder guard · Dineshgopi Sunkara · DAY TRADING`,
+    `Founder guard · DGS AI · DAY TRADING`,
     `Mode: ${mode} · hold≤${maxHold}m · trades ${tradesToday}/${maxTrades}`,
     `Symbol: ${symbol} ${side}`,
     `Entry ${entry} | Stop ${stop} | Target ${target}`,
@@ -210,7 +210,7 @@ function openChart() {
 
 function wake() {
   setStatus('LISTENING');
-  setTimeout(() => speak('Go ahead. Day-trading risk guard is online. Intraday only.'), 200);
+  setTimeout(() => speak('Go ahead. DGS AI day-trading risk guard is online.'), 200);
 }
 
 function handleVoiceCommand(text) {
@@ -495,3 +495,137 @@ initHumanoid();
 bindMicWake();
 setStatus('IDLE');
 if (state.halted) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
+
+
+// --- Mode tabs: Trading (primary) / Social / Work ---
+function setAppMode(mode) {
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.mode === mode));
+  document.querySelectorAll('.mode-panel').forEach((panel) => panel.classList.add('hidden'));
+  const panel = document.getElementById(`panel-${mode}`);
+  if (panel) panel.classList.remove('hidden');
+  if (mode === 'trading') speak('Trading mode. Intraday priority.');
+  if (mode === 'social') speak('Social mode. Drafts only until you approve.');
+  if (mode === 'work') speak('Work mode. Plans and drafts ready.');
+}
+
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => setAppMode(tab.dataset.mode));
+});
+
+function draftSocial() {
+  const platform = $('socialPlatform').value;
+  const topic = $('socialTopic').value.trim() || 'DGS AI intraday discipline';
+  const tone = $('socialTone').value;
+  const hooks = {
+    Professional: 'Most day traders lose from size, not from missing the move.',
+    Bold: 'If your risk gate is closed, you do not trade. Period.',
+    Educational: 'Intraday checklist: bias, invalidation, size from stop, flat by close.',
+    'Founder story': 'I built DGS AI so my day trades answer to risk first, not adrenaline.',
+  };
+  const hook = hooks[tone] || hooks.Professional;
+  const lines = [
+    `PLATFORM: ${platform}`,
+    `TONE: ${tone}`,
+    '',
+    hook,
+    '',
+    `Topic: ${topic}`,
+    '',
+    'DGS AI runs:',
+    '- Hard risk percent per trade',
+    '- Daily loss and drawdown halt',
+    '- Flat-by-session for intraday',
+    '',
+    'Built by Dineshgopi Sunkara. Paper first. No guaranteed profit.',
+    '',
+    platform === 'LinkedIn'
+      ? 'CTA: Comment RISK if you want the intraday gate checklist.'
+      : 'CTA: Save this for the open.',
+    '',
+    'HASHTAGS: #DayTrading #RiskManagement #DGSAI #Intraday',
+  ];
+  $('socialOut').textContent = lines.join('\n');
+  speak('Social draft ready. Review before posting.');
+}
+
+function socialChecklist() {
+  $('socialOut').textContent = [
+    'DGS AI — today social checklist',
+    '1) One educational intraday risk post',
+    '2) One screenshot of risk gate (no fake P&L claims)',
+    '3) Reply to 5 comments with useful risk tips',
+    '4) Ask DGS AI chat to schedule tomorrow draft',
+    '5) Never post broker login screens or account numbers',
+  ].join('\n');
+  speak('Social checklist loaded.');
+}
+
+function runWork() {
+  const type = $('workType').value;
+  const raw = $('workInput').value.trim() || 'No details provided — using generic template.';
+  let out = '';
+  if (type === 'Daily priorities') {
+    out = [
+      'DGS AI — Daily priorities',
+      `Context: ${raw}`,
+      '',
+      'P0 (must finish today):',
+      '1) ',
+      '2) ',
+      '',
+      'P1 (if time):',
+      '1) ',
+      '',
+      'Trading block: only while risk gate is healthy; flatten before session end.',
+      'Social block: one draft + replies.',
+      'Shutdown: review paper book + tomorrow bias.',
+    ].join('\n');
+  } else if (type === 'Client email') {
+    out = [
+      'Subject: Quick update',
+      '',
+      'Hi ,',
+      '',
+      raw,
+      '',
+      'Next step:',
+      '-',
+      '',
+      'Thanks,',
+      'Dineshgopi Sunkara',
+      'DGS AI',
+    ].join('\n');
+  } else if (type === 'Meeting notes → actions') {
+    out = [
+      'DGS AI — Actions from notes',
+      '',
+      'Notes:',
+      raw,
+      '',
+      'Actions:',
+      '[ ] Owner — task — due',
+      '[ ] Owner — task — due',
+      '',
+      'Risks / blockers:',
+      '-',
+    ].join('\n');
+  } else {
+    out = [
+      'DGS AI — SOP checklist',
+      '',
+      `Process: ${raw}`,
+      '',
+      '1) Trigger',
+      '2) Inputs needed',
+      '3) Steps',
+      '4) Quality check',
+      '5) Handoff / done definition',
+    ].join('\n');
+  }
+  $('workOut').textContent = out;
+  speak('Work draft ready.');
+}
+
+$('socialDraftBtn').onclick = draftSocial;
+$('socialChecklistBtn').onclick = socialChecklist;
+$('workRunBtn').onclick = runWork;

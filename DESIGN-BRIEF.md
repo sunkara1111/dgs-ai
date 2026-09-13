@@ -1,17 +1,11 @@
-# Dinesh AI Fund — Trading Humanoid Agent
+# DGS AI
 **Founder:** Dineshgopi Sunkara
-**Site:** sunkaraops.com
+**Controller:** DGS AI assistant
 
-## Branding rule
-Do **not** reuse product/agent names from reference demo videos.
-Our names only: Dinesh AI Fund, Sunkara, OPS, and functional roles (RISK, SIZE, HALT, CHART, BRIEF, GUARD).
+## Roles (priority order)
+1. **Trading (most important)** — intraday / day trading humanoid, hard risk gates, paper first
+2. **Social** — drafts + checklists (approve before posting)
+3. **Work** — priorities, emails, actions, SOPs
 
-## Inspiration (visual/UX only — names not copied)
-1. Particle humanoid + listening/speaking status + cyan/amber on black
-2. Voice market brief + multi-agent online + open chart on command
-
-## Product rules
-- Risk analysis first — never size a trade without risk gate
-- Paper trading by default
-- No guaranteed-profit claims
-- Humanoid visual + voice status; trading actions with hard risk gates
+## Branding
+Use **DGS AI** only. Do not reuse demo-video product names.
