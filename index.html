@@ -19,7 +19,7 @@
     <header class="topbar">
       <div>
         <p class="brand">Dinesh AI Fund</p>
-        <p class="sub">Founded by Dineshgopi Sunkara · Risk-first trading humanoid · Paper mode</p>
+        <p class="sub">Founded by Dineshgopi Sunkara · Intraday / day-trading humanoid · Paper mode</p>
       </div>
       <div class="status-pill" id="statusPill" data-state="IDLE">STATUS : IDLE</div>
     </header>
@@ -35,6 +35,23 @@
       </section>
 
       <aside class="panel">
+        <h2>Session · Intraday</h2>
+        <label>Mode
+          <select id="mode">
+            <option value="SCALP">Scalp (very short)</option>
+            <option value="INTRADAY" selected>Intraday / day trade</option>
+            <option value="MOMENTUM">Momentum day trade</option>
+          </select>
+        </label>
+        <label>Max trades today <input id="maxTrades" type="number" value="6" min="1" max="30" step="1" /></label>
+        <label>Max hold (minutes) <input id="maxHold" type="number" value="90" min="5" max="390" step="5" /></label>
+        <label><input id="noOvernight" type="checkbox" checked /> Flat by session end (no overnight)</label>
+        <div class="btn-row">
+          <button id="presetScalp" class="btn" type="button">Preset: Scalp</button>
+          <button id="presetDay" class="btn" type="button">Preset: Day</button>
+          <button id="presetMom" class="btn" type="button">Preset: Momentum</button>
+        </div>
+
         <h2>Risk Gate</h2>
         <div class="stats">
           <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
@@ -42,10 +59,10 @@
           <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
         </div>
         <label>Equity (paper) <input id="equity" type="number" value="10000" min="100" step="100" /></label>
-        <label>Max risk / trade % <input id="riskPct" type="number" value="1" min="0.1" max="5" step="0.1" /></label>
-        <label>Max daily loss % <input id="dailyLoss" type="number" value="3" min="0.5" max="10" step="0.5" /></label>
+        <label>Max risk / trade % <input id="riskPct" type="number" value="0.5" min="0.1" max="5" step="0.1" /></label>
+        <label>Max daily loss % <input id="dailyLoss" type="number" value="2" min="0.5" max="10" step="0.5" /></label>
         <label>Max drawdown % <input id="maxDd" type="number" value="10" min="1" max="30" step="1" /></label>
-        <label>Min reward:risk <input id="minRr" type="number" value="2" min="1" max="5" step="0.1" /></label>
+        <label>Min reward:risk <input id="minRr" type="number" value="1.5" min="1" max="5" step="0.1" /></label>
         <div class="meter"><span id="riskScoreLabel">Risk score (lower is safer)</span><div class="bar"><i id="riskBar"></i></div><strong id="riskScore">0</strong></div>
         <p class="gate closed" id="gateMsg">Gate: CLOSED until a setup passes risk</p>
 
@@ -79,7 +96,7 @@
 
         <h2>Paper book</h2>
         <ul id="book" class="book"></ul>
-        <p class="fine">Paper mode only. No broker. No profit guarantee. Bad size is blocked by the risk gate.</p>
+        <p class="fine">Built for intraday &amp; day trading. Paper mode only. No broker. No overnight holds when locked flat. No profit guarantee.</p>
       </aside>
     </main>
   </div>

@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dinesh-ai-fund-v1';
 const state = {
   status: 'IDLE',
-  agents: ['SUNKARA', 'DINESH', 'OPS', 'RISK', 'SIZE', 'HALT', 'CHART', 'BRIEF', 'GUARD'],
+  agents: ['SUNKARA', 'DINESH', 'OPS', 'SCALP', 'SESSION', 'RISK', 'SIZE', 'HALT', 'FLAT'],
   book: [],
   dayPnL: 0,
   peakEquity: 10000,
@@ -120,7 +120,21 @@ function analyzeRisk() {
 
   const dailyHalt = Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss;
   const ddHalt = dd >= maxDd;
-  const open = !state.halted && score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0;
+  
+  const maxTrades = num('maxTrades');
+  const maxHold = num('maxHold');
+  const mode = $('mode').value;
+  const noOvernight = $('noOvernight').checked;
+  const tradesToday = state.book.length;
+  if (tradesToday >= maxTrades) { score += 35; reasons.push(`Max trades today hit (${maxTrades})`); }
+  if (mode === 'SCALP' && maxHold > 30) { score += 8; reasons.push('Scalp mode prefers hold ≤ 30m'); }
+  if (mode === 'SCALP' && rr < 1.2) { score += 10; reasons.push('Scalp R:R too thin'); }
+  if (mode === 'MOMENTUM' && rr < 1.8) { score += 12; reasons.push('Momentum day trade wants stronger R:R'); }
+  if (noOvernight) { reasons.push('Flat-by-close rule ON — no overnight holds'); }
+  else { score += 15; reasons.push('Overnight allowed — higher session risk'); }
+
+  const open = !state.halted && score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0 && tradesToday < maxTrades;
+
   state.lastOpen = open;
 
   $('riskScore').textContent = String(score);
@@ -135,7 +149,8 @@ function analyzeRisk() {
   updateStats(dd, open);
 
   $('analysis').textContent = [
-    `Founder guard · Dineshgopi Sunkara`,
+    `Founder guard · Dineshgopi Sunkara · DAY TRADING`,
+    `Mode: ${mode} · hold≤${maxHold}m · trades ${tradesToday}/${maxTrades}`,
     `Symbol: ${symbol} ${side}`,
     `Entry ${entry} | Stop ${stop} | Target ${target}`,
     `Stop distance: ${stopDist.toFixed(4)}`,
@@ -183,7 +198,7 @@ function renderBook() {
 function marketBrief() {
   setStatus('LISTENING');
   setTimeout(() => {
-    speak(`${state.agents.length} agents online. Risk guard first. Tech is active — I will only size with a valid stop and at least your minimum reward to risk. Say open chart or analyze risk when ready.`);
+    speak(`${state.agents.length} agents online for the session. Intraday mode. I prioritize day trades and scalps, flat by close, hard daily loss halt. I only size with a stop and your minimum reward to risk.`);
   }, 280);
 }
 
@@ -195,7 +210,7 @@ function openChart() {
 
 function wake() {
   setStatus('LISTENING');
-  setTimeout(() => speak('Go ahead. Sunkara risk guard is online.'), 200);
+  setTimeout(() => speak('Go ahead. Day-trading risk guard is online. Intraday only.'), 200);
 }
 
 function handleVoiceCommand(text) {
@@ -432,11 +447,46 @@ $('gestureBtn').onclick = () => { enablePinchCamera().catch(() => speak('Could n
 $('haltBtn').onclick = forceHalt;
 $('resetDayBtn').onclick = resetDay;
 $('clearBookBtn').onclick = clearBook;
-['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target'].forEach((id) => {
+$('presetScalp').onclick = () => {
+  $('mode').value = 'SCALP';
+  $('riskPct').value = '0.35';
+  $('dailyLoss').value = '1.5';
+  $('minRr').value = '1.3';
+  $('maxHold').value = '15';
+  $('maxTrades').value = '10';
+  $('noOvernight').checked = true;
+  analyzeRisk();
+  speak('Scalp preset loaded.');
+};
+$('presetDay').onclick = () => {
+  $('mode').value = 'INTRADAY';
+  $('riskPct').value = '0.5';
+  $('dailyLoss').value = '2';
+  $('minRr').value = '1.5';
+  $('maxHold').value = '90';
+  $('maxTrades').value = '6';
+  $('noOvernight').checked = true;
+  analyzeRisk();
+  speak('Intraday day-trade preset loaded.');
+};
+$('presetMom').onclick = () => {
+  $('mode').value = 'MOMENTUM';
+  $('riskPct').value = '0.75';
+  $('dailyLoss').value = '2.5';
+  $('minRr').value = '2';
+  $('maxHold').value = '180';
+  $('maxTrades').value = '4';
+  $('noOvernight').checked = true;
+  analyzeRisk();
+  speak('Momentum day-trade preset loaded.');
+};
+
+['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target','mode','maxTrades','maxHold'].forEach((id) => {
   $(id).addEventListener('change', () => { analyzeRisk(); if (id === 'equity') saveState(); });
   $(id).addEventListener('input', analyzeRisk);
 });
 
+$('noOvernight').addEventListener('change', analyzeRisk);
 loadState();
 renderAgents();
 renderBook();
