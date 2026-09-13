@@ -40,3 +40,7 @@ Bot card + Risk drawer surface CoinSwitch first — not buried.
 ## Other live brokers (stubs)
 - **Alpaca** — optional secondary; key/secret format check in localStorage; does not send orders from Pages.
 - **Robinhood** — no official bot API. Label only. **Never ask for Robinhood password.**
+
+## Gated launch
+Unauthenticated visitors only see the DGS AI login landing (founder credit: Dineshgopi Sunkara). Google and/or email+password required. Free whitelist (lowercase): millionmacq@gmail.com, dineshgopi730@gmail.com, dineshgopi.sunkara@gmail.com, ckharichandana@gmail.com. Everyone else pays ₹499/mo or $9/mo before the Siri orb / trading app unlocks. Entitlement is client-side localStorage MVP — production needs webhooks.
+

@@ -8,13 +8,69 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant. Paper default. CoinSwitch India primary live via DGS AI assistant." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913cs" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913gate" />
 </head>
-<body>
+<body data-gate="locked">
+  
+  <div id="gate" class="gate-shell" aria-live="polite">
+    <div class="gate-void" aria-hidden="true"></div>
+    <div class="gate-glow" aria-hidden="true"></div>
+
+    <section id="gateLogin" class="gate-card" aria-label="DGS AI sign in">
+      <p class="gate-brand">DGS AI</p>
+      <h1 class="gate-title">Voice trading, gated.</h1>
+      <p class="gate-credit">Founder Dineshgopi Sunkara</p>
+      <p class="gate-lead">Sign in to open the assistant. Listed owner emails are free. Everyone else unlocks with ₹499/mo or $9/mo.</p>
+
+      <button type="button" class="gate-btn gate-btn-google" id="googleSignInBtn">
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+          <path fill="#EA4335" d="M9 7.2v3.5h4.9c-.2 1.2-1.5 3.5-4.9 3.5-3 0-5.4-2.5-5.4-5.5S6 3.2 9 3.2c1.7 0 2.8.7 3.4 1.3l2.3-2.2C13.4.9 11.4 0 9 0 4 0 0 4 0 9s4 9 9 9c5.2 0 8.6-3.6 8.6-8.8 0-.6-.1-1-.2-1.5H9z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <p class="gate-or"><span>or create an account</span></p>
+
+      <form id="emailAuthForm" class="gate-form" autocomplete="on">
+        <label class="gate-field">
+          <span>Email</span>
+          <input id="authEmail" type="email" name="email" autocomplete="username" required placeholder="you@email.com" />
+        </label>
+        <label class="gate-field">
+          <span>Password</span>
+          <input id="authPassword" type="password" name="password" autocomplete="new-password" required minlength="6" placeholder="6+ characters" />
+        </label>
+        <button type="submit" class="gate-btn gate-btn-accent" id="createAccountBtn">Create account</button>
+        <button type="button" class="gate-btn gate-btn-ghost" id="emailSignInBtn">Sign in</button>
+      </form>
+
+      <p class="gate-msg" id="gateMsg" role="status"></p>
+    </section>
+
+    <section id="gatePay" class="gate-card gate-pay" hidden aria-label="DGS AI Pro paywall">
+      <p class="gate-brand">DGS AI</p>
+      <h1 class="gate-title">DGS AI Pro — ₹499/mo or $9/mo</h1>
+      <p class="gate-credit">Unlock the trading app</p>
+      <p class="gate-lead" id="payAccount"></p>
+      <p class="gate-lead">Pay once per plan on Razorpay (India) or Stripe (USD). Listed owner emails skip this.</p>
+
+      <button type="button" class="gate-btn gate-btn-accent" id="payInrBtn">Pay ₹499</button>
+      <button type="button" class="gate-btn gate-btn-usd" id="payUsdBtn">Pay $9</button>
+      <button type="button" class="gate-btn gate-btn-ghost" id="ivePaidBtn">I’ve paid</button>
+      <button type="button" class="gate-btn gate-btn-text" id="paySignOutBtn">Sign out</button>
+
+      <p class="gate-msg" id="payMsg" role="status"></p>
+    </section>
+  </div>
+
   <div class="app" data-ui="voice-stage" id="app" data-voice="IDLE">
     <header class="topbar">
       <p class="brand">DGS AI</p>
-      <div class="status-pill" id="statusPill" data-state="IDLE">IDLE</div>
+      <div class="topbar-end">
+        <span class="account-chip" id="accountChip" hidden></span>
+        <button type="button" class="signout-btn" id="signOutBtn">Sign out</button>
+        <div class="status-pill" id="statusPill" data-state="IDLE">IDLE</div>
+      </div>
     </header>
 
     <main class="stage" id="stage">
@@ -276,6 +332,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913cs"></script>
+  <script type="module" src="js/app.js?v=20260913gate"></script>
 </body>
 </html>

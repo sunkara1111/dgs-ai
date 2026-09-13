@@ -1,0 +1,35 @@
+/**
+ * DGS AI — Firebase Auth (client SDK)
+ *
+ * SETUP
+ * 1. Create a Firebase project at https://console.firebase.google.com
+ * 2. Enable Authentication → Sign-in method:
+ *      - Google
+ *      - Email/Password
+ * 3. Authentication → Settings → Authorized domains: add
+ *      sunkara1111.github.io
+ *      localhost   (optional, for local preview)
+ * 4. Project settings → Your apps → Web app → copy the config object
+ *    into FIREBASE_CONFIG below (public client keys — not Admin / service-account).
+ * 5. Commit the filled values. Never commit Admin SDK keys, .env secrets, or
+ *    service-account JSON. Those do not belong in this static Pages repo.
+ *
+ * Until placeholders are replaced, the login landing renders but sign-in
+ * stays inactive (see the on-page note).
+ */
+export const FIREBASE_CONFIG = {
+  apiKey: 'YOUR_FIREBASE_API_KEY',
+  authDomain: 'YOUR_PROJECT.firebaseapp.com',
+  projectId: 'YOUR_PROJECT_ID',
+  storageBucket: 'YOUR_PROJECT.appspot.com',
+  messagingSenderId: 'YOUR_SENDER_ID',
+  appId: 'YOUR_APP_ID',
+};
+
+export function isFirebaseConfigured() {
+  const key = String(FIREBASE_CONFIG.apiKey || '').trim();
+  const project = String(FIREBASE_CONFIG.projectId || '').trim();
+  if (!key || !project) return false;
+  if (key.startsWith('YOUR_') || project.startsWith('YOUR_')) return false;
+  return true;
+}

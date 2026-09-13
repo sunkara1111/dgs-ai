@@ -1,3 +1,5 @@
+import { onUnlocked, signOutUser } from './gate.js';
+
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
 
@@ -136,7 +138,7 @@ const state = {
   coinswitchIntents: [],
 };
 
-const CACHE_BUST = '20260913cs';
+const CACHE_BUST = '20260913gate';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 let talkLoop = null;
@@ -2113,6 +2115,8 @@ function initSiriOrb() {
 }
 
 function bindUi() {
+  const signOutBtn = $('signOutBtn');
+  if (signOutBtn) signOutBtn.onclick = () => { signOutUser(); };
   $('wakeBtn').onclick = wake;
   $('listenBtn').onclick = startVoiceListen;
   $('briefBtn').onclick = () => { markUserSpoke(); marketBrief(); };
@@ -2221,30 +2225,37 @@ function bootFromQuery() {
   } catch (_) {}
 }
 
-seedCssFallback();
-loadState();
-// Migrate legacy paper book rows (pre-bot) into OPEN/CLOSED shape
-state.book = (state.book || []).map((t) => {
-  if (!t || typeof t !== 'object') return t;
-  if (!t.status) return { ...t, status: 'OPEN', mark: t.entry, unrealized: 0 };
-  return t;
-});
-bindUi();
-if (state.proposal) applyProposal(state.proposal);
-renderBook();
-analyzeRisk();
-updateBotCard();
-initSiriOrb();
-setStatus('IDLE');
-bootFromQuery();
-if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
-// Resume paper autopilot if flag was persisted (quiet — no TTS on page load)
-if (state.autopilot) {
-  state.autopilot = false; // startAutopilot flips it on
-  startAutopilot({ quiet: true });
-  setAutopilotAction(state.autopilotLastAction || 'Resumed · paper loop');
+let booted = false;
+function bootApp() {
+  if (booted) return;
+  booted = true;
+  seedCssFallback();
+  loadState();
+  // Migrate legacy paper book rows (pre-bot) into OPEN/CLOSED shape
+  state.book = (state.book || []).map((t) => {
+    if (!t || typeof t !== 'object') return t;
+    if (!t.status) return { ...t, status: 'OPEN', mark: t.entry, unrealized: 0 };
+    return t;
+  });
+  bindUi();
+  if (state.proposal) applyProposal(state.proposal);
+  renderBook();
+  analyzeRisk();
+  updateBotCard();
+  initSiriOrb();
+  setStatus('IDLE');
+  bootFromQuery();
+  if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
+  // Resume paper autopilot if flag was persisted (quiet — no TTS on page load)
+  if (state.autopilot) {
+    state.autopilot = false; // startAutopilot flips it on
+    startAutopilot({ quiet: true });
+    setAutopilotAction(state.autopilotLastAction || 'Resumed · paper loop');
+  }
+  // Periodic mark refresh for open paper trades (quotes only — never live orders)
+  setInterval(() => {
+    if (openTrades().length) refreshOpenMarks().catch(() => {});
+  }, 45000);
 }
-// Periodic mark refresh for open paper trades (quotes only — never live orders)
-setInterval(() => {
-  if (openTrades().length) refreshOpenMarks().catch(() => {});
-}, 45000);
+
+onUnlocked(bootApp);
