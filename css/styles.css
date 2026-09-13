@@ -78,7 +78,7 @@ body {
   text-shadow: 0 0 18px rgba(126,224,200,0.45);
 }
 
-/* —— stage: pure black humanoid void —— */
+/* —— stage: pure black spiral-orb void —— */
 .stage {
   position: relative;
   flex: 1 1 auto;
@@ -105,18 +105,21 @@ body {
       transparent 55%);
 }
 
-/* CSS humanoid bust — primary home silhouette (WebGL off) */
+/* CSS bust — dormant fallback; WebGL spiral orb is primary */
 .bust-fallback {
   position: absolute;
   inset: 0;
-  display: grid;
+  display: none; /* dormant — WebGL spiral orb is primary */
   place-items: center;
   pointer-events: none;
   z-index: 2;
+  opacity: 0;
+  visibility: hidden;
 }
 .bust-fallback.is-hidden {
-  opacity: 1;
-  visibility: visible;
+  display: none;
+  opacity: 0;
+  visibility: hidden;
 }
 .bust-figure {
   position: relative;
@@ -249,7 +252,14 @@ body {
 
 
 #humanoid {
-  display: none !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+  pointer-events: none;
+  touch-action: none;
 }
 
 /* —— transcript: barely there —— */

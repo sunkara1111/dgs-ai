@@ -11,7 +11,7 @@
 Wake → brief / quote / asset pipeline → chart → send to phone. Dense data spoken + mini brief card. Risk & paper book stay in a drawer.
 
 ## Stage design
-Extreme minimalism: pure black void, premium cinematic AI humanoid bust (clear head + neck + shoulders silhouette) with soft teal/violet volumetric glow and gentle orbit rings. Dense elegant surface points — not a flat orb logo, not noisy particle soup. Ghost dock. Icon-only secondary modules. Voice is primary. Listening/Speaking pulse the bust glow.
+Extreme minimalism: pure black void, premium realtime spiral / galaxy orb — thousands of particles on Fibonacci / golden-angle arms wrapping a soft blooming core (hot white → teal → violet). Continuous rotation, breathe, and arm twist; Listening/Speaking intensify spin, pulse, and brightness. Not a flat logo, not a CSS bust. Ghost dock. Icon-only secondary modules. Voice is primary.
 
 ## Branding
 Use **DGS AI** only. Do not reuse demo-video product names.

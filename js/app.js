@@ -1071,7 +1071,7 @@ function runWork() {
 }
 
 function seedCssFallback() {
-  // CSS bust is markup-driven; keep hook for future surface accents.
+  // CSS bust left dormant; WebGL spiral orb is the home stage.
 }
 
 function makeGlowTexture(size, stops) {
@@ -1087,67 +1087,369 @@ function makeGlowTexture(size, stops) {
   return tex;
 }
 
-/** Fibonacci lattice on an ellipsoid surface (dense, even, elegant). */
-function fibEllipsoid(count, rx, ry, rz, y0, deform) {
-  const pts = new Float32Array(count * 3);
+/** Deterministic 0–1 hash for particle jitter. */
+function hash01(i, salt = 0) {
+  const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * Logarithmic spiral / golden-angle galaxy arms.
+ * Returns { positions, colors } Float32Arrays.
+ */
+function spiralGalaxyPoints(count, arms, opts = {}) {
+  const {
+    rMin = 0.06,
+    rMax = 1.55,
+    twist = 2.65,
+    armSpread = 0.28,
+    flatten = 0.18,
+    power = 0.68,
+  } = opts;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const cCore = new THREE.Color(0xffffff);
+  const cTeal = new THREE.Color(0x7ee0c8);
+  const cViolet = new THREE.Color(0x9b8cff);
+  const cGold = new THREE.Color(0xe8d5a3);
+  const tmp = new THREE.Color();
+
+  for (let i = 0; i < count; i++) {
+    const arm = i % arms;
+    const along = Math.floor(i / arms) / Math.max(1, Math.ceil(count / arms) - 1);
+    const rNorm = Math.pow(Math.max(0.001, along), power);
+    const r = rMin + (rMax - rMin) * rNorm;
+
+    const base = (arm / arms) * Math.PI * 2;
+    const spiral = twist * Math.log(1 + r * 3.4);
+    const spread = (hash01(i, 1) - 0.5) * armSpread * (0.35 + rNorm * 1.1);
+    // golden-angle micro-jitter so arms feel organic, not rigid spokes
+    const goldenJitter = (hash01(i, 2) - 0.5) * 0.08 * (1 - rNorm);
+    const theta = base + spiral + spread + goldenJitter;
+
+    const y = (hash01(i, 3) - 0.5) * flatten * (1.05 - rNorm * 0.72)
+      + Math.sin(theta * 2.1 + r * 4) * 0.012 * (1 - rNorm);
+
+    positions[i * 3] = Math.cos(theta) * r;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = Math.sin(theta) * r;
+
+    // hot white → teal → violet (+ sparse gold accents)
+    if (rNorm < 0.18) {
+      tmp.copy(cCore).lerp(cTeal, rNorm / 0.18);
+    } else if (rNorm < 0.55) {
+      tmp.copy(cTeal).lerp(cViolet, (rNorm - 0.18) / 0.37);
+    } else {
+      tmp.copy(cViolet).lerp(cTeal, (rNorm - 0.55) * 0.35);
+      if (i % 17 === 0) tmp.lerp(cGold, 0.45);
+    }
+    // brighten a few core-adjacent sparks
+    if (rNorm < 0.12 && i % 5 === 0) tmp.lerp(cCore, 0.55);
+    colors[i * 3] = tmp.r;
+    colors[i * 3 + 1] = tmp.g;
+    colors[i * 3 + 2] = tmp.b;
+  }
+  return { positions, colors };
+}
+
+/** Sparse Fibonacci sphere halo (depth dust, not the main form). */
+function fibHalo(count, rMin, rMax) {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
   const golden = Math.PI * (3 - Math.sqrt(5));
+  const cTeal = new THREE.Color(0x7ee0c8);
+  const cViolet = new THREE.Color(0x9b8cff);
+  const cGold = new THREE.Color(0xe8d5a3);
   for (let i = 0; i < count; i++) {
     const yN = 1 - (i / Math.max(1, count - 1)) * 2;
     const rr = Math.sqrt(Math.max(0, 1 - yN * yN));
     const theta = golden * i;
-    let x = Math.cos(theta) * rr * rx;
-    let y = yN * ry + y0;
-    let z = Math.sin(theta) * rr * rz;
-    if (deform) {
-      const d = deform(x, y, z, yN);
-      x = d.x; y = d.y; z = d.z;
-    }
-    pts[i * 3] = x;
-    pts[i * 3 + 1] = y;
-    pts[i * 3 + 2] = z;
+    const radius = rMin + (rMax - rMin) * hash01(i, 9);
+    positions[i * 3] = Math.cos(theta) * rr * radius;
+    positions[i * 3 + 1] = yN * radius * 0.72;
+    positions[i * 3 + 2] = Math.sin(theta) * rr * radius;
+    const col = i % 5 === 0 ? cGold : (i % 3 === 0 ? cTeal : cViolet);
+    colors[i * 3] = col.r;
+    colors[i * 3 + 1] = col.g;
+    colors[i * 3 + 2] = col.b;
   }
-  return pts;
-}
-
-/** Shoulder cape: wide lower ellipsoid band, tapered under head. */
-function fibShoulderCape(count, yTop, yBot) {
-  const pts = new Float32Array(count * 3);
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < count; i++) {
-    const t = i / Math.max(1, count - 1);
-    const y = yTop + (yBot - yTop) * t;
-    const depth = 1 - t;
-    const rx = 0.55 + depth * 0.95 + Math.sin(t * Math.PI) * 0.18;
-    const rz = 0.28 + depth * 0.42;
-    const theta = golden * i;
-    // prefer front/side of cape — thin band, not full sphere soup
-    const band = 0.55 + 0.45 * Math.sin((t + 0.15) * Math.PI);
-    const x = Math.cos(theta) * rx * band;
-    const z = Math.sin(theta) * rz * (0.65 + 0.35 * Math.abs(Math.cos(theta)));
-    // keep under head width curve near top
-    const maxX = 0.42 + (yTop - y) * 0.85;
-    pts[i * 3] = Math.max(-maxX, Math.min(maxX, x));
-    pts[i * 3 + 1] = y;
-    pts[i * 3 + 2] = z - 0.04;
-  }
-  return pts;
+  return { positions, colors };
 }
 
 function initHumanoid() {
-  // WebGL glow kept washing into an orb — CSS bust is the only home silhouette.
   const canvas = $('humanoid');
-  if (canvas) {
-    canvas.style.display = 'none';
-    canvas.setAttribute('aria-hidden', 'true');
-  }
+  if (!canvas) return;
+
+  // Re-enable WebGL canvas; keep CSS bust dormant
+  canvas.style.display = 'block';
+  canvas.removeAttribute('aria-hidden');
+  canvas.setAttribute('aria-hidden', 'true');
   const fallback = $('bustFallback');
   if (fallback) {
-    fallback.classList.remove('is-hidden');
-    fallback.style.opacity = '1';
-    fallback.style.visibility = 'visible';
+    fallback.classList.add('is-hidden');
+    fallback.setAttribute('hidden', '');
+    fallback.style.display = 'none';
+  }
+
+  try {
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+    });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+    camera.position.set(0, 0.12, 3.55);
+
+    const teal = 0x7ee0c8;
+    const violet = 0x9b8cff;
+    const gold = 0xe8d5a3;
+    const white = 0xffffff;
+
+    const softGlow = makeGlowTexture(256, [
+      [0, 'rgba(255,255,255,1)'],
+      [0.1, 'rgba(255,250,240,0.92)'],
+      [0.22, 'rgba(126,224,200,0.55)'],
+      [0.45, 'rgba(155,140,255,0.22)'],
+      [0.72, 'rgba(155,140,255,0.05)'],
+      [1, 'rgba(0,0,0,0)'],
+    ]);
+    const sparkGlow = makeGlowTexture(128, [
+      [0, 'rgba(255,255,255,0.98)'],
+      [0.18, 'rgba(126,224,200,0.75)'],
+      [0.5, 'rgba(155,140,255,0.28)'],
+      [1, 'rgba(0,0,0,0)'],
+    ]);
+    const dustGlow = makeGlowTexture(64, [
+      [0, 'rgba(255,255,255,0.75)'],
+      [0.35, 'rgba(126,224,200,0.3)'],
+      [1, 'rgba(0,0,0,0)'],
+    ]);
+
+    // —— Soft core bloom: hot white → teal → violet (not a flat logo disk) ——
+    const bloomViolet = new THREE.Mesh(
+      new THREE.SphereGeometry(1.38, 40, 40),
+      new THREE.MeshBasicMaterial({
+        color: violet, transparent: true, opacity: 0.035,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    const bloomTeal = new THREE.Mesh(
+      new THREE.SphereGeometry(0.95, 40, 40),
+      new THREE.MeshBasicMaterial({
+        color: teal, transparent: true, opacity: 0.055,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    const bloomGold = new THREE.Mesh(
+      new THREE.SphereGeometry(0.58, 32, 32),
+      new THREE.MeshBasicMaterial({
+        color: gold, transparent: true, opacity: 0.07,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    const coreTeal = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 48, 48),
+      new THREE.MeshBasicMaterial({
+        color: teal, transparent: true, opacity: 0.32,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    const coreHot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 32, 32),
+      new THREE.MeshBasicMaterial({
+        color: white, transparent: true, opacity: 0.85,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    scene.add(bloomViolet, bloomTeal, bloomGold, coreTeal, coreHot);
+
+    const volCore = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: softGlow, color: 0xffffff, transparent: true, opacity: 0.62,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    volCore.scale.set(1.55, 1.55, 1);
+    scene.add(volCore);
+
+    const volTeal = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: softGlow, color: teal, transparent: true, opacity: 0.34,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    volTeal.scale.set(2.15, 2.15, 1);
+    scene.add(volTeal);
+
+    const volOuter = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: softGlow, color: violet, transparent: true, opacity: 0.26,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    volOuter.scale.set(3.05, 3.05, 1);
+    scene.add(volOuter);
+
+    // Particle budget — denser on desktop, still rich on mobile
+    const mobile = window.matchMedia('(max-width: 720px)').matches
+      || (navigator.maxTouchPoints > 0 && window.innerWidth < 900);
+    const arms = 6;
+    const mainCount = mobile ? 3200 : 5200;
+    const innerCount = mobile ? 900 : 1400;
+    const haloCount = mobile ? 280 : 480;
+
+    const galaxy = new THREE.Group();
+    // cinematic disk tilt
+    galaxy.rotation.x = 0.62;
+    scene.add(galaxy);
+
+    function makePoints(data, size, opacity, map) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
+      const mat = new THREE.PointsMaterial({
+        size,
+        map,
+        vertexColors: true,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      });
+      return new THREE.Points(geo, mat);
+    }
+
+    // Primary spiral arms (dense, living)
+    const mainData = spiralGalaxyPoints(mainCount, arms, {
+      rMin: 0.08, rMax: 1.62, twist: 2.75, armSpread: 0.26, flatten: 0.16, power: 0.66,
+    });
+    const mainPts = makePoints(mainData, mobile ? 0.028 : 0.032, 0.82, sparkGlow);
+    galaxy.add(mainPts);
+
+    // Counter-twisted inner fibonacci spiral (depth + arm twist feel)
+    const innerData = spiralGalaxyPoints(innerCount, arms + 1, {
+      rMin: 0.04, rMax: 0.95, twist: -3.4, armSpread: 0.18, flatten: 0.22, power: 0.55,
+    });
+    const innerPts = makePoints(innerData, mobile ? 0.022 : 0.026, 0.7, sparkGlow);
+    galaxy.add(innerPts);
+
+    // Soft outer halo dust
+    const haloData = fibHalo(haloCount, 1.35, 2.15);
+    const haloPts = makePoints(haloData, 0.014, 0.32, dustGlow);
+    scene.add(haloPts);
+
+    // Thin outer faint ring (optional cinematic frame)
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.72, 0.0035, 8, 240),
+      new THREE.MeshBasicMaterial({
+        color: teal, transparent: true, opacity: 0.16,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    ring.rotation.x = Math.PI / 2.15;
+    scene.add(ring);
+
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(1.95, 0.0024, 8, 200),
+      new THREE.MeshBasicMaterial({
+        color: violet, transparent: true, opacity: 0.08,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    ring2.rotation.x = Math.PI / 2.35;
+    ring2.rotation.z = 0.35;
+    scene.add(ring2);
+
+    function resize() {
+      const parent = canvas.parentElement;
+      const w = Math.max(parent?.clientWidth || 0, 280);
+      const h = Math.max(parent?.clientHeight || 0, 360);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    let t = 0;
+    let spinBoost = 0;
+    let brightBoost = 0;
+
+    function frame() {
+      t += 0.0085;
+      const speakNow = state.status === 'SPEAKING';
+      const listen = state.status === 'LISTENING';
+
+      const targetSpin = speakNow ? 1.85 : listen ? 1.25 : 0;
+      const targetBright = speakNow ? 1 : listen ? 0.55 : 0;
+      spinBoost += (targetSpin - spinBoost) * 0.06;
+      brightBoost += (targetBright - brightBoost) * 0.08;
+
+      // Slow breathe + status pulse
+      const breathe = 1 + Math.sin(t * 0.85) * 0.014;
+      const pulse = speakNow
+        ? breathe + Math.sin(t * 7.2) * 0.045
+        : listen
+          ? breathe + Math.sin(t * 3.6) * 0.022
+          : breathe;
+
+      bloomViolet.scale.setScalar(pulse * 1.04);
+      bloomTeal.scale.setScalar(pulse * 1.02);
+      bloomGold.scale.setScalar(pulse);
+      coreTeal.scale.setScalar(pulse * (1 + brightBoost * 0.08));
+      coreHot.scale.setScalar(pulse * (1.02 + brightBoost * 0.12));
+      volCore.scale.set(1.55 * pulse, 1.55 * pulse, 1);
+      volTeal.scale.set(2.15 * pulse, 2.15 * pulse, 1);
+      volOuter.scale.set(3.05 * pulse * 1.02, 3.05 * pulse * 1.02, 1);
+
+      volCore.material.opacity = 0.55 + brightBoost * 0.22 + Math.sin(t * 1.1) * 0.04;
+      volTeal.material.opacity = 0.28 + brightBoost * 0.18;
+      volOuter.material.opacity = 0.22 + brightBoost * 0.12;
+      coreHot.material.opacity = 0.78 + brightBoost * 0.18;
+      mainPts.material.opacity = 0.72 + brightBoost * 0.2;
+      innerPts.material.opacity = 0.62 + brightBoost * 0.22;
+
+      // Continuous rotation + arm twist (counter-rotate inner spiral)
+      const baseSpin = 0.045 + spinBoost * 0.055;
+      galaxy.rotation.y = t * baseSpin;
+      galaxy.rotation.z = Math.sin(t * 0.18) * 0.06;
+      // arm twist: differential yaw on layers
+      mainPts.rotation.y = t * 0.012 * (1 + spinBoost * 0.4);
+      innerPts.rotation.y = -t * (0.038 + spinBoost * 0.05);
+      innerPts.rotation.z = Math.sin(t * 0.22) * 0.08;
+
+      haloPts.rotation.y = -t * 0.016;
+      haloPts.rotation.x = Math.sin(t * 0.07) * 0.05;
+      haloPts.material.opacity = 0.26 + Math.sin(t * 0.55) * 0.06 + brightBoost * 0.08;
+
+      ring.rotation.z = t * 0.06;
+      ring2.rotation.z = -t * 0.04;
+      ring.material.opacity = 0.12 + brightBoost * 0.1;
+      ring2.material.opacity = 0.06 + brightBoost * 0.06;
+
+      // subtle camera breathe for depth
+      camera.position.z = 3.55 + Math.sin(t * 0.35) * 0.04;
+      camera.position.y = 0.12 + Math.sin(t * 0.28) * 0.02;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    }
+    frame();
+  } catch (err) {
+    console.error('Spiral orb WebGL failed', err);
+    // Fallback: show dormant CSS bust only if WebGL dies
+    if (fallback) {
+      fallback.removeAttribute('hidden');
+      fallback.classList.remove('is-hidden');
+      fallback.style.display = 'grid';
+      fallback.style.opacity = '1';
+      fallback.style.visibility = 'visible';
+    }
+    if (canvas) canvas.style.display = 'none';
   }
 }
-
 
 
 function bindUi() {
