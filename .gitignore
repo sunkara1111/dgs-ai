@@ -6,3 +6,5 @@ __pycache__/
 !.env.example
 *.pem
 secrets/
+tools/out/
+*.pdf

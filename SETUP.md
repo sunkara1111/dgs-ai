@@ -11,8 +11,8 @@ This GitHub Pages app ships a working login + paywall UI. It stays locked until 
 | Plan | Price | Access |
 |------|-------|--------|
 | Owner | free (private hashed allowlist) | Full — never list owner emails in UI/docs |
-| Starter (`limited`) | **$19/mo** or **₹1,499/mo** | Sign-in, orb, voice Q&A, chart, send-to-phone, manual paper |
-| Pro (`pro`) | **$49/mo** or **₹3,999/mo** | Everything Starter + autopilot, scan, budget, SL/TP, CoinSwitch intents, Connect AI panel |
+| Starter (`limited`) | **$19/mo** or **₹1,499/mo** | Sign-in, orb, voice Q&A, quote, technicals, chart, send-to-phone, manual paper |
+| Pro (`pro`) | **$49/mo** or **₹3,999/mo** | Everything Starter + fundamentals, options/Greeks, scanners, PDF reports, IBKR paper portfolio + stop-loss dry-run, autopilot, budget, CoinSwitch intents, Connect AI panel |
 
 Entitlement shape: `{ paid: true, plan: 'limited'|'pro', ... }` in `localStorage`. Feature gates: `getPlan()`, `hasFeature('autopilot'|…)`.
 
@@ -63,3 +63,19 @@ Pay $49 or ₹3,999 → plan `pro`.
 ## Session
 
 Firebase Auth persists the session in the browser. Use **Sign out** on the paywall or in the app top bar.
+
+
+## Market skills CLI (box)
+
+See `tools/market_skills/README.md`. Examples:
+
+```bash
+cd /workspace/dinesh-ai-fund
+.venv/bin/python -m tools.market_skills quote AAPL
+.venv/bin/python -m tools.market_skills technicals NVDA
+.venv/bin/python -m tools.market_skills report MSFT
+.venv/bin/python -m tools.market_skills ib-stop-loss   # dry-run default
+```
+
+Yahoo-style data may be delayed ~15 minutes. Not financial advice. No guaranteed profits.
+MASSIVE/Polygon whales, CoinSwitch live, Stripe/Razorpay link creation, and IB `--execute` stay stubbed / opt-in until keys are intentionally wired.

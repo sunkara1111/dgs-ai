@@ -6,14 +6,14 @@
  * Plans: owner (private) | limited/starter | pro
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260913skills';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js';
+} from './billing-config.js?v=20260913skills';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -32,6 +32,7 @@ const LIMITED_FEATURES = new Set([
   'voice',
   'brief',
   'quote',
+  'technicals',
   'chart',
   'sendPhone',
   'manualPaper',
@@ -48,6 +49,13 @@ const PRO_FEATURES = new Set([
   'connectApps',
   'generateBot',
   'slTpManage',
+  // Market skills (full scanners / reports / IB) — Starter keeps quote+technicals+chart
+  'fundamentals',
+  'options',
+  'marketReport',
+  'riskCompare',
+  'ibPortfolio',
+  'pmccScan',
 ]);
 
 const unlockListeners = [];
@@ -83,7 +91,7 @@ export function getPlan() {
 /**
  * Feature gate.
  * Owner & Pro: all features.
- * Limited/Starter: sign-in, orb, voice Q&A, chart, send-to-phone, manual paper.
+ * Limited/Starter: sign-in, orb, voice Q&A, quote, technicals, chart, send-to-phone, manual paper.
  */
 export function hasFeature(name) {
   const plan = getPlan();

@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature } from './gate.js';
+import { onUnlocked, signOutUser, getPlan, hasFeature } from './gate.js?v=20260913skills';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -139,7 +139,7 @@ const state = {
   tradingBudget: 1000,
 };
 
-const CACHE_BUST = '20260913tiers';
+const CACHE_BUST = '20260913skills';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
@@ -420,7 +420,7 @@ function parseSymbol(text) {
 }
 
 function hasTradingCue(t) {
-  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade|autopilot|coinswitch|coin switch)\b/.test(t)
+  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade|autopilot|coinswitch|coin switch|technicals?|fundamentals?|options?|greeks|risk compare|report|ib portfolio|stop-loss)\b/.test(t)
     || Object.keys(NAME_TO_SYM).some((n) => t.includes(n));
 }
 
@@ -1677,8 +1677,139 @@ function statusSpeech() {
   return `Status. Paper equity ${money(eq)}. Day P and L ${money(sessionDayPnL())} including unrealized ${money(u)}. Open trades ${opens.length}. Drawdown ${dd.toFixed(2)} percent. Gate ${gate}. Autopilot ${auto}. Halt ${state.halted ? 'on' : 'off'}. Last autopilot action: ${state.autopilotLastAction || 'none'}. Paper only. No guaranteed profit.${flat}`;
 }
 
+
+/** Yahoo history for technicals (~15m delay). Starter+ */
+async function fetchHistoryCloses(symbol, range = '3mo') {
+  const ysym = yahooSymbol(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=${encodeURIComponent(range)}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4500);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, mode: 'cors' });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('http');
+    const data = await res.json();
+    const r = data.chart?.result?.[0];
+    const closes = (r?.indicators?.quote?.[0]?.close || []).filter((x) => x != null);
+    return closes;
+  } catch (_) {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+function rsiFromCloses(closes, period = 14) {
+  if (!closes || closes.length < period + 2) return null;
+  let gains = 0;
+  let losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) gains += d;
+    else losses -= d;
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
+function sma(closes, n) {
+  if (!closes || closes.length < n) return null;
+  const slice = closes.slice(-n);
+  return slice.reduce((a, b) => a + b, 0) / n;
+}
+
+function ema(closes, n) {
+  if (!closes || closes.length < n) return null;
+  const k = 2 / (n + 1);
+  let e = closes[0];
+  for (let i = 1; i < closes.length; i++) e = closes[i] * k + e * (1 - k);
+  return e;
+}
+
+function atrApprox(closes, n = 14) {
+  if (!closes || closes.length < n + 1) return null;
+  let sum = 0;
+  for (let i = closes.length - n; i < closes.length; i++) {
+    sum += Math.abs(closes[i] - closes[i - 1]);
+  }
+  return sum / n;
+}
+
+async function technicalsSpeech(symbol) {
+  if (!requireFeature('technicals', 'Technicals are included on Starter and Pro. Sign in to continue.')) return;
+  const filler = speakFiller();
+  const closes = await fetchHistoryCloses(symbol, '3mo');
+  await filler;
+  if (!closes || closes.length < 30) {
+    const q = await fetchQuote(symbol);
+    await speak(`${spokenQuote(q)} Full RSI MACD Bollinger ATR ADX run on the DGS AI box CLI: python -m tools.market_skills technicals ${symbol}. Delayed Yahoo-style data. Not advice.`);
+    return;
+  }
+  const last = closes[closes.length - 1];
+  const rsi = rsiFromCloses(closes);
+  const sma20 = sma(closes, 20);
+  const sma50 = sma(closes, 50);
+  const ema12 = ema(closes, 12);
+  const ema26 = ema(closes, 26);
+  const atr = atrApprox(closes, 14);
+  const macd = ema12 != null && ema26 != null ? ema12 - ema26 : null;
+  const bits = [
+    `${symbol} technicals (delayed Yahoo-style, about fifteen minutes).`,
+    `Last ${fmtPx(last)}.`,
+    rsi != null ? `RSI fourteen ${rsi.toFixed(1)}.` : '',
+    macd != null ? `MACD approx ${macd.toFixed(2)}.` : '',
+    sma20 != null ? `SMA twenty ${fmtPx(sma20)}.` : '',
+    sma50 != null ? `SMA fifty ${fmtPx(sma50)}.` : '',
+    atr != null ? `ATR fourteen about ${fmtPx(atr)}.` : '',
+    'Not financial advice. No guaranteed profit.',
+  ].filter(Boolean);
+  await speak(bits.join(' '));
+  addLine('dgs', bits.join(' '));
+}
+
+async function fundamentalsSpeech(symbol) {
+  if (!requireFeature('fundamentals', 'Fundamentals are a Pro feature. Starter includes quote, technicals, and chart.')) return;
+  await speak(`${symbol} fundamentals: full PE, margins, growth, and balance-sheet snapshot run on the DGS AI assistant box via python -m tools.market_skills fundamentals ${symbol}. Delayed data. Not financial advice. No guaranteed profit.`);
+}
+
+async function optionsSpeech(symbol) {
+  if (!requireFeature('options', 'Option chains and Greeks are Pro. Starter covers quote, technicals, and chart.')) return;
+  await speak(`${symbol} options: chain summary and Black-Scholes Greeks for ATM strikes run via DGS AI market skills CLI — python -m tools.market_skills options ${symbol}. Yahoo chain may be delayed about fifteen minutes. Not advice.`);
+}
+
+async function riskCompareSpeech(a, b) {
+  if (!requireFeature('riskCompare', 'Risk compare is Pro. Upgrade for volatility, beta, VaR, and correlation.')) return;
+  await speak(`Risk compare ${a} versus ${b}: volatility, beta, drawdown, Sharpe, and correlation run on the box — python -m tools.market_skills risk-compare ${a} ${b}. Not financial advice. Delayed data. No guaranteed profit.`);
+}
+
+async function fullReportSpeech(symbol) {
+  if (!requireFeature('marketReport', 'Full markdown and PDF reports are Pro. Starter keeps quote, technicals, and chart.')) return;
+  await speak(`Full ${symbol} report: technicals, fundamentals, bullish score, and PMCC snippet write to tools/out as markdown and PDF — python -m tools.market_skills report ${symbol}. Not financial advice. Delayed Yahoo-style data. No guaranteed profit.`);
+}
+
+async function ibPortfolioSpeech() {
+  if (!requireFeature('ibPortfolio', 'IBKR portfolio read is Pro. Needs TWS paper on port 7497.')) return;
+  await speak('My IB portfolio: DGS AI reads Interactive Brokers paper via TWS or IB Gateway on one two seven dot zero dot zero dot one port seven four nine seven. Say ib status or run python -m tools.market_skills ib-positions --rolls on the box. If TWS is not running you get a graceful offline message. Stop-loss is dry-run by default — pass --execute only when you mean it. Not advice.');
+}
+
+async function ibStopLossSpeech() {
+  if (!requireFeature('ibPortfolio', 'IB stop-loss tools are Pro and dry-run by default.')) return;
+  await speak('IB stop-loss defaults to dry-run. It analyzes paper positions and proposed stops without placing orders. To place, the operator must pass --execute on the CLI. Live port seven four nine six is not the default. Not financial advice.');
+}
+
+function parseTwoSymbols(text) {
+  const up = text.toUpperCase();
+  const tickers = [...up.matchAll(/\b([A-Z]{1,5})\b/g)].map((m) => m[1]).filter((s) => !['VERSUS', 'VS', 'AND', 'THE', 'FOR', 'RISK', 'COMPARE', 'WITH'].includes(s));
+  const a = tickers[0] || parseSymbol(text);
+  const b = tickers[1] || 'SPY';
+  return [a, b];
+}
+
+
 function helpSpeech() {
-  return 'I am DGS AI. Say speak or talk to me to enable voice replies. Say find a trade, take the trade, start or stop autopilot, how is my book, close trade, brief, quote, chart, send to phone. For live India crypto say coinswitch status, trade on coinswitch, or buy BTC on coinswitch — intents are logged here; DGS AI assistant executes with keys linked in chat. Paper default. Not advice. No guaranteed profit.';
+  return 'I am DGS AI. Say speak or talk to me to enable voice replies. Starter: quote, technicals, chart, send to phone, manual paper. Pro: fundamentals, options Greeks, bullish scan, risk compare, full report, IB portfolio, stop-loss dry-run, autopilot, CoinSwitch intents. Also: find a trade, take the trade, how is my book, close trade, brief. Paper default. Delayed data possible. Not advice. No guaranteed profit.';
 }
 
 function wake() {
@@ -1717,7 +1848,13 @@ function quickAnswer(q) {
     return 'Work drawer is open. Plans and drafts only.';
   }
   if (/(hello|hi |hey )/.test(t) || t === 'hi' || t === 'hey') {
-    return 'Listening. Say find a trade, or ask about any stock or crypto — brief, quote, chart, or handoff.';
+    return 'Listening. Say quote, technicals, chart, find a trade, or ask about any stock or crypto.';
+  }
+  if (/(not financial advice|disclaimer|delayed data|fifteen minute|15 ?m)/.test(t)) {
+    return 'Disclaimer: DGS AI is not financial advice. Yahoo-style quotes may be delayed about fifteen minutes. No profits are guaranteed. IB stop-loss is dry-run by default.';
+  }
+  if (/(what (is|are) (market )?skills|market skills|trading skills)/.test(t)) {
+    return 'DGS AI market skills cover quote, technicals, fundamentals, options Greeks, bullish and PMCC scans, risk compare, PDF reports, and IBKR paper portfolio with stop-loss dry-run. Starter gets quote, technicals, and chart. Pro unlocks the rest on the assistant box CLI.';
   }
   return null;
 }
@@ -1733,6 +1870,42 @@ async function handleVoiceCommand(text) {
     setStatus(state.talkActive ? 'LISTENING' : 'IDLE');
     if ($('voiceLog')) $('voiceLog').textContent = 'Speaking on · listening for commands…';
     await speak('Speaking on. I am listening for commands.', { force: true });
+    return;
+  }
+
+  // --- DGS AI market skills voice intents ---
+  if (/(ib (stop|stop-loss|stoploss)|stop-loss dry|dry-?run stop)/.test(t)) {
+    await ibStopLossSpeech();
+    return;
+  }
+  if (/(my ib (portfolio|positions|account)|ib (portfolio|positions|status)|interactive brokers|tws paper)/.test(t)) {
+    await ibPortfolioSpeech();
+    return;
+  }
+  if (/(full report|analysis report|pdf report|markdown report|generate report)/.test(t)) {
+    await fullReportSpeech(parseSymbol(text));
+    return;
+  }
+  if (/(risk compare|compare risk|correlation (of|between|for)|correlate )/.test(t)) {
+    const [a, b] = parseTwoSymbols(text);
+    await riskCompareSpeech(a, b);
+    return;
+  }
+  if (/(option(s)?( chain)?|greeks|black.?scholes|implied vol)/.test(t)) {
+    await optionsSpeech(parseSymbol(text));
+    return;
+  }
+  if (/(fundamentals?|pe ratio|earnings|balance sheet|valuation)/.test(t) && !/(paper|autopilot)/.test(t)) {
+    await fundamentalsSpeech(parseSymbol(text));
+    return;
+  }
+  if (/(technicals?|rsi|macd|bollinger|moving average|atr\b|adx\b)/.test(t)) {
+    await technicalsSpeech(parseSymbol(text));
+    return;
+  }
+  if (/(bullish scan|scan tickers|pmcc scan|scan for bullish)/.test(t)) {
+    if (!requireFeature('scan', 'Bullish / PMCC scanners are Pro. Starter: quote, technicals, chart.')) return;
+    await scanMarket();
     return;
   }
 
@@ -1874,7 +2047,7 @@ async function handleVoiceCommand(text) {
     await assetPipeline(parseSymbol(text));
     return;
   }
-  await speak('Got it. Say speak to enable voice, find a trade, take the trade, start or stop autopilot, how is my book, close trade, brief, quote, chart, send to phone, or coinswitch status. Paper default. No guaranteed profit.');
+  await speak('Got it. Say speak, quote, technicals, fundamentals, options, risk compare, full report, my IB portfolio, find a trade, take the trade, autopilot, brief, chart, send to phone, or coinswitch status. Paper default. Delayed data possible. Not advice. No guaranteed profit.');
 }
 
 function startVoiceListen() {

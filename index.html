@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant. Paper default. CoinSwitch India primary live via DGS AI assistant." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913auth" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913skills" />
 </head>
 <body data-gate="locked">
   
@@ -20,7 +20,7 @@
       <p class="gate-brand">DGS AI</p>
       <h1 class="gate-title">Voice trading, gated.</h1>
       <p class="gate-credit">Founder Dineshgopi Sunkara</p>
-      <p class="gate-lead">Sign in with Google or create an account. Choose Starter ($19 / ₹1,499) or Pro ($49 / ₹3,999). Paper default · no guaranteed profit.</p>
+      <p class="gate-lead">Sign in with Google or create an account. Choose Starter ($19 / ₹1,499) or Pro ($49 / ₹3,999). Paper default · delayed data possible · no guaranteed profit.</p>
 
       <button type="button" class="gate-btn gate-btn-google" id="googleSignInBtn">
         <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
@@ -61,10 +61,10 @@
           <p class="plan-alt">or ₹1,499 / mo</p>
           <ul class="plan-bullets">
             <li>Sign-in · Siri orb · voice Q&amp;A</li>
-            <li>TradingView chart · send to phone</li>
-            <li>Manual paper trade · risk drawer</li>
-            <li class="plan-no">No autopilot · no live CoinSwitch intents</li>
-            <li class="plan-no">No bot scan loop · no budget autopilot</li>
+            <li>Quote · technicals · TradingView chart</li>
+            <li>Send to phone · manual paper · risk drawer</li>
+            <li class="plan-no">No scanners / PDF reports / options Greeks</li>
+            <li class="plan-no">No autopilot · no IB portfolio · no CoinSwitch intents</li>
           </ul>
           <button type="button" class="gate-btn gate-btn-usd" id="payStarterUsdBtn">Pay $19</button>
           <button type="button" class="gate-btn gate-btn-ghost" id="payStarterInrBtn">Pay ₹1,499</button>
@@ -78,10 +78,10 @@
           <p class="plan-meta">Works like a mobile AI assistant for trading — App Store / Play listing is roadmap, not live yet.</p>
           <ul class="plan-bullets">
             <li>Everything in Starter</li>
-            <li>Paper autopilot · auto stop-loss / take-profit</li>
-            <li>Scan / find-a-trade · full bot card</li>
-            <li>Trading budget · autonomous paper run</li>
-            <li>CoinSwitch connect + trade intents</li>
+            <li>Fundamentals · options / Greeks · risk compare</li>
+            <li>Bullish + PMCC scanners · full markdown/PDF reports</li>
+            <li>IBKR paper portfolio · roll candidates · stop-loss dry-run</li>
+            <li>Paper autopilot · budget · CoinSwitch intents</li>
             <li>Connect AI / trading apps panel</li>
           </ul>
           <button type="button" class="gate-btn gate-btn-accent" id="payProUsdBtn">Pay $49</button>
@@ -121,7 +121,7 @@
         <div class="bot-card-top">
           <div>
             <p class="bot-kicker">Bot · paper only</p>
-            <p class="bot-fine">Not financial advice · no guaranteed profit</p>
+            <p class="bot-fine">Not financial advice · delayed data possible · no guaranteed profit · IB SL dry-run</p>
           </div>
           <div class="bot-card-actions" data-feature="botCardFull">
             <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false" data-feature="autopilot">Autopilot OFF</button>
@@ -203,7 +203,7 @@
       <h2>Risk &amp; paper book</h2>
       <button type="button" class="icon-btn drawer-close" data-close="risk">Close</button>
     </div>
-    <p class="fine">Paper default. No guaranteed profit. Live CoinSwitch (India) runs through <strong>DGS AI assistant</strong> with your keys server-side — not from this static page.</p>
+    <p class="fine">Not financial advice. Paper default. Yahoo-style data may be delayed ~15 minutes. No guaranteed profit. IB stop-loss is dry-run by default. Live CoinSwitch runs through <strong>DGS AI assistant</strong> with keys server-side — not from this static page.</p>
 
     <div class="stats">
       <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
@@ -390,6 +390,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913auth"></script>
+  <script type="module" src="js/app.js?v=20260913skills"></script>
 </body>
 </html>

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# DGS AI market skills launcher
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$ROOT/.venv/bin/python" -m tools.market_skills "$@"
