@@ -7,12 +7,14 @@ const state = {
   book: [],
   dayPnL: 0,
   peakEquity: 10000,
-  speaking: false,
+  lastOpen: false,
 };
 
 function setStatus(s) {
   state.status = s;
-  $('statusPill').textContent = `STATUS : ${s}`;
+  const pill = $('statusPill');
+  pill.textContent = `STATUS : ${s}`;
+  pill.dataset.state = s;
 }
 
 function speak(text) {
@@ -25,21 +27,36 @@ function speak(text) {
     u.onend = () => setStatus('IDLE');
     window.speechSynthesis.speak(u);
   } else {
-    setTimeout(() => setStatus('IDLE'), 1200);
+    setTimeout(() => setStatus('IDLE'), 1400);
   }
 }
 
 function renderAgents() {
+  $('agentCount').textContent = `${state.agents.length} agents online`;
   $('agentRow').innerHTML = state.agents.map((a) => `<span>${a} · online</span>`).join('');
 }
 
 function num(id) { return Number($(id).value); }
+
+function money(n) {
+  const sign = n < 0 ? '-' : '';
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+
+function updateStats(dd, open) {
+  $('dayPnl').textContent = money(state.dayPnL);
+  $('dayPnl').style.color = state.dayPnL >= 0 ? 'var(--ok)' : 'var(--danger)';
+  $('ddNow').textContent = `${dd.toFixed(2)}%`;
+  $('gateBadge').textContent = open ? 'OPEN' : 'CLOSED';
+  $('gateBadge').style.color = open ? 'var(--ok)' : 'var(--danger)';
+}
 
 function analyzeRisk() {
   const equity = num('equity');
   const riskPct = num('riskPct');
   const dailyLoss = num('dailyLoss');
   const maxDd = num('maxDd');
+  const minRr = num('minRr');
   const entry = num('entry');
   const stop = num('stop');
   const target = num('target');
@@ -54,49 +71,52 @@ function analyzeRisk() {
   const dollarRisk = shares * stopDist;
   const notional = shares * entry;
 
-  let score = 20;
+  let score = 15;
   const reasons = [];
-  if (stopDist <= 0) { score += 50; reasons.push('Invalid stop'); }
-  if (rr < 1.5) { score += 20; reasons.push('Reward:risk below 1.5'); }
-  else if (rr >= 2) { score -= 10; reasons.push('Reward:risk healthy (≥2)'); }
-  if (riskPct > 2) { score += 15; reasons.push('Per-trade risk > 2%'); }
-  if (Math.abs(state.dayPnL) / equity * 100 >= dailyLoss * 0.7) {
-    score += 15; reasons.push('Approaching daily loss limit');
+  if (stopDist <= 0) { score += 50; reasons.push('Stop required — distance is 0'); }
+  if (rr < minRr) { score += 25; reasons.push(`Reward:risk ${rr.toFixed(2)} < min ${minRr}`); }
+  else if (rr >= minRr + 0.5) { score -= 8; reasons.push('Reward:risk above minimum cushion'); }
+  if (riskPct > 2) { score += 18; reasons.push('Per-trade risk above 2%'); }
+  if (Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss * 0.7) {
+    score += 18; reasons.push('Approaching daily loss halt');
   }
-  const dd = Math.max(0, (state.peakEquity - equity) / state.peakEquity * 100);
-  if (dd >= maxDd * 0.8) { score += 25; reasons.push('Near max drawdown halt'); }
-  if (shares <= 0) { score += 30; reasons.push('Position size rounds to 0'); }
+  const dd = Math.max(0, (state.peakEquity - equity) / Math.max(state.peakEquity, 1) * 100);
+  if (dd >= maxDd * 0.8) { score += 28; reasons.push('Near max drawdown halt'); }
+  if (shares <= 0) { score += 30; reasons.push('Size rounds to 0 shares'); }
   if ((side === 'LONG' && stop >= entry) || (side === 'SHORT' && stop <= entry)) {
-    score += 40; reasons.push('Stop on wrong side of entry');
+    score += 45; reasons.push('Stop on wrong side of entry');
   }
+  if (notional > equity * 3) { score += 12; reasons.push('Notional > 3x equity'); }
   score = Math.max(0, Math.min(100, Math.round(score)));
 
-  const dailyHalt = Math.abs(Math.min(0, state.dayPnL)) / equity * 100 >= dailyLoss;
+  const dailyHalt = Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss;
   const ddHalt = dd >= maxDd;
-  const open = score < 55 && shares > 0 && !dailyHalt && !ddHalt && rr >= 1.5;
+  const open = score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0;
+  state.lastOpen = open;
 
   $('riskScore').textContent = String(score);
   $('riskBar').style.width = `${score}%`;
-  $('riskBar').style.background = score < 40 ? 'var(--ok)' : score < 55 ? 'var(--amber)' : 'var(--danger)';
+  $('riskBar').style.background = score < 35 ? 'var(--ok)' : score < 50 ? 'var(--amber)' : 'var(--danger)';
   const gate = $('gateMsg');
   gate.textContent = open
-    ? `Gate: OPEN — ${shares} sh ${symbol} ${side} · risk $${dollarRisk.toFixed(2)} · R:R ${rr.toFixed(2)}`
+    ? `Gate: OPEN — ${shares} sh ${symbol} ${side} · risk ${money(dollarRisk)} · R:R ${rr.toFixed(2)}`
     : `Gate: CLOSED — score ${score}${dailyHalt ? ' · daily loss halt' : ''}${ddHalt ? ' · drawdown halt' : ''}`;
   gate.className = `gate ${open ? 'open' : 'closed'}`;
   $('paperBtn').disabled = !open;
+  updateStats(dd, open);
 
-  const report = [
+  $('analysis').textContent = [
+    `Founder guard · Dineshgopi Sunkara`,
     `Symbol: ${symbol} ${side}`,
     `Entry ${entry} | Stop ${stop} | Target ${target}`,
     `Stop distance: ${stopDist.toFixed(4)}`,
-    `Reward:risk: ${rr.toFixed(2)}`,
-    `Max $ risk @ ${riskPct}%: ${riskBudget.toFixed(2)}`,
-    `Size: ${shares} shares · notional $${notional.toFixed(2)}`,
-    `Day P&L: $${state.dayPnL.toFixed(2)} · DD ${dd.toFixed(2)}%`,
+    `Reward:risk: ${rr.toFixed(2)} (min ${minRr})`,
+    `Max $ risk @ ${riskPct}%: ${money(riskBudget)}`,
+    `Size: ${shares} shares · notional ${money(notional)}`,
+    `Day P&L: ${money(state.dayPnL)} · DD ${dd.toFixed(2)}%`,
     `Reasons: ${reasons.join('; ') || 'within policy'}`,
     open ? 'Decision: ALLOW paper entry' : 'Decision: BLOCK — tighten risk or skip',
   ].join('\n');
-  $('analysis').textContent = report;
 
   return { open, shares, symbol, side, entry, stop, target, dollarRisk, score, rr };
 }
@@ -107,13 +127,7 @@ function paperEnter() {
     speak('Risk gate is closed. I will not enter this trade.');
     return;
   }
-  const trade = {
-    id: Date.now(),
-    ...r,
-    ts: new Date().toISOString(),
-  };
-  state.book.unshift(trade);
-  // Demo mark: 35% of the way to target (paper only, not a prediction)
+  state.book.unshift({ id: Date.now(), ...r, ts: new Date().toISOString() });
   const progress = 0.35;
   const simPrice = r.side === 'LONG'
     ? r.entry + (r.target - r.entry) * progress
@@ -126,7 +140,7 @@ function paperEnter() {
   $('equity').value = eq.toFixed(2);
   state.peakEquity = Math.max(state.peakEquity, eq);
   renderBook();
-  speak(`Paper entry allowed. ${r.shares} shares ${r.symbol} ${r.side}. Risk gate score ${r.score}.`);
+  speak(`Paper entry allowed. ${r.shares} shares ${r.symbol} ${r.side}. Risk score ${r.score}.`);
   analyzeRisk();
 }
 
@@ -139,80 +153,116 @@ function renderBook() {
 function marketBrief() {
   setStatus('LISTENING');
   setTimeout(() => {
-    speak('Nine agents online. Tech is mixed. Treat every long as risk-budget first. Nvidia and semis are active — I will not size without a stop and a two-to-one reward path.');
-  }, 350);
+    speak(`${state.agents.length} agents online. Risk guard first. Tech is active — I will only size with a valid stop and at least your minimum reward to risk. Say open chart or analyze risk when ready.`);
+  }, 280);
 }
 
 function openChart() {
   const symbol = $('symbol').value.trim().toUpperCase() || 'NVDA';
-  const url = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`;
-  window.open(url, '_blank', 'noopener,noreferrer');
-  speak(`Opening ${symbol} chart on TradingView.`);
+  window.open(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`, '_blank', 'noopener,noreferrer');
+  speak(`Opening ${symbol} on TradingView.`);
 }
 
 function wake() {
   setStatus('LISTENING');
-  speak('Go ahead. Risk guard is online.');
+  setTimeout(() => speak('Go ahead. Sunkara risk guard is online.'), 200);
 }
 
-// --- Humanoid particle field (Apex-inspired) ---
+function handleVoiceCommand(text) {
+  const t = text.toLowerCase();
+  if (t.includes('brief') || t.includes('market')) return marketBrief();
+  if (t.includes('chart') || t.includes('tradingview') || t.includes('trading view')) return openChart();
+  if (t.includes('analyze') || t.includes('risk')) {
+    analyzeRisk();
+    return speak(state.lastOpen ? 'Risk gate is open for this setup.' : 'Risk gate is closed for this setup.');
+  }
+  if (t.includes('wake') || t.includes('hello') || t.includes('apex') === false) {
+    if (t.includes('wake') || t.includes('hello') || t.includes('go ahead')) return wake();
+  }
+  speak('I can run market brief, open chart, or analyze risk.');
+}
+
+function startVoiceListen() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    speak('Voice recognition is not available in this browser. Use the buttons.');
+    return;
+  }
+  const rec = new SR();
+  rec.lang = 'en-US';
+  rec.interimResults = false;
+  setStatus('LISTENING');
+  $('voiceLog').textContent = 'Listening…';
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    $('voiceLog').textContent = `Heard: ${text}`;
+    handleVoiceCommand(text);
+  };
+  rec.onerror = () => {
+    setStatus('IDLE');
+    $('voiceLog').textContent = 'Listen failed — try again or use buttons.';
+  };
+  rec.onend = () => {
+    if (state.status === 'LISTENING') setStatus('IDLE');
+  };
+  rec.start();
+}
+
 function initHumanoid() {
   const canvas = $('humanoid');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.z = 4.2;
+  camera.position.z = 4.05;
 
-  const count = 4200;
+  const count = 6200;
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
+  const bases = new Float32Array(count * 3);
   const cCyan = new THREE.Color('#3de7ff');
   const cAmber = new THREE.Color('#ff9a3c');
   for (let i = 0; i < count; i++) {
-    // Head ellipsoid + torso cloud
-    const inHead = i < count * 0.62;
+    const inHead = i < count * 0.64;
     let x, y, z;
     if (inHead) {
       const u = Math.random();
       const v = Math.random();
       const theta = 2 * Math.PI * u;
       const phi = Math.acos(2 * v - 1);
-      const r = 0.85 * Math.cbrt(Math.random());
-      x = r * Math.sin(phi) * Math.cos(theta) * 0.85;
-      y = r * Math.cos(phi) * 1.05 + 0.55;
-      z = r * Math.sin(phi) * Math.sin(theta) * 0.7;
+      const r = 0.9 * Math.cbrt(Math.random());
+      x = r * Math.sin(phi) * Math.cos(theta) * 0.82;
+      y = r * Math.cos(phi) * 1.08 + 0.58;
+      z = r * Math.sin(phi) * Math.sin(theta) * 0.68;
     } else {
-      x = (Math.random() - 0.5) * 1.4;
-      y = -0.2 - Math.random() * 1.4;
-      z = (Math.random() - 0.5) * 0.7;
+      x = (Math.random() - 0.5) * 1.35;
+      y = -0.15 - Math.random() * 1.45;
+      z = (Math.random() - 0.5) * 0.65;
     }
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
-    const mix = inHead && Math.hypot(x, y - 0.55, z) < 0.35 ? 1 : Math.random() > 0.82 ? 1 : 0;
-    const col = mix ? cAmber : cCyan;
-    colors[i * 3] = col.r;
-    colors[i * 3 + 1] = col.g;
-    colors[i * 3 + 2] = col.b;
+    positions[i * 3] = x; positions[i * 3 + 1] = y; positions[i * 3 + 2] = z;
+    bases[i * 3] = x; bases[i * 3 + 1] = y; bases[i * 3 + 2] = z;
+    const core = inHead && Math.hypot(x, y - 0.55, z) < 0.38;
+    const col = core || Math.random() > 0.88 ? cAmber : cCyan;
+    colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const mat = new THREE.PointsMaterial({ size: 0.018, vertexColors: true, transparent: true, opacity: 0.95 });
-  const points = new THREE.Points(geo, mat);
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.016, vertexColors: true, transparent: true, opacity: 0.96, depthBlending: THREE.AdditiveBlending,
+  }));
   scene.add(points);
 
-  // background waves
-  const waveCount = 1800;
+  const waveCount = 2400;
   const wp = new Float32Array(waveCount * 3);
   for (let i = 0; i < waveCount; i++) {
-    wp[i * 3] = (Math.random() - 0.5) * 8;
-    wp[i * 3 + 1] = (Math.random() - 0.5) * 5;
-    wp[i * 3 + 2] = -2 - Math.random() * 2;
+    wp[i * 3] = (Math.random() - 0.5) * 9;
+    wp[i * 3 + 1] = (Math.random() - 0.5) * 5.5;
+    wp[i * 3 + 2] = -1.8 - Math.random() * 2.4;
   }
-  const wgeo = new THREE.BufferGeometry();
-  wgeo.setAttribute('position', new THREE.BufferAttribute(wp, 3));
-  const waves = new THREE.Points(wgeo, new THREE.PointsMaterial({ color: '#1ec8ff', size: 0.012, opacity: 0.35, transparent: true }));
+  const waves = new THREE.Points(
+    new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(wp, 3)),
+    new THREE.PointsMaterial({ color: '#1ec8ff', size: 0.011, opacity: 0.32, transparent: true })
+  );
   scene.add(waves);
 
   function resize() {
@@ -226,12 +276,23 @@ function initHumanoid() {
   window.addEventListener('resize', resize);
 
   let t = 0;
+  const pos = geo.attributes.position;
   function frame() {
-    t += 0.01;
-    points.rotation.y = Math.sin(t * 0.3) * 0.25;
-    const pulse = state.status === 'SPEAKING' ? 1.08 + Math.sin(t * 8) * 0.04 : 1 + Math.sin(t * 2) * 0.015;
+    t += 0.012;
+    const listen = state.status === 'LISTENING';
+    const speakNow = state.status === 'SPEAKING';
+    const amp = speakNow ? 0.055 : listen ? 0.03 : 0.012;
+    for (let i = 0; i < count; i++) {
+      const bx = bases[i * 3], by = bases[i * 3 + 1], bz = bases[i * 3 + 2];
+      pos.array[i * 3] = bx + Math.sin(t * 2 + by * 4) * amp;
+      pos.array[i * 3 + 1] = by + Math.cos(t * 2.2 + bx * 3) * amp * 0.8;
+      pos.array[i * 3 + 2] = bz + Math.sin(t * 1.7 + bx) * amp * 0.6;
+    }
+    pos.needsUpdate = true;
+    points.rotation.y = Math.sin(t * 0.28) * 0.22;
+    const pulse = speakNow ? 1.1 + Math.sin(t * 9) * 0.05 : listen ? 1.05 + Math.sin(t * 5) * 0.02 : 1 + Math.sin(t * 2) * 0.012;
     points.scale.setScalar(pulse);
-    waves.rotation.z = t * 0.05;
+    waves.rotation.z = t * 0.04;
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
@@ -239,7 +300,6 @@ function initHumanoid() {
 }
 
 function bindMicWake() {
-  // Optional clap/snap-ish energy detection
   if (!navigator.mediaDevices?.getUserMedia) return;
   navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
     const ctx = new AudioContext();
@@ -252,8 +312,8 @@ function bindMicWake() {
     const loop = () => {
       analyser.getByteFrequencyData(data);
       const avg = data.reduce((a, b) => a + b, 0) / data.length;
-      if (cool <= 0 && avg > 55 && state.status === 'IDLE') {
-        cool = 90;
+      if (cool <= 0 && avg > 58 && state.status === 'IDLE') {
+        cool = 100;
         wake();
       }
       cool = Math.max(0, cool - 1);
@@ -263,13 +323,15 @@ function bindMicWake() {
   }).catch(() => {});
 }
 
-$('analyzeBtn').onclick = () => { analyzeRisk(); speak('Risk analysis complete.'); };
+$('analyzeBtn').onclick = () => { analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
 $('paperBtn').onclick = paperEnter;
 $('wakeBtn').onclick = wake;
 $('briefBtn').onclick = marketBrief;
 $('chartBtn').onclick = openChart;
-['equity','riskPct','dailyLoss','maxDd','symbol','side','entry','stop','target'].forEach((id) => {
+$('listenBtn').onclick = startVoiceListen;
+['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target'].forEach((id) => {
   $(id).addEventListener('change', analyzeRisk);
+  $(id).addEventListener('input', analyzeRisk);
 });
 
 renderAgents();

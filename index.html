@@ -19,28 +19,35 @@
     <header class="topbar">
       <div>
         <p class="brand">Dinesh AI Fund</p>
-        <p class="sub">Founded by Dineshgopi Sunkara · sunkaraops.com · Risk-first trading humanoid</p>
+        <p class="sub">Founded by Dineshgopi Sunkara · Risk-first trading humanoid · Paper mode</p>
       </div>
-      <div class="status-pill" id="statusPill">STATUS : IDLE</div>
+      <div class="status-pill" id="statusPill" data-state="IDLE">STATUS : IDLE</div>
     </header>
 
     <main class="grid">
       <section class="stage">
         <canvas id="humanoid"></canvas>
         <div class="stage-overlay">
-          <p class="hint">Say “market brief” or click Wake · Snap/clap wake when mic allowed</p>
+          <p class="hint" id="hint">Wake · voice: “market brief”, “open chart”, “analyze risk” · mic clap/snap also wakes</p>
+          <p class="agent-count" id="agentCount">9 agents online</p>
           <div class="agent-row" id="agentRow"></div>
         </div>
       </section>
 
       <aside class="panel">
         <h2>Risk Gate</h2>
+        <div class="stats">
+          <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
+          <div><span>Drawdown</span><strong id="ddNow">0.00%</strong></div>
+          <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
+        </div>
         <label>Equity (paper) <input id="equity" type="number" value="10000" min="100" step="100" /></label>
         <label>Max risk / trade % <input id="riskPct" type="number" value="1" min="0.1" max="5" step="0.1" /></label>
         <label>Max daily loss % <input id="dailyLoss" type="number" value="3" min="0.5" max="10" step="0.5" /></label>
         <label>Max drawdown % <input id="maxDd" type="number" value="10" min="1" max="30" step="1" /></label>
-        <div class="meter"><span id="riskScoreLabel">Risk score</span><div class="bar"><i id="riskBar"></i></div><strong id="riskScore">0</strong></div>
-        <p class="gate" id="gateMsg">Gate: CLOSED until a setup is proposed</p>
+        <label>Min reward:risk <input id="minRr" type="number" value="2" min="1" max="5" step="0.1" /></label>
+        <div class="meter"><span id="riskScoreLabel">Risk score (lower is safer)</span><div class="bar"><i id="riskBar"></i></div><strong id="riskScore">0</strong></div>
+        <p class="gate closed" id="gateMsg">Gate: CLOSED until a setup passes risk</p>
 
         <h2>Proposed setup</h2>
         <label>Symbol <input id="symbol" type="text" value="NVDA" /></label>
@@ -51,7 +58,7 @@
         <label>Stop <input id="stop" type="number" value="114" step="0.01" /></label>
         <label>Target <input id="target" type="number" value="135" step="0.01" /></label>
         <button id="analyzeBtn" class="btn">Analyze risk</button>
-        <button id="paperBtn" class="btn btn-accent" disabled>Paper enter (if gate opens)</button>
+        <button id="paperBtn" class="btn btn-accent" disabled>Paper enter (gate must open)</button>
         <pre id="analysis" class="analysis"></pre>
 
         <h2>Voice / commands</h2>
@@ -60,11 +67,12 @@
           <button id="briefBtn" class="btn">Market brief</button>
           <button id="chartBtn" class="btn">Open chart</button>
         </div>
-        <p class="log" id="voiceLog">Humanoid idle.</p>
+        <button id="listenBtn" class="btn">Start voice listen</button>
+        <p class="log" id="voiceLog">Humanoid idle. Risk guard armed.</p>
 
         <h2>Paper book</h2>
         <ul id="book" class="book"></ul>
-        <p class="fine">Paper mode only. No broker connection. No profit guarantee. Risk gates can halt trading.</p>
+        <p class="fine">Paper mode only. No broker. No profit guarantee. Bad size is blocked by the risk gate.</p>
       </aside>
     </main>
   </div>
