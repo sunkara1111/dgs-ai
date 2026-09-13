@@ -18,12 +18,12 @@
  * stays inactive (see the on-page note).
  */
 export const FIREBASE_CONFIG = {
-  apiKey: 'YOUR_FIREBASE_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyCVwRbMMQO7qwDxBgvH9qwFuYEd22MXzYQ',
+  authDomain: 'dgs-ai-web.firebaseapp.com',
+  projectId: 'dgs-ai-web',
+  storageBucket: 'dgs-ai-web.firebasestorage.app',
+  messagingSenderId: '645823654756',
+  appId: '1:645823654756:web:e585caad52712e398c6871',
 };
 
 export function isFirebaseConfigured() {
