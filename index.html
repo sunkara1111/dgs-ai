@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913depth" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913humanoid" />
   <script type="importmap">
   { "imports": { "three": "./js/vendor/three.module.js" } }
   </script>
@@ -22,23 +22,19 @@
 
     <main class="stage" id="stage">
       <div class="stage-void" aria-hidden="true"></div>
-      <div class="orb-fallback" id="orbFallback" aria-hidden="true">
-        <svg class="orbit-svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
-          <g class="spokes" id="cssSpokes"></g>
-          <g class="orbit-guides" id="cssGuides"></g>
-        </svg>
-        <div class="ring"></div>
-        <div class="ring r2"></div>
-        <div class="ring r3"></div>
-        <div class="nodes" id="cssNodes"></div>
-        <div class="dust-field" id="cssDust"></div>
-        <div class="orb">
-          <div class="orb-bloom"></div>
-          <div class="orb-violet"></div>
-          <div class="orb-halo"></div>
-          <div class="orb-mid"></div>
-          <div class="orb-core"></div>
-          <div class="orb-hot"></div>
+      <div class="bust-fallback" id="bustFallback" aria-hidden="true">
+        <div class="bust-orbit o1"></div>
+        <div class="bust-orbit o2"></div>
+        <div class="bust-orbit o3"></div>
+        <div class="bust-figure">
+          <div class="bust-bloom"></div>
+          <div class="bust-chest-glow"></div>
+          <div class="bust-head-glow"></div>
+          <div class="bust-shoulders"></div>
+          <div class="bust-neck"></div>
+          <div class="bust-head">
+            <div class="bust-face-core"></div>
+          </div>
         </div>
       </div>
       <canvas id="humanoid" aria-hidden="true"></canvas>
@@ -222,6 +218,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913depth"></script>
+  <script type="module" src="js/app.js?v=20260913humanoid"></script>
 </body>
 </html>
