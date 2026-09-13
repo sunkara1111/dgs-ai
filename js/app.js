@@ -118,7 +118,11 @@ const state = {
   chartOpen: false,
   talkActive: false,
   speaking: false,
+  userSpoke: false,
 };
+
+const CACHE_BUST = '20260913siri2';
+const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 let talkLoop = null;
 let shareBlob = null;
@@ -182,11 +186,56 @@ function hideHint() {
   if (h) h.style.opacity = '0.25';
 }
 
-function speak(text) {
+function markUserSpoke() {
+  state.userSpoke = true;
+}
+
+function isPhoneDevice() {
+  try {
+    if (window.matchMedia('(pointer: coarse)').matches) return true;
+    if (window.matchMedia('(max-width: 820px)').matches) return true;
+  } catch (_) {}
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+}
+
+/** Pages base for handoff links (current origin when hosted). */
+function pagesBase() {
+  try {
+    const u = new URL(location.href);
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      let path = u.pathname || '/';
+      if (path.endsWith('index.html')) path = path.slice(0, -'index.html'.length);
+      if (!path.endsWith('/')) path += '/';
+      return `${u.origin}${path}`;
+    }
+  } catch (_) {}
+  return PAGES_FALLBACK;
+}
+
+/** Handoff URL that auto-opens the chart overlay on the phone. */
+function handoffUrl(sym) {
+  const s = (sym || state.lastSymbol || 'NVDA').toUpperCase();
+  return `${pagesBase()}?v=${CACHE_BUST}&chart=${encodeURIComponent(s)}`;
+}
+
+function tvChartUrl(sym) {
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol(sym))}`;
+}
+
+/**
+ * TTS only after the user has spoken in this session, or after an explicit
+ * content-request button (Brief / Chart / Send). Always updates transcript/status.
+ */
+function speak(text, opts = {}) {
   if (!text) return Promise.resolve();
+  const force = !!(opts && opts.force);
+  const allow = force || state.userSpoke;
   addLine('dgs', text);
   if ($('voiceLog')) $('voiceLog').textContent = text;
   hideHint();
+  if (!allow) {
+    return Promise.resolve();
+  }
   setStatus('SPEAKING');
   state.speaking = true;
   return new Promise((resolve) => {
@@ -241,7 +290,7 @@ function parseSymbol(text) {
 }
 
 function hasTradingCue(t) {
-  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone)\b/.test(t)
+  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone)\b/.test(t)
     || Object.keys(NAME_TO_SYM).some((n) => t.includes(n));
 }
 
@@ -257,7 +306,8 @@ function yahooSymbol(sym) {
 }
 
 function chartPageUrl(sym) {
-  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol(sym))}`;
+  // Prefer in-app handoff so opening/scanning the link shows the chart on device.
+  return handoffUrl(sym);
 }
 
 function embedUrl(sym) {
@@ -419,7 +469,7 @@ async function assetPipeline(symbol) {
   appendBriefCard(q, 'Next: open chart · send to phone · analyze paper setup');
 }
 
-function openChart(symbol) {
+function openChart(symbol, opts = {}) {
   const sym = (symbol || state.lastSymbol || $('symbol')?.value || 'NVDA').toUpperCase();
   state.lastSymbol = sym;
   if ($('symbol')) $('symbol').value = sym;
@@ -430,7 +480,9 @@ function openChart(symbol) {
   const overlay = $('chartOverlay');
   if (overlay) overlay.classList.remove('hidden');
   state.chartOpen = true;
-  speak(`Opening ${sym} chart. Paper only. Say send to my phone when you want the handoff.`);
+  if (!(opts && opts.silent)) {
+    speak(`Opening ${sym} chart. Paper only. Say send to my phone when you want the handoff.`);
+  }
 }
 
 function closeChart() {
@@ -509,42 +561,7 @@ function canvasToBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }
 
-async function sendChartToPhone(symbol) {
-  const sym = (symbol || state.lastSymbol || 'NVDA').toUpperCase();
-  state.lastSymbol = sym;
-  const fillerP = speak('Give the cloud a breath while I package the chart…');
-  const q = state.lastQuote?.symbol === sym ? state.lastQuote : await fetchQuote(sym);
-  paintShareCard(q);
-  const canvas = $('shareCanvas');
-  shareBlob = await canvasToBlob(canvas);
-  shareUrl = chartPageUrl(sym);
-  await fillerP;
-
-  const file = shareBlob ? new File([shareBlob], `dgs-ai-${sym}.png`, { type: 'image/png' }) : null;
-  const payload = {
-    title: `DGS AI · ${sym}`,
-    text: `${q.name} ${fmtPx(q.last)} · paper only · ${shareUrl}`,
-    url: shareUrl,
-  };
-
-  try {
-    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ ...payload, files: [file] });
-      await speak(`Chart card for ${sym} is on its way to your share sheet.`);
-      return;
-    }
-    if (navigator.share) {
-      await navigator.share(payload);
-      await speak(`I sent the ${sym} chart link to your share sheet.`);
-      return;
-    }
-  } catch (err) {
-    if (err && err.name === 'AbortError') {
-      await speak('Share canceled.');
-      return;
-    }
-  }
-
+function showShareSheet(sym, q, statusText) {
   openDrawer('share');
   const prev = $('sharePreview');
   if (prev && shareBlob) {
@@ -553,7 +570,7 @@ async function sendChartToPhone(symbol) {
   }
   const qr = $('shareQr');
   if (qr) {
-    qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&bgcolor=050508&color=5eead4&data=${encodeURIComponent(shareUrl)}`;
+    qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&bgcolor=050508&color=5eead4&data=${encodeURIComponent(shareUrl)}`;
     qr.style.display = 'block';
   }
   const link = $('shareLink');
@@ -562,9 +579,80 @@ async function sendChartToPhone(symbol) {
     link.textContent = shareUrl;
   }
   if ($('shareStatus')) {
-    $('shareStatus').textContent = `Web Share is not available here. Save the PNG or scan the QR for ${sym}.`;
+    $('shareStatus').textContent = statusText
+      || `Open on this phone, scan the QR, or copy the link for ${sym}.`;
   }
-  await speak(`Share sheet is not available on this browser. I left a PNG and a QR for ${sym}.`);
+}
+
+async function copyHandoffLink() {
+  if (!shareUrl) shareUrl = handoffUrl(state.lastSymbol);
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    if ($('shareStatus')) $('shareStatus').textContent = 'Link copied. Open it on your phone to show the chart.';
+  } catch (_) {
+    if ($('shareStatus')) $('shareStatus').textContent = 'Copy failed — long-press the link instead.';
+  }
+}
+
+function openOnThisPhone() {
+  const sym = (state.lastSymbol || 'NVDA').toUpperCase();
+  if (isPhoneDevice()) {
+    openChart(sym, { silent: true });
+    closeDrawers();
+    return;
+  }
+  location.assign(handoffUrl(sym));
+}
+
+async function sendChartToPhone(symbol) {
+  markUserSpoke();
+  const sym = (symbol || state.lastSymbol || 'NVDA').toUpperCase();
+  state.lastSymbol = sym;
+
+  // Already on a phone: show the chart fullscreen on THIS device.
+  if (isPhoneDevice()) {
+    openChart(sym, { silent: true });
+    await speak(`Showing ${sym} on this phone.`);
+    return;
+  }
+
+  const q = state.lastQuote?.symbol === sym ? state.lastQuote : await fetchQuote(sym);
+  paintShareCard(q);
+  const canvas = $('shareCanvas');
+  shareBlob = await canvasToBlob(canvas);
+  shareUrl = handoffUrl(sym);
+
+  const file = shareBlob ? new File([shareBlob], `dgs-ai-${sym}.png`, { type: 'image/png' }) : null;
+  const payload = {
+    title: `DGS AI · ${sym}`,
+    text: `${q.name} ${fmtPx(q.last)} · open on your phone · ${shareUrl}`,
+    url: shareUrl,
+  };
+
+  // Always show the mobile-friendly handoff sheet (QR / open / copy / PNG).
+  showShareSheet(sym, q, `Send ${sym} to your phone — share, scan the QR, or open the link.`);
+
+  let shared = false;
+  try {
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ ...payload, files: [file] });
+      shared = true;
+    } else if (navigator.share) {
+      await navigator.share(payload);
+      shared = true;
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      await speak('Share canceled. QR and link are still here.');
+      return;
+    }
+  }
+
+  if (shared) {
+    await speak(`Handoff ready for ${sym}. Open the link on your phone to show the chart.`);
+  } else {
+    await speak(`Handoff ready for ${sym}. Scan the QR or copy the link on your phone.`);
+  }
 }
 
 function downloadShareCard() {
@@ -737,7 +825,9 @@ function helpSpeech() {
 
 function wake() {
   setStatus('LISTENING');
-  speak('Go ahead. DGS AI is online. Stocks or crypto — brief, quote, chart, or send to phone.');
+  hideHint();
+  if ($('voiceLog')) $('voiceLog').textContent = 'Listening…';
+  // No greeting TTS — talk only after the user speaks.
 }
 
 async function quoteSpeech(symbol) {
@@ -776,9 +866,10 @@ function quickAnswer(q) {
 
 async function handleVoiceCommand(text) {
   const t = text.toLowerCase();
+  markUserSpoke();
   addLine('user', text);
 
-  if (/(send (it |the chart )?to (my )?phone|handoff|share (the )?chart|airdrop)/.test(t)) {
+  if (/(send (it |the chart )?to (my )?phone|show (it |that |the chart )?on (my )?phone|pull (it |that )?up on (my )?phone|handoff|share (the )?chart|airdrop)/.test(t)) {
     await sendChartToPhone(parseSymbol(text));
     return;
   }
@@ -862,7 +953,8 @@ async function handleVoiceCommand(text) {
 function startVoiceListen() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    speak('Voice recognition is not available in this browser. Use the buttons.');
+    setStatus('IDLE');
+    if ($('voiceLog')) $('voiceLog').textContent = 'Voice recognition not available — use the buttons.';
     return;
   }
   if (state.talkActive) {
@@ -871,7 +963,7 @@ function startVoiceListen() {
     $('listenBtn').textContent = 'Talk';
     $('listenBtn').dataset.on = '0';
     setStatus('IDLE');
-    speak('Talk mode off.');
+    if ($('voiceLog')) $('voiceLog').textContent = 'Talk mode off.';
     return;
   }
   state.talkActive = true;
@@ -898,7 +990,8 @@ function startVoiceListen() {
   rec.onerror = () => { if (state.talkActive) setTimeout(arm, 350); };
   rec.onend = () => { if (state.talkActive) setTimeout(arm, 260); };
   arm();
-  speak('Talk mode on. Ask anything.');
+  // Silent arm — no "Talk mode on" greeting.
+  if ($('voiceLog')) $('voiceLog').textContent = 'Listening…';
 }
 
 function dist(a, b) {
@@ -908,11 +1001,11 @@ function dist(a, b) {
 
 async function enablePinchCamera() {
   if (state.gestureOn) {
-    speak('Pinch camera already on.');
+    if ($('voiceLog')) $('voiceLog').textContent = 'Pinch camera already on.';
     return;
   }
   if (!window.Hands || !window.Camera) {
-    speak('Pinch camera library failed to load. Use Wake or voice instead.');
+    if ($('voiceLog')) $('voiceLog').textContent = 'Pinch camera library failed — use Wake or Talk.';
     return;
   }
   const video = $('gestureCam');
@@ -932,7 +1025,9 @@ async function enablePinchCamera() {
     if (dist(hand[4], hand[8]) < 0.05) {
       cool = 45;
       setStatus('LISTENING');
-      speak('Pinch recognized. DGS AI listening.');
+      hideHint();
+      if ($('voiceLog')) $('voiceLog').textContent = 'Listening…';
+      // Silent pinch wake — no TTS greeting.
     }
   });
   const camera = new Camera(video, {
@@ -942,7 +1037,7 @@ async function enablePinchCamera() {
   });
   await camera.start();
   state.gestureOn = true;
-  speak('Pinch camera enabled. Pinch thumb and index to wake.');
+  if ($('voiceLog')) $('voiceLog').textContent = 'Pinch camera on — pinch to wake.';
 }
 
 function openDrawer(name) {
@@ -1216,11 +1311,11 @@ function initSiriOrb() {
 function bindUi() {
   $('wakeBtn').onclick = wake;
   $('listenBtn').onclick = startVoiceListen;
-  $('briefBtn').onclick = () => { marketBrief(); };
-  $('chartBtn').onclick = () => openChart(parseSymbol($('symbol')?.value || state.lastSymbol));
+  $('briefBtn').onclick = () => { markUserSpoke(); marketBrief(); };
+  $('chartBtn').onclick = () => { markUserSpoke(); openChart(parseSymbol($('symbol')?.value || state.lastSymbol)); };
   $('closeChartBtn').onclick = closeChart;
-  $('sendPhoneBtn').onclick = () => { sendChartToPhone(state.lastSymbol); };
-  $('openTvTabBtn').onclick = () => window.open(chartPageUrl(state.lastSymbol), '_blank', 'noopener,noreferrer');
+  $('sendPhoneBtn').onclick = () => { markUserSpoke(); sendChartToPhone(state.lastSymbol); };
+  $('openTvTabBtn').onclick = () => window.open(tvChartUrl(state.lastSymbol), '_blank', 'noopener,noreferrer');
   $('openRiskBtn').onclick = () => openDrawer('risk');
   $('backdrop').onclick = closeDrawers;
   document.querySelectorAll('.drawer-close').forEach((btn) => {
@@ -1239,13 +1334,21 @@ function bindUi() {
     });
   }
 
-  $('analyzeBtn').onclick = () => { analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
+  $('analyzeBtn').onclick = () => { markUserSpoke(); analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
   $('paperBtn').onclick = paperEnter;
   $('haltBtn').onclick = forceHalt;
   $('resetDayBtn').onclick = resetDay;
   $('clearBookBtn').onclick = clearBook;
-  $('gestureBtn').onclick = () => { enablePinchCamera().catch(() => speak('Could not start pinch camera.')); };
+  $('gestureBtn').onclick = () => {
+    enablePinchCamera().catch(() => {
+      if ($('voiceLog')) $('voiceLog').textContent = 'Could not start pinch camera.';
+    });
+  };
   $('downloadCardBtn').onclick = downloadShareCard;
+  const openPhoneBtn = $('openOnPhoneBtn');
+  if (openPhoneBtn) openPhoneBtn.onclick = openOnThisPhone;
+  const copyBtn = $('copyLinkBtn');
+  if (copyBtn) copyBtn.onclick = () => { copyHandoffLink(); };
   $('socialDraftBtn').onclick = draftSocial;
   $('socialChecklistBtn').onclick = socialChecklist;
   $('workRunBtn').onclick = runWork;
@@ -1291,6 +1394,16 @@ function bindUi() {
   $('noOvernight').addEventListener('change', analyzeRisk);
 }
 
+function bootFromQuery() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const chart = (params.get('chart') || '').trim().toUpperCase();
+    if (!chart) return;
+    const sym = chart.replace(/[^A-Z0-9]/g, '') || 'NVDA';
+    openChart(sym, { silent: true });
+  } catch (_) {}
+}
+
 seedCssFallback();
 loadState();
 bindUi();
@@ -1298,4 +1411,5 @@ renderBook();
 analyzeRisk();
 initSiriOrb();
 setStatus('IDLE');
+bootFromQuery();
 if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';

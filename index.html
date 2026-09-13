@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913siri" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913siri2" />
 </head>
 <body>
   <div class="app" data-ui="voice-stage" id="app" data-voice="IDLE">
@@ -193,17 +193,21 @@
       <h2>Send to phone</h2>
       <button type="button" class="icon-btn drawer-close" data-close="share">Close</button>
     </div>
-    <p class="blurb" id="shareStatus">Packaging a chart card you can save or open on another device.</p>
+    <p class="blurb" id="shareStatus">Open on this phone, scan the QR, or copy the link — the chart shows when the link opens.</p>
+    <button id="openOnPhoneBtn" class="btn btn-accent btn-lg" type="button">Open on this phone</button>
+    <img id="shareQr" class="share-qr-lg" alt="QR code to open chart on phone" />
+    <div class="share-actions">
+      <button id="copyLinkBtn" class="btn" type="button">Copy link</button>
+      <button id="downloadCardBtn" class="btn" type="button">Download PNG</button>
+    </div>
+    <a id="shareLink" class="share-link" target="_blank" rel="noopener noreferrer" href="#">Handoff link</a>
     <img id="sharePreview" alt="DGS AI chart card preview" />
-    <img id="shareQr" alt="QR code to chart" />
-    <a id="shareLink" class="share-link" target="_blank" rel="noopener noreferrer" href="#">Open chart link</a>
-    <button id="downloadCardBtn" class="btn btn-accent" type="button">Download PNG</button>
   </aside>
 
   <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913siri"></script>
+  <script type="module" src="js/app.js?v=20260913siri2"></script>
 </body>
 </html>
