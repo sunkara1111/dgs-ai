@@ -1070,28 +1070,61 @@ function runWork() {
 function seedCssNodes() {
   const box = $('cssNodes');
   if (box) {
-    const spots = [
-      [18, 22], [78, 18], [88, 48], [12, 58], [70, 78], [30, 82],
-      [50, 12], [8, 36], [92, 70], [42, 90], [60, 28], [24, 44],
-      [55, 55], [35, 30], [72, 42],
+    const spots = [];
+    // Elegant constellation on three sparse orbits (not noisy scatter)
+    const rings = [
+      { r: 22, n: 5, tealEvery: 2 },
+      { r: 34, n: 7, tealEvery: 3 },
+      { r: 44, n: 6, tealEvery: 2 },
     ];
-    box.innerHTML = spots.map(([x, y], i) =>
-      `<span class="node" style="left:${x}%;top:${y}%;animation-delay:${i * 0.18}s"></span>`
-    ).join('');
+    rings.forEach((ring, ri) => {
+      for (let i = 0; i < ring.n; i++) {
+        const a = (i / ring.n) * Math.PI * 2 + ri * 0.35;
+        const x = 50 + Math.cos(a) * ring.r;
+        const y = 50 + Math.sin(a) * ring.r * 0.92;
+        spots.push({ x, y, teal: i % ring.tealEvery === 0, lg: i % 4 === 0 });
+      }
+    });
+    box.innerHTML = spots.map((s, i) => {
+      const cls = ['node', s.teal ? 'teal' : '', s.lg ? 'lg' : ''].filter(Boolean).join(' ');
+      return `<span class="${cls}" style="left:${s.x.toFixed(1)}%;top:${s.y.toFixed(1)}%;animation-delay:${(i * 0.22).toFixed(2)}s"></span>`;
+    }).join('');
   }
   const spokes = $('cssSpokes');
   if (spokes) {
     const cx = 100, cy = 100;
     const lines = [];
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const r = 88;
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + 0.08;
+      const r = 82;
       const x2 = cx + Math.cos(a) * r;
       const y2 = cy + Math.sin(a) * r;
       lines.push(`<line class="spoke" x1="${cx}" y1="${cy}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`);
     }
     spokes.innerHTML = lines.join('');
   }
+  const guides = $('cssGuides');
+  if (guides) {
+    guides.innerHTML = [48, 68, 86].map((r) =>
+      `<circle class="guide" cx="100" cy="100" r="${r}" />`
+    ).join('');
+  }
+}
+
+function fibSphere(count, radius) {
+  const pts = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / (count - 1)) * 2;
+    const rr = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = golden * i;
+    pts.push(
+      Math.cos(theta) * rr * radius,
+      y * radius,
+      Math.sin(theta) * rr * radius,
+    );
+  }
+  return pts;
 }
 
 function initHumanoid() {
@@ -1102,84 +1135,109 @@ function initHumanoid() {
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    camera.position.set(0, 0.02, 3.35);
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+    camera.position.set(0, 0.04, 3.55);
 
     const teal = 0x7ee0c8;
     const gold = 0xe8d5a3;
     const white = 0xffffff;
-
-    // Soft core glow (celestial orb)
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(0.38, 64, 64),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.18 })
-    );
-    scene.add(core);
-    const core2 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.16, 32, 32),
-      new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.42 })
-    );
-    scene.add(core2);
-    const coreGold = new THREE.Mesh(
-      new THREE.SphereGeometry(0.52, 48, 48),
-      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.06 })
-    );
-    scene.add(coreGold);
-
-    // Orbiting node shell
-    const ico = new THREE.IcosahedronGeometry(1.12, 1);
-    const pos = ico.attributes.position;
-    const n = pos.count;
-    const colors = new Float32Array(n * 3);
     const cTeal = new THREE.Color(teal);
     const cGold = new THREE.Color(gold);
-    for (let i = 0; i < n; i++) {
-      const col = i % 3 ? cGold : cTeal;
-      colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
+
+    // Layered celestial core — soft bloom stack, no hard silhouette
+    const bloom = new THREE.Mesh(
+      new THREE.SphereGeometry(1.05, 48, 48),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.035, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    scene.add(bloom);
+    const aura = new THREE.Mesh(
+      new THREE.SphereGeometry(0.72, 48, 48),
+      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.05, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    scene.add(aura);
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(0.34, 64, 64),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    scene.add(core);
+    const coreWarm = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 48, 48),
+      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    scene.add(coreWarm);
+    const coreHot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 32, 32),
+      new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    scene.add(coreHot);
+
+    // Sparse elegant constellation (not dense particle noise)
+    const nodeCount = 22;
+    const nodePos = fibSphere(nodeCount, 1.18);
+    const nodeCols = new Float32Array(nodeCount * 3);
+    for (let i = 0; i < nodeCount; i++) {
+      const col = i % 3 === 0 ? cTeal : cGold;
+      nodeCols[i * 3] = col.r;
+      nodeCols[i * 3 + 1] = col.g;
+      nodeCols[i * 3 + 2] = col.b;
     }
-    ico.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const nodes = new THREE.Points(ico, new THREE.PointsMaterial({
-      size: 0.038, vertexColors: true, transparent: true, opacity: 0.85,
+    const nodeGeo = new THREE.BufferGeometry();
+    nodeGeo.setAttribute('position', new THREE.Float32BufferAttribute(nodePos, 3));
+    nodeGeo.setAttribute('color', new THREE.BufferAttribute(nodeCols, 3));
+    const nodes = new THREE.Points(nodeGeo, new THREE.PointsMaterial({
+      size: 0.028, vertexColors: true, transparent: true, opacity: 0.78,
       depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
     }));
     scene.add(nodes);
 
-    // Thin radial spokes from center to outer shell
+    // Fainter outer dust — few points only
+    const dustPos = fibSphere(14, 1.48);
+    const dustGeo = new THREE.BufferGeometry();
+    dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dustPos, 3));
+    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+      color: gold, size: 0.014, transparent: true, opacity: 0.35,
+      depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+    }));
+    scene.add(dust);
+
+    // Thin radial spokes to a curated subset of nodes
     const spokePos = [];
     const spokeCols = [];
-    const cEdge = new THREE.Color(gold);
-    for (let i = 0; i < n; i += 3) {
-      spokePos.push(0, 0, 0, pos.getX(i), pos.getY(i), pos.getZ(i));
-      spokeCols.push(cTeal.r, cTeal.g, cTeal.b, cEdge.r, cEdge.g, cEdge.b);
+    for (let i = 0; i < nodeCount; i += 2) {
+      const ix = i * 3;
+      spokePos.push(0, 0, 0, nodePos[ix], nodePos[ix + 1], nodePos[ix + 2]);
+      spokeCols.push(cTeal.r, cTeal.g, cTeal.b, cGold.r, cGold.g, cGold.b);
     }
     const spokeGeo = new THREE.BufferGeometry();
     spokeGeo.setAttribute('position', new THREE.Float32BufferAttribute(spokePos, 3));
     spokeGeo.setAttribute('color', new THREE.Float32BufferAttribute(spokeCols, 3));
     const spokes = new THREE.LineSegments(spokeGeo, new THREE.LineBasicMaterial({
-      vertexColors: true, transparent: true, opacity: 0.22,
+      vertexColors: true, transparent: true, opacity: 0.16,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     scene.add(spokes);
 
-    const lineGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.12, 1));
-    const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-      color: gold, transparent: true, opacity: 0.08,
-    }));
-    scene.add(lines);
-
+    // Slow elegant orbit rings (no wireframe cage)
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1.32, 0.005, 12, 160),
-      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.35 })
+      new THREE.TorusGeometry(1.28, 0.0035, 8, 180),
+      new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending })
     );
-    ring.rotation.x = Math.PI / 2.2;
+    ring.rotation.x = Math.PI / 2.15;
     scene.add(ring);
     const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(1.58, 0.004, 12, 160),
-      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.2 })
+      new THREE.TorusGeometry(1.52, 0.0028, 8, 180),
+      new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending })
     );
-    ring2.rotation.x = Math.PI / 2.05;
-    ring2.rotation.z = 0.35;
+    ring2.rotation.x = Math.PI / 2.35;
+    ring2.rotation.z = 0.42;
     scene.add(ring2);
+    const ring3 = new THREE.Mesh(
+      new THREE.TorusGeometry(1.72, 0.0022, 8, 160),
+      new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    ring3.rotation.x = Math.PI / 1.95;
+    ring3.rotation.y = 0.18;
+    scene.add(ring3);
 
     function resize() {
       const parent = canvas.parentElement;
@@ -1192,21 +1250,34 @@ function initHumanoid() {
     resize();
     window.addEventListener('resize', resize);
 
+    // WebGL is live — retire CSS double-orb so the stage stays cinematic
+    const fallback = $('orbFallback');
+    if (fallback) fallback.classList.add('is-hidden');
+
     let t = 0;
     function frame() {
-      t += 0.01;
+      t += 0.008;
       const speakNow = state.status === 'SPEAKING';
       const listen = state.status === 'LISTENING';
-      const pulse = speakNow ? 1.08 + Math.sin(t * 7) * 0.035 : listen ? 1.04 + Math.sin(t * 4) * 0.018 : 1 + Math.sin(t) * 0.012;
+      const pulse = speakNow
+        ? 1.07 + Math.sin(t * 6.2) * 0.03
+        : listen
+          ? 1.035 + Math.sin(t * 3.4) * 0.015
+          : 1 + Math.sin(t * 0.85) * 0.01;
+      bloom.scale.setScalar(pulse * 1.02);
+      aura.scale.setScalar(pulse);
       core.scale.setScalar(pulse);
-      core2.scale.setScalar(pulse);
-      coreGold.scale.setScalar(pulse * 0.98);
-      const yaw = t * 0.1;
+      coreWarm.scale.setScalar(pulse);
+      coreHot.scale.setScalar(pulse * 1.02);
+      const yaw = t * 0.065;
       nodes.rotation.y = yaw;
-      lines.rotation.y = yaw;
+      nodes.rotation.x = Math.sin(t * 0.12) * 0.08;
+      dust.rotation.y = -yaw * 0.7;
       spokes.rotation.y = yaw;
-      ring.rotation.z = t * 0.12;
-      ring2.rotation.z = -t * 0.08;
+      spokes.rotation.x = nodes.rotation.x;
+      ring.rotation.z = t * 0.075;
+      ring2.rotation.z = -t * 0.055;
+      ring3.rotation.z = t * 0.04;
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }

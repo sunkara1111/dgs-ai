@@ -45,22 +45,24 @@ body {
   align-items: center;
   flex: 0 0 auto;
   z-index: 6;
-  opacity: 0.72;
+  opacity: 0.48;
+  transition: opacity 0.4s ease;
 }
+.app:hover .topbar { opacity: 0.7; }
 .brand {
   margin: 0;
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.42em;
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.48em;
   text-transform: uppercase;
-  color: rgba(244,241,234,0.78);
+  color: rgba(244,241,234,0.55);
 }
 .status-pill {
   font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.22em;
+  font-size: 0.52rem;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: rgba(244,241,234,0.4);
+  color: rgba(244,241,234,0.28);
   border: 0;
   background: transparent;
   padding: 0.2rem 0;
@@ -74,13 +76,28 @@ body {
   text-shadow: 0 0 18px rgba(126,224,200,0.45);
 }
 
-/* —— stage: pure black, orb hero —— */
+/* —— stage: deep black celestial void —— */
 .stage {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
   margin: 0;
   overflow: hidden;
+  background: #000;
+}
+.stage-void {
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 55% 48% at 50% 46%,
+      rgba(126,224,200,0.07) 0%,
+      rgba(232,213,163,0.03) 28%,
+      rgba(0,0,0,0) 62%),
+    radial-gradient(ellipse 90% 80% at 50% 100%,
+      rgba(0,0,0,0.85) 0%,
+      transparent 55%);
 }
 .orb-fallback {
   position: absolute;
@@ -88,87 +105,149 @@ body {
   display: grid;
   place-items: center;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
+  transition: opacity 0.6s ease;
+}
+.orb-fallback.is-hidden {
+  opacity: 0;
+  visibility: hidden;
 }
 .orbit-svg {
   position: absolute;
-  width: min(520px, 96vw);
-  height: min(520px, 96vw);
-  opacity: 0.55;
+  width: min(560px, 98vw);
+  height: min(560px, 98vw);
+  opacity: 0.7;
 }
 .orbit-svg .spoke {
-  stroke: rgba(232,213,163,0.18);
+  stroke: rgba(232,213,163,0.14);
+  stroke-width: 0.28;
+}
+.orbit-svg .guide {
+  fill: none;
+  stroke: rgba(126,224,200,0.08);
   stroke-width: 0.35;
 }
 .orb {
   position: relative;
-  width: min(168px, 38vw);
+  width: min(156px, 36vw);
   aspect-ratio: 1;
-  z-index: 2;
+  z-index: 3;
 }
-.orb-core {
+.orb-bloom {
   position: absolute;
-  inset: 12%;
+  inset: -95%;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 40% 34%,
-      #ffffff 0%,
-      #f0e6c8 12%,
-      #7ee0c8 34%,
-      rgba(126,224,200,0.25) 55%,
-      transparent 72%);
-  box-shadow:
-    0 0 40px rgba(126,224,200,0.55),
-    0 0 90px rgba(232,213,163,0.18),
-    0 0 160px rgba(126,224,200,0.12);
-  animation: breathe 5s ease-in-out infinite;
+  background: radial-gradient(circle,
+    rgba(126,224,200,0.14) 0%,
+    rgba(232,213,163,0.06) 32%,
+    transparent 68%);
+  filter: blur(22px);
+  animation: breathe 7.5s ease-in-out infinite;
 }
 .orb-halo {
   position: absolute;
-  inset: -42%;
+  inset: -48%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(126,224,200,0.16), transparent 58%);
-  filter: blur(10px);
-  animation: breathe 5s ease-in-out infinite 0.15s;
+  background: radial-gradient(circle,
+    rgba(126,224,200,0.22) 0%,
+    rgba(126,224,200,0.06) 42%,
+    transparent 70%);
+  filter: blur(14px);
+  animation: breathe 7.5s ease-in-out infinite 0.2s;
+}
+.orb-mid {
+  position: absolute;
+  inset: 2%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 36%,
+    rgba(255,255,255,0.35) 0%,
+    rgba(232,213,163,0.28) 18%,
+    rgba(126,224,200,0.22) 42%,
+    rgba(126,224,200,0.04) 68%,
+    transparent 78%);
+  filter: blur(1.5px);
+  animation: breathe 7.5s ease-in-out infinite;
+}
+.orb-core {
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 32%,
+      #ffffff 0%,
+      #f4ecd4 14%,
+      #9ee8d4 38%,
+      rgba(126,224,200,0.45) 58%,
+      rgba(126,224,200,0.08) 78%,
+      transparent 88%);
+  box-shadow:
+    0 0 28px rgba(126,224,200,0.55),
+    0 0 70px rgba(126,224,200,0.28),
+    0 0 120px rgba(232,213,163,0.12),
+    0 0 180px rgba(126,224,200,0.08);
+  animation: breathe 7.5s ease-in-out infinite;
+}
+.orb-hot {
+  position: absolute;
+  inset: 38%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%,
+    #ffffff 0%,
+    rgba(255,250,240,0.85) 35%,
+    rgba(126,224,200,0.35) 70%,
+    transparent 100%);
+  filter: blur(0.4px);
+  animation: breathe 7.5s ease-in-out infinite 0.1s;
 }
 .ring {
   position: absolute;
-  width: min(260px, 58vw);
+  width: min(248px, 56vw);
   aspect-ratio: 1;
-  border: 1px solid rgba(232,213,163,0.14);
+  border: 1px solid rgba(232,213,163,0.12);
   border-radius: 50%;
-  animation: spin 28s linear infinite;
+  box-shadow: 0 0 24px rgba(232,213,163,0.04);
+  animation: spin 36s linear infinite;
 }
 .ring.r2 {
-  width: min(340px, 74vw);
-  border-color: rgba(126,224,200,0.10);
+  width: min(330px, 72vw);
+  border-color: rgba(126,224,200,0.09);
   animation-direction: reverse;
-  animation-duration: 42s;
+  animation-duration: 52s;
 }
 .ring.r3 {
-  width: min(420px, 90vw);
-  border-color: rgba(255,255,255,0.04);
-  animation-duration: 64s;
+  width: min(420px, 88vw);
+  border-color: rgba(255,255,255,0.035);
+  animation-duration: 78s;
 }
-.nodes { position: absolute; inset: 0; z-index: 1; }
+.nodes { position: absolute; inset: 0; z-index: 2; }
 .node {
   position: absolute;
-  width: 2.5px;
-  height: 2.5px;
+  width: 2px;
+  height: 2px;
+  margin: -1px 0 0 -1px;
   border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 10px rgba(232,213,163,0.7);
-  opacity: 0.65;
-  animation: twinkle 4s ease-in-out infinite;
+  background: rgba(244,241,234,0.9);
+  box-shadow: 0 0 8px rgba(232,213,163,0.55);
+  opacity: 0.55;
+  animation: twinkle 5.5s ease-in-out infinite;
+}
+.node.teal {
+  background: var(--glow);
+  box-shadow: 0 0 10px rgba(126,224,200,0.55);
+}
+.node.lg {
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
 }
 @keyframes breathe {
-  0%,100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.06); opacity: 1; }
+  0%,100% { transform: scale(1); opacity: 0.88; }
+  50% { transform: scale(1.045); opacity: 1; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes twinkle {
-  0%,100% { opacity: 0.2; transform: scale(0.85); }
-  50% { opacity: 0.95; transform: scale(1.15); }
+  0%,100% { opacity: 0.18; transform: scale(0.9); }
+  50% { opacity: 0.85; transform: scale(1.08); }
 }
 #humanoid {
   position: absolute;
@@ -176,27 +255,9 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.stage-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
   z-index: 2;
+  pointer-events: none;
 }
-.slabel {
-  position: absolute;
-  font-size: 0.58rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(244,241,234,0.22);
-  font-weight: 400;
-}
-.slabel.s1 { top: 18%; left: 8%; }
-.slabel.s2 { top: 22%; right: 10%; }
-.slabel.s3 { bottom: 28%; left: 12%; }
 
 /* —— transcript: barely there —— */
 .transcript {
@@ -269,12 +330,14 @@ body {
 }
 .hint {
   position: absolute;
-  left: 0; right: 0; bottom: 0.15rem;
+  left: 0; right: 0; bottom: 0.35rem;
   margin: 0;
   text-align: center;
-  color: rgba(244,241,234,0.22);
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
+  color: rgba(244,241,234,0.18);
+  font-size: 0.58rem;
+  font-weight: 300;
+  letter-spacing: 0.32em;
+  text-transform: lowercase;
   z-index: 4;
   transition: opacity 0.5s ease;
 }
@@ -289,8 +352,8 @@ body {
   justify-content: center;
   gap: 0.35rem;
   z-index: 6;
-  opacity: 0.28;
-  transition: opacity 0.35s ease;
+  opacity: 0.18;
+  transition: opacity 0.4s ease;
   padding: 0.35rem 0 0.15rem;
 }
 .app:hover .dock,
@@ -336,8 +399,8 @@ body {
   flex-direction: column;
   gap: 0.45rem;
   z-index: 8;
-  opacity: 0.22;
-  transition: opacity 0.3s ease;
+  opacity: 0.14;
+  transition: opacity 0.35s ease;
 }
 .corner-rail:hover,
 .corner-rail:focus-within { opacity: 0.85; }
@@ -577,6 +640,7 @@ details summary {
   .corner-rail { right: calc(50% - 240px + 0.65rem); }
 }
 @media (hover: none) {
-  .dock { opacity: 0.55; }
-  .corner-rail { opacity: 0.4; }
+  .dock { opacity: 0.42; }
+  .corner-rail { opacity: 0.28; }
+  .topbar { opacity: 0.55; }
 }

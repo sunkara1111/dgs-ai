@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913orb" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913cine" />
   <script type="importmap">
   { "imports": { "three": "./js/vendor/three.module.js" } }
   </script>
@@ -21,29 +21,28 @@
     </header>
 
     <main class="stage" id="stage">
+      <div class="stage-void" aria-hidden="true"></div>
       <div class="orb-fallback" id="orbFallback" aria-hidden="true">
         <svg class="orbit-svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
           <g class="spokes" id="cssSpokes"></g>
+          <g class="orbit-guides" id="cssGuides"></g>
         </svg>
         <div class="ring"></div>
         <div class="ring r2"></div>
         <div class="ring r3"></div>
         <div class="nodes" id="cssNodes"></div>
         <div class="orb">
+          <div class="orb-bloom"></div>
           <div class="orb-halo"></div>
+          <div class="orb-mid"></div>
           <div class="orb-core"></div>
+          <div class="orb-hot"></div>
         </div>
       </div>
       <canvas id="humanoid" aria-hidden="true"></canvas>
 
-      <div class="stage-labels" aria-hidden="true">
-        <span class="slabel s1">listen</span>
-        <span class="slabel s2">brief</span>
-        <span class="slabel s3">chart</span>
-      </div>
-
       <div class="transcript" id="transcript" aria-live="polite"></div>
-      <p class="hint" id="hint">say wake · quote bitcoin · crypto brief · show NVDA chart</p>
+      <p class="hint" id="hint">say wake</p>
     </main>
 
     <section class="chart-overlay hidden" id="chartOverlay" data-ui="chart-stage">
@@ -221,6 +220,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913orb"></script>
+  <script type="module" src="js/app.js?v=20260913cine"></script>
 </body>
 </html>
