@@ -1,19 +1,17 @@
 # Dinesh AI Fund — Trading Humanoid Agent
-**Founder:** Dineshgopi Sunkara / Dinesh Gopi Sunkara
+**Founder:** Dineshgopi Sunkara
+**Site:** sunkaraops.com
 
-## Inspiration
-1. **Apex (@REZNIKOV_ENGINEERING)** — particle humanoid, snap/gesture wake, LISTENING/SPEAKING status, cyan+amber on black
-2. **NIMBUS (@CLOUD9.MARKETS)** — voice market brief, multi-agent swarm, open TradingView charts, cross-device feel
+## Branding rule
+Do **not** reuse product/agent names from reference demo videos.
+Our names only: Dinesh AI Fund, Sunkara, OPS, and functional roles (RISK, SIZE, HALT, CHART, BRIEF, GUARD).
+
+## Inspiration (visual/UX only — names not copied)
+1. Particle humanoid + listening/speaking status + cyan/amber on black
+2. Voice market brief + multi-agent online + open chart on command
 
 ## Product rules
 - Risk analysis first — never size a trade without risk gate
-- Paper trading by default (no live broker until user explicitly connects)
+- Paper trading by default
 - No guaranteed-profit claims
-- Humanoid visual + voice status like Apex; trading actions like NIMBUS
-
-## Risk controls (mandatory)
-- Max risk per trade (% of equity)
-- Max daily loss / max drawdown halt
-- Stop-loss required before entry
-- Position size calculator from stop distance
-- Risk score 0–100 with hard block above threshold
+- Humanoid visual + voice status; trading actions with hard risk gates

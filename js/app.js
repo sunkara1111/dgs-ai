@@ -3,7 +3,7 @@ import * as THREE from 'three';
 const $ = (id) => document.getElementById(id);
 const state = {
   status: 'IDLE',
-  agents: ['NIMBUS', 'AURELIA', 'OZAEN', 'RISK', 'SIZE', 'HALT', 'CHART', 'BRIEF', 'GUARD'],
+  agents: ['SUNKARA', 'DINESH', 'OPS', 'RISK', 'SIZE', 'HALT', 'CHART', 'BRIEF', 'GUARD'],
   book: [],
   dayPnL: 0,
   peakEquity: 10000,
