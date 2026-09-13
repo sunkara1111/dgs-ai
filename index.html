@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
   <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant for stocks and crypto. Paper only. No broker." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913siri2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913bot" />
 </head>
 <body>
   <div class="app" data-ui="voice-stage" id="app" data-voice="IDLE">
@@ -27,6 +27,24 @@
 
       <div class="transcript" id="transcript" aria-live="polite"></div>
       <p class="hint" id="hint">say wake</p>
+
+      <section class="bot-card" id="botCard" aria-label="Paper trading bot">
+        <div class="bot-card-top">
+          <div>
+            <p class="bot-kicker">Bot · paper only</p>
+            <p class="bot-fine">Not financial advice · no guaranteed profit</p>
+          </div>
+          <button type="button" class="bot-scan" id="scanBtn">Scan</button>
+        </div>
+        <div class="bot-proposal" id="botProposal">
+          <p class="bot-empty">No setup yet — say <em>find a trade</em> or tap Scan</p>
+        </div>
+        <div class="bot-meta">
+          <span id="botGate" data-open="0">Gate CLOSED</span>
+          <span id="botDayPnl">Day $0.00</span>
+          <button type="button" class="bot-enter" id="botEnterBtn" disabled>Paper enter</button>
+        </div>
+      </section>
     </main>
 
     <section class="chart-overlay hidden" id="chartOverlay" data-ui="chart-stage">
@@ -72,7 +90,7 @@
       <h2>Risk &amp; paper book</h2>
       <button type="button" class="icon-btn drawer-close" data-close="risk">Close</button>
     </div>
-    <p class="fine">Paper only. No broker. DGS AI will not place a live order.</p>
+    <p class="fine">Paper only. No broker. No guaranteed profit. DGS AI will not place a live order.</p>
 
     <div class="stats">
       <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
@@ -208,6 +226,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913siri2"></script>
+  <script type="module" src="js/app.js?v=20260913bot"></script>
 </body>
 </html>

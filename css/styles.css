@@ -587,6 +587,107 @@ details summary {
   font-size: 0.86rem;
 }
 
+
+/* —— slim Bot glass card on Siri home —— */
+.bot-card {
+  position: absolute;
+  left: 50%;
+  bottom: 0.35rem;
+  transform: translateX(-50%);
+  width: min(92%, 420px);
+  z-index: 5;
+  padding: 0.7rem 0.85rem 0.75rem;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+}
+.bot-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+.bot-kicker {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 510;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(245,245,247,0.55);
+}
+.bot-fine {
+  margin: 0.15rem 0 0;
+  font-size: 0.62rem;
+  color: rgba(245,245,247,0.35);
+  font-weight: 400;
+}
+.bot-scan, .bot-enter {
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.38rem 0.75rem;
+  font: 510 0.68rem var(--font);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bot-enter:disabled { opacity: 0.28; cursor: not-allowed; }
+.bot-enter:not(:disabled) {
+  border: 0;
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6 55%, #bf5af2);
+  color: #fff;
+}
+.bot-proposal {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(245,245,247,0.88);
+  min-height: 2.4rem;
+}
+.bot-proposal strong { font-weight: 600; letter-spacing: -0.01em; }
+.bot-proposal .bot-empty { margin: 0; color: rgba(245,245,247,0.42); font-size: 0.74rem; }
+.bot-proposal .bot-empty em { font-style: normal; color: rgba(100,210,255,0.85); }
+.bot-proposal .bot-line { margin: 0 0 0.2rem; font-family: var(--mono); font-size: 0.72rem; }
+.bot-proposal .bot-sub { margin: 0; color: rgba(245,245,247,0.45); font-size: 0.66rem; }
+.bot-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+  flex-wrap: wrap;
+}
+.bot-meta span {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: rgba(245,245,247,0.5);
+}
+#botGate[data-open="1"] { color: var(--ok); }
+#botGate[data-open="0"] { color: var(--danger); }
+#botDayPnl.up { color: var(--ok); }
+#botDayPnl.dn { color: var(--danger); }
+.book li .mark { color: rgba(245,245,247,0.45); }
+.book li .up { color: var(--ok); }
+.book li .dn { color: var(--danger); }
+.book li button.close-trade {
+  margin-left: 0.4rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font: 510 0.62rem var(--font);
+  cursor: pointer;
+}
+
+@media (max-height: 720px) {
+  .bot-card { bottom: 0.15rem; padding: 0.55rem 0.7rem; }
+  .bot-proposal { min-height: 1.8rem; }
+}
+
 @media (min-width: 880px) {
   .app { width: min(560px, 100%); margin: 0 auto; }
   .corner-rail { right: calc(50% - 280px + 0.65rem); }

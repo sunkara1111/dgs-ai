@@ -105,6 +105,12 @@ const FILLERS = [
   'Packaging that now…',
 ];
 
+const WATCHLIST = [
+  'NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMD', 'META', 'AMZN', 'GOOGL',
+  'COIN', 'PLTR', 'SPY', 'QQQ',
+  'BTC', 'ETH', 'SOL', 'AVAX', 'LINK', 'NEAR',
+];
+
 const state = {
   status: 'IDLE',
   book: [],
@@ -119,9 +125,12 @@ const state = {
   talkActive: false,
   speaking: false,
   userSpoke: false,
+  proposal: null,
+  lastScanAt: 0,
+  quotesCache: {},
 };
 
-const CACHE_BUST = '20260913siri2';
+const CACHE_BUST = '20260913bot';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 let talkLoop = null;
@@ -139,6 +148,7 @@ function loadState() {
     if (typeof data.equity === 'number' && $('equity')) $('equity').value = data.equity;
     if (typeof data.halted === 'boolean') state.halted = data.halted;
     if (typeof data.lastSymbol === 'string') state.lastSymbol = data.lastSymbol;
+    if (data.proposal && typeof data.proposal === 'object') state.proposal = data.proposal;
   } catch (_) {}
 }
 
@@ -150,6 +160,7 @@ function saveState() {
     equity: Number($('equity')?.value || 10000),
     halted: state.halted,
     lastSymbol: state.lastSymbol,
+    proposal: state.proposal,
   }));
 }
 
@@ -290,7 +301,7 @@ function parseSymbol(text) {
 }
 
 function hasTradingCue(t) {
-  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone)\b/.test(t)
+  return /\b(quote|price|chart|brief|market|stock|crypto|coin|token|ticker|tape|watch|trading|trade|bitcoin|ethereum|solana|how('?s| is)|what('?s| is)|happening|send to (my )?phone|show on (my )?phone|pull (it )?up on (my )?phone|find a trade|scan|setup|paper|enter|p and l|pnl|close trade)\b/.test(t)
     || Object.keys(NAME_TO_SYM).some((n) => t.includes(n));
 }
 
@@ -663,17 +674,158 @@ function downloadShareCard() {
   a.click();
 }
 
+function todayKey(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+function tradesTodayCount() {
+  const key = todayKey();
+  return state.book.filter((t) => (t.ts || '').slice(0, 10) === key).length;
+}
+
+function openTrades() {
+  return state.book.filter((t) => t.status !== 'CLOSED');
+}
+
+function atrish(q) {
+  if (q.high != null && q.low != null && q.high > q.low) return q.high - q.low;
+  const fallback = Math.max(Math.abs(q.chg || 0) * 2.5, Math.abs(q.last) * 0.008);
+  return fallback || Math.abs(q.last) * 0.01;
+}
+
+function modeStopMult(mode) {
+  if (mode === 'SCALP') return 0.35;
+  if (mode === 'MOMENTUM') return 0.7;
+  return 0.5;
+}
+
+function modeMinMove(mode) {
+  if (mode === 'SCALP') return 0.25;
+  if (mode === 'MOMENTUM') return 0.55;
+  return 0.35;
+}
+
+/** Build a proposed setup from a quote using momentum + ATR-ish stops/targets. */
+function buildProposal(q, opts = {}) {
+  const mode = opts.mode || ($('mode')?.value || 'INTRADAY');
+  const minRr = opts.minRr != null ? opts.minRr : (Number($('minRr')?.value) || 1.5);
+  const last = Number(q.last);
+  if (!last || Number.isNaN(last)) return null;
+  const atr = atrish(q);
+  const move = Number(q.chgPct) || 0;
+  const absMove = Math.abs(move);
+  // Need some momentum signal
+  if (absMove < modeMinMove(mode) * 0.5) return null;
+
+  let side = move >= 0 ? 'LONG' : 'SHORT';
+  // Strong fade candidates only when clearly extended down and mode is momentum-long biased — keep simple directional
+  const stopW = Math.max(atr * modeStopMult(mode), Math.abs(last) * (mode === 'SCALP' ? 0.003 : mode === 'MOMENTUM' ? 0.01 : 0.006));
+  let entry = last;
+  let stop, target;
+  if (side === 'LONG') {
+    stop = entry - stopW;
+    target = entry + stopW * Math.max(minRr, mode === 'MOMENTUM' ? 2 : 1.5);
+  } else {
+    stop = entry + stopW;
+    target = entry - stopW * Math.max(minRr, mode === 'MOMENTUM' ? 2 : 1.5);
+  }
+  const stopDist = Math.abs(entry - stop);
+  const rewardDist = Math.abs(target - entry);
+  const rr = stopDist > 0 ? rewardDist / stopDist : 0;
+  // Setup score: higher = better candidate (distinct from risk score)
+  let setupScore = 40 + Math.min(35, absMove * 8) + Math.min(15, (rr - minRr) * 10);
+  if (q.source === 'live') setupScore += 5;
+  if (CRYPTO.has(q.symbol) && absMove > 1.5) setupScore += 4;
+  setupScore = Math.round(Math.max(0, Math.min(100, setupScore)));
+
+  return {
+    symbol: q.symbol,
+    name: q.name || q.symbol,
+    side,
+    entry: Number(entry.toPrecision(8)),
+    stop: Number(stop.toPrecision(8)),
+    target: Number(target.toPrecision(8)),
+    rr: Number(rr.toFixed(2)),
+    setupScore,
+    chgPct: move,
+    atr: Number(atr.toPrecision(6)),
+    kind: q.kind || assetKind(q.symbol),
+    source: q.source || 'demo',
+    mode,
+    ts: new Date().toISOString(),
+  };
+}
+
+function applyProposal(p) {
+  if (!p) return;
+  state.proposal = p;
+  state.lastSymbol = p.symbol;
+  if ($('symbol')) $('symbol').value = p.symbol;
+  if ($('side')) $('side').value = p.side;
+  if ($('entry')) $('entry').value = p.entry;
+  if ($('stop')) $('stop').value = p.stop;
+  if ($('target')) $('target').value = p.target;
+}
+
+function unrealizedFor(t, mark) {
+  if (mark == null || Number.isNaN(mark)) return 0;
+  if (t.side === 'LONG') return t.shares * (mark - t.entry);
+  return t.shares * (t.entry - mark);
+}
+
+function totalUnrealized() {
+  return openTrades().reduce((sum, t) => {
+    const q = state.quotesCache[t.symbol] || (state.lastQuote?.symbol === t.symbol ? state.lastQuote : null);
+    const mark = q?.last ?? t.mark ?? t.entry;
+    return sum + unrealizedFor(t, mark);
+  }, 0);
+}
+
+function sessionDayPnL() {
+  return state.dayPnL + totalUnrealized();
+}
+
+function updateBotCard() {
+  const propEl = $('botProposal');
+  const gateEl = $('botGate');
+  const pnlEl = $('botDayPnl');
+  const enterBtn = $('botEnterBtn');
+  const p = state.proposal;
+  if (propEl) {
+    if (!p) {
+      propEl.innerHTML = '<p class="bot-empty">No setup yet — say <em>find a trade</em> or tap Scan</p>';
+    } else {
+      const dir = p.side === 'LONG' ? 'long' : 'short';
+      propEl.innerHTML = `
+        <p class="bot-line"><strong>${escapeHtml(p.symbol)}</strong> ${escapeHtml(dir)} · R:R ${p.rr.toFixed(2)} · score ${p.setupScore}</p>
+        <p class="bot-sub">Entry ${escapeHtml(fmtPx(p.entry))} · stop ${escapeHtml(fmtPx(p.stop))} · tgt ${escapeHtml(fmtPx(p.target))} · ${escapeHtml(p.source)}</p>`;
+    }
+  }
+  if (gateEl) {
+    gateEl.textContent = state.lastOpen ? 'Gate OPEN' : 'Gate CLOSED';
+    gateEl.dataset.open = state.lastOpen ? '1' : '0';
+  }
+  if (pnlEl) {
+    const pnl = sessionDayPnL();
+    pnlEl.textContent = `Day ${money(pnl)}`;
+    pnlEl.className = pnl >= 0 ? 'up' : 'dn';
+  }
+  if (enterBtn) enterBtn.disabled = !state.lastOpen;
+}
+
 function updateStats(dd, open) {
   const pnl = $('dayPnl');
+  const shown = sessionDayPnL();
   if (pnl) {
-    pnl.textContent = money(state.dayPnL);
-    pnl.style.color = state.dayPnL >= 0 ? 'var(--ok)' : 'var(--danger)';
+    pnl.textContent = money(shown);
+    pnl.style.color = shown >= 0 ? 'var(--ok)' : 'var(--danger)';
   }
   if ($('ddNow')) $('ddNow').textContent = `${dd.toFixed(2)}%`;
   if ($('gateBadge')) {
     $('gateBadge').textContent = open ? 'OPEN' : 'CLOSED';
     $('gateBadge').style.color = open ? 'var(--ok)' : 'var(--danger)';
   }
+  updateBotCard();
 }
 
 function analyzeRisk() {
@@ -702,7 +854,8 @@ function analyzeRisk() {
   if (rr < minRr) { score += 25; reasons.push(`Reward:risk ${rr.toFixed(2)} < min ${minRr}`); }
   else if (rr >= minRr + 0.5) { score -= 8; reasons.push('Reward:risk above minimum cushion'); }
   if (riskPct > 2) { score += 18; reasons.push('Per-trade risk above 2%'); }
-  if (Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss * 0.7) {
+  const sessionPnl = sessionDayPnL();
+  if (Math.abs(Math.min(0, sessionPnl)) / Math.max(equity, 1) * 100 >= dailyLoss * 0.7) {
     score += 18; reasons.push('Approaching daily loss halt');
   }
   const dd = Math.max(0, (state.peakEquity - equity) / Math.max(state.peakEquity, 1) * 100);
@@ -713,13 +866,13 @@ function analyzeRisk() {
   }
   if (notional > equity * 3) { score += 12; reasons.push('Notional > 3x equity'); }
 
-  const dailyHalt = Math.abs(Math.min(0, state.dayPnL)) / Math.max(equity, 1) * 100 >= dailyLoss;
+  const dailyHalt = Math.abs(Math.min(0, sessionPnl)) / Math.max(equity, 1) * 100 >= dailyLoss;
   const ddHalt = dd >= maxDd;
   const maxTrades = num('maxTrades');
   const maxHold = num('maxHold');
   const mode = $('mode').value;
   const noOvernight = $('noOvernight').checked;
-  const tradesToday = state.book.length;
+  const tradesToday = tradesTodayCount();
   if (tradesToday >= maxTrades) { score += 35; reasons.push(`Max trades today hit (${maxTrades})`); }
   if (mode === 'SCALP' && maxHold > 30) { score += 8; reasons.push('Scalp mode prefers hold ≤ 30m'); }
   if (mode === 'SCALP' && rr < 1.2) { score += 10; reasons.push('Scalp R:R too thin'); }
@@ -731,65 +884,203 @@ function analyzeRisk() {
   const open = !state.halted && score < 50 && shares > 0 && !dailyHalt && !ddHalt && rr >= minRr && stopDist > 0 && tradesToday < maxTrades;
   state.lastOpen = open;
 
-  $('riskScore').textContent = String(score);
-  $('riskBar').style.width = `${score}%`;
-  $('riskBar').style.background = score < 35 ? 'var(--ok)' : score < 50 ? 'var(--warn)' : 'var(--danger)';
+  if ($('riskScore')) $('riskScore').textContent = String(score);
+  if ($('riskBar')) {
+    $('riskBar').style.width = `${score}%`;
+    $('riskBar').style.background = score < 35 ? 'var(--ok)' : score < 50 ? 'var(--warn)' : 'var(--danger)';
+  }
   const gate = $('gateMsg');
-  gate.textContent = open
-    ? `Gate: OPEN — ${shares} sh ${symbol} ${side} · risk ${money(dollarRisk)} · R:R ${rr.toFixed(2)}`
-    : `Gate: CLOSED — score ${score}${state.halted ? ' · FORCE HALT' : ''}${dailyHalt ? ' · daily loss halt' : ''}${ddHalt ? ' · drawdown halt' : ''}`;
-  gate.className = `gate ${open ? 'open' : 'closed'}`;
-  $('paperBtn').disabled = !open;
+  if (gate) {
+    gate.textContent = open
+      ? `Gate: OPEN — ${shares} sh ${symbol} ${side} · risk ${money(dollarRisk)} · R:R ${rr.toFixed(2)}`
+      : `Gate: CLOSED — score ${score}${state.halted ? ' · FORCE HALT' : ''}${dailyHalt ? ' · daily loss halt' : ''}${ddHalt ? ' · drawdown halt' : ''}`;
+    gate.className = `gate ${open ? 'open' : 'closed'}`;
+  }
+  if ($('paperBtn')) $('paperBtn').disabled = !open;
   updateStats(dd, open);
 
-  $('analysis').textContent = [
-    'Founder guard · DGS AI · PAPER ONLY',
-    `Mode: ${mode} · hold≤${maxHold}m · trades ${tradesToday}/${maxTrades}`,
-    `Symbol: ${symbol} ${side}`,
-    `Entry ${entry} | Stop ${stop} | Target ${target}`,
-    `Stop distance: ${stopDist.toFixed(4)}`,
-    `Reward:risk: ${rr.toFixed(2)} (min ${minRr})`,
-    `Max $ risk @ ${riskPct}%: ${money(riskBudget)}`,
-    `Size: ${shares} shares · notional ${money(notional)}`,
-    `Day P&L: ${money(state.dayPnL)} · DD ${dd.toFixed(2)}%`,
-    `Reasons: ${reasons.join('; ') || 'within policy'}`,
-    open ? 'Decision: ALLOW paper entry' : 'Decision: BLOCK — tighten risk or skip',
-  ].join('\n');
+  if ($('analysis')) {
+    $('analysis').textContent = [
+      'Founder guard · DGS AI · PAPER ONLY · no guaranteed profit',
+      `Mode: ${mode} · hold≤${maxHold}m · trades ${tradesToday}/${maxTrades}`,
+      `Symbol: ${symbol} ${side}`,
+      `Entry ${entry} | Stop ${stop} | Target ${target}`,
+      `Stop distance: ${stopDist.toFixed(4)}`,
+      `Reward:risk: ${rr.toFixed(2)} (min ${minRr})`,
+      `Max $ risk @ ${riskPct}%: ${money(riskBudget)}`,
+      `Size: ${shares} shares · notional ${money(notional)}`,
+      `Day P&L (incl. open marks): ${money(sessionPnl)} · realized ${money(state.dayPnL)} · DD ${dd.toFixed(2)}%`,
+      `Reasons: ${reasons.join('; ') || 'within policy'}`,
+      open ? 'Decision: ALLOW paper entry' : 'Decision: BLOCK — tighten risk or skip',
+      noOvernight && openTrades().length ? 'Reminder: flatten paper book by session close.' : '',
+    ].filter(Boolean).join('\n');
+  }
 
-  return { open, shares, symbol, side, entry, stop, target, dollarRisk, score, rr };
+  return { open, shares, symbol, side, entry, stop, target, dollarRisk, score, rr, riskScore: score };
+}
+
+async function scanMarket(opts = {}) {
+  markUserSpoke();
+  setStatus('LISTENING');
+  const filler = opts.silent ? Promise.resolve() : speakFiller();
+  const mode = $('mode')?.value || 'INTRADAY';
+  const minRr = Number($('minRr')?.value) || 1.5;
+  const list = WATCHLIST.slice();
+  const quotes = await Promise.all(list.map(async (sym) => {
+    try {
+      const q = await fetchQuote(sym);
+      state.quotesCache[sym] = q;
+      return q;
+    } catch (_) {
+      return null;
+    }
+  }));
+  await filler;
+
+  const proposals = quotes
+    .filter(Boolean)
+    .map((q) => buildProposal(q, { mode, minRr }))
+    .filter(Boolean)
+    .sort((a, b) => b.setupScore - a.setupScore || b.rr - a.rr);
+
+  if (!proposals.length) {
+    state.proposal = null;
+    updateBotCard();
+    saveState();
+    await speak('No clean momentum setup on the paper watchlist right now. Try again later. Paper only — not advice, no guaranteed profit.');
+    return null;
+  }
+
+  // Prefer a proposal that can open the gate; else take best and show closed gate
+  let chosen = null;
+  for (const p of proposals.slice(0, 8)) {
+    applyProposal(p);
+    const r = analyzeRisk();
+    if (r.open) { chosen = { ...p, gateOpen: true, riskScore: r.score, shares: r.shares }; break; }
+  }
+  if (!chosen) {
+    chosen = { ...proposals[0], gateOpen: false };
+    applyProposal(chosen);
+    analyzeRisk();
+  } else {
+    applyProposal(chosen);
+    analyzeRisk();
+  }
+  state.proposal = { ...chosen };
+  state.lastScanAt = Date.now();
+  saveState();
+  updateBotCard();
+
+  const gateLine = state.lastOpen
+    ? `Risk gate is OPEN for about ${chosen.shares || '?'} shares.`
+    : 'Risk gate is CLOSED on this setup — I will not paper-enter until rules pass.';
+  const flat = $('noOvernight')?.checked ? ' Flat-by-close is on.' : '';
+  await speak(
+    `Best paper setup: ${chosen.side} ${chosen.symbol}. Entry ${fmtPx(chosen.entry)}, stop ${fmtPx(chosen.stop)}, target ${fmtPx(chosen.target)}, reward to risk ${chosen.rr.toFixed(2)}, setup score ${chosen.setupScore}. ${gateLine}${flat} Say take the trade to paper-enter, or find another. Not financial advice. No guaranteed profit.`
+  );
+  return chosen;
 }
 
 function paperEnter() {
+  markUserSpoke();
   const r = analyzeRisk();
   if (!r.open) {
-    speak('Risk gate is closed. I will not paper-enter this setup. I do not place live orders.');
+    speak('Risk gate is closed. I will not paper-enter this setup. I do not place live orders. No guaranteed profit.');
     return;
   }
-  state.book.unshift({ id: Date.now(), ...r, ts: new Date().toISOString() });
-  const progress = 0.35;
-  const simPrice = r.side === 'LONG'
-    ? r.entry + (r.target - r.entry) * progress
-    : r.entry - (r.entry - r.target) * progress;
-  const applied = r.side === 'LONG'
-    ? r.shares * (simPrice - r.entry)
-    : r.shares * (r.entry - simPrice);
-  state.dayPnL += applied;
-  const eq = num('equity') + applied;
-  $('equity').value = eq.toFixed(2);
-  state.peakEquity = Math.max(state.peakEquity, eq);
+  const trade = {
+    id: Date.now(),
+    symbol: r.symbol,
+    side: r.side,
+    entry: r.entry,
+    stop: r.stop,
+    target: r.target,
+    shares: r.shares,
+    dollarRisk: r.dollarRisk,
+    score: r.score,
+    rr: r.rr,
+    status: 'OPEN',
+    mark: r.entry,
+    unrealized: 0,
+    ts: new Date().toISOString(),
+    mode: $('mode')?.value || 'INTRADAY',
+  };
+  state.book.unshift(trade);
   renderBook();
   saveState();
   analyzeRisk();
-  speak(`Paper entry allowed. ${r.shares} shares ${r.symbol} ${r.side}. Risk score ${r.score}. This is not a live broker order.`);
+  const flat = $('noOvernight')?.checked ? ' Remember to flatten by session close.' : '';
+  speak(`Paper entry booked. ${r.shares} shares ${r.symbol} ${r.side} at ${fmtPx(r.entry)}. Risk score ${r.score}. This is not a live broker order.${flat}`);
+  refreshOpenMarks().catch(() => {});
+}
+
+async function refreshOpenMarks() {
+  const opens = openTrades();
+  if (!opens.length) {
+    renderBook();
+    updateBotCard();
+    return;
+  }
+  await Promise.all(opens.map(async (t) => {
+    const q = await fetchQuote(t.symbol);
+    state.quotesCache[t.symbol] = q;
+    t.mark = q.last;
+    t.unrealized = unrealizedFor(t, q.last);
+  }));
+  saveState();
+  renderBook();
+  analyzeRisk();
+}
+
+async function closeTrade(symbol) {
+  markUserSpoke();
+  const sym = (symbol || '').toUpperCase();
+  const t = openTrades().find((x) => x.symbol === sym) || (!sym ? openTrades()[0] : null);
+  if (!t) {
+    await speak(sym ? `No open paper trade for ${sym}.` : 'No open paper trades to close.');
+    return;
+  }
+  const q = await fetchQuote(t.symbol);
+  state.quotesCache[t.symbol] = q;
+  const mark = q.last;
+  const pnl = unrealizedFor(t, mark);
+  t.status = 'CLOSED';
+  t.mark = mark;
+  t.exit = mark;
+  t.realized = pnl;
+  t.closedAt = new Date().toISOString();
+  state.dayPnL += pnl;
+  const eq = num('equity') + pnl;
+  if ($('equity')) $('equity').value = eq.toFixed(2);
+  state.peakEquity = Math.max(state.peakEquity, eq);
+  saveState();
+  renderBook();
+  analyzeRisk();
+  const dir = pnl >= 0 ? 'profit' : 'loss';
+  await speak(`Closed paper ${t.symbol} ${t.side} at ${fmtPx(mark)}. Realized ${dir} ${money(pnl)}. Day P and L ${money(sessionDayPnL())}. Paper only — not advice.`);
 }
 
 function renderBook() {
-  $('book').innerHTML = state.book.slice(0, 8).map((t) =>
-    `<li>${t.symbol} ${t.side} · ${t.shares} sh · R:R ${t.rr.toFixed(2)} · score ${t.score}</li>`
-  ).join('') || '<li>No paper trades yet.</li>';
+  const box = $('book');
+  if (!box) return;
+  const rows = state.book.slice(0, 12).map((t) => {
+    if (t.status === 'CLOSED') {
+      const pnl = t.realized ?? 0;
+      const cls = pnl >= 0 ? 'up' : 'dn';
+      return `<li>${escapeHtml(t.symbol)} ${escapeHtml(t.side)} · CLOSED · ${t.shares} sh · <span class="${cls}">${money(pnl)}</span></li>`;
+    }
+    const u = t.unrealized ?? 0;
+    const cls = u >= 0 ? 'up' : 'dn';
+    return `<li>${escapeHtml(t.symbol)} ${escapeHtml(t.side)} · OPEN · ${t.shares} sh @ ${escapeHtml(fmtPx(t.entry))} · mark ${escapeHtml(fmtPx(t.mark ?? t.entry))} · <span class="${cls}">${money(u)}</span> <button type="button" class="close-trade" data-close-sym="${escapeHtml(t.symbol)}">Close</button></li>`;
+  });
+  box.innerHTML = rows.join('') || '<li>No paper trades yet.</li>';
+  box.querySelectorAll('[data-close-sym]').forEach((btn) => {
+    btn.onclick = () => closeTrade(btn.getAttribute('data-close-sym'));
+  });
 }
 
 function forceHalt() {
+  markUserSpoke();
   state.halted = true;
   saveState();
   analyzeRisk();
@@ -797,6 +1088,7 @@ function forceHalt() {
 }
 
 function resetDay() {
+  markUserSpoke();
   state.dayPnL = 0;
   state.halted = false;
   state.peakEquity = Math.max(state.peakEquity, num('equity'));
@@ -806,9 +1098,11 @@ function resetDay() {
 }
 
 function clearBook() {
+  markUserSpoke();
   state.book = [];
   saveState();
   renderBook();
+  updateBotCard();
   speak('Paper book cleared.');
 }
 
@@ -816,11 +1110,14 @@ function statusSpeech() {
   const eq = num('equity');
   const dd = Math.max(0, (state.peakEquity - eq) / Math.max(state.peakEquity, 1) * 100);
   const gate = state.lastOpen ? 'open' : 'closed';
-  return `Status. Paper equity ${money(eq)}. Day P and L ${money(state.dayPnL)}. Drawdown ${dd.toFixed(2)} percent. Gate ${gate}. Halt ${state.halted ? 'on' : 'off'}. Paper only.`;
+  const opens = openTrades();
+  const u = totalUnrealized();
+  const flat = $('noOvernight')?.checked && opens.length ? ' Flat-by-close reminder: flatten open paper trades before session end.' : '';
+  return `Status. Paper equity ${money(eq)}. Day P and L ${money(sessionDayPnL())} including unrealized ${money(u)}. Open trades ${opens.length}. Drawdown ${dd.toFixed(2)} percent. Gate ${gate}. Halt ${state.halted ? 'on' : 'off'}. Paper only. No guaranteed profit.${flat}`;
 }
 
 function helpSpeech() {
-  return 'I am DGS AI. Ask anything trading — stocks or crypto. Try market brief, crypto brief, quote bitcoin, how is NVDA, show ETH chart, or send to my phone. Risk and paper stay in the drawer. Not a broker. Not advice.';
+  return 'I am DGS AI. Say find a trade or scan market for a paper setup, take the trade to enter when the gate is open, how is my book or P and L for marks, and close trade followed by a symbol. Also brief, quote, chart, send to phone. Paper only. Not a broker. Not advice. No guaranteed profit.';
 }
 
 function wake() {
@@ -859,7 +1156,7 @@ function quickAnswer(q) {
     return 'Work drawer is open. Plans and drafts only.';
   }
   if (/(hello|hi |hey )/.test(t) || t === 'hi' || t === 'hey') {
-    return 'Listening. Ask about any stock or crypto — brief, quote, chart, or handoff.';
+    return 'Listening. Say find a trade, or ask about any stock or crypto — brief, quote, chart, or handoff.';
   }
   return null;
 }
@@ -868,6 +1165,33 @@ async function handleVoiceCommand(text) {
   const t = text.toLowerCase();
   markUserSpoke();
   addLine('user', text);
+
+  if (/(find (a |me )?trade|scan (the )?market|best setup( today)?|propose (a )?trade|scan for (a )?setup)/.test(t)) {
+    await scanMarket();
+    return;
+  }
+  if (/\b(enter( the)?( paper)?( trade)?|take the trade|paper (buy|sell|enter|trade)|book (the )?trade)\b/.test(t)) {
+    paperEnter();
+    return;
+  }
+  if (/(close (the )?trade|flatten|close position)/.test(t)) {
+    const sym = parseSymbol(text);
+    // If utterance is just "close trade" without a clear symbol cue, close first open
+    const named = Object.keys(NAME_TO_SYM).some((n) => t.includes(n)) || /\b[A-Z]{2,5}\b/.test(text.toUpperCase());
+    await closeTrade(named ? sym : '');
+    return;
+  }
+  if (/(how('?s| is) (my )?book|paper book|open (trades|positions)|unrealized)/.test(t)) {
+    await refreshOpenMarks();
+    const opens = openTrades();
+    if (!opens.length) {
+      await speak(`Paper book is flat. Realized day P and L ${money(state.dayPnL)}. Paper only.`);
+    } else {
+      const bits = opens.map((x) => `${x.symbol} ${x.side} ${money(x.unrealized || 0)}`);
+      await speak(`Open paper book: ${bits.join('; ')}. Total unrealized ${money(totalUnrealized())}. Day including marks ${money(sessionDayPnL())}. Say close trade and a symbol to flatten. Not advice.`);
+    }
+    return;
+  }
 
   if (/(send (it |the chart )?to (my )?phone|show (it |that |the chart )?on (my )?phone|pull (it |that )?up on (my )?phone|handoff|share (the )?chart|airdrop)/.test(t)) {
     await sendChartToPhone(parseSymbol(text));
@@ -947,7 +1271,7 @@ async function handleVoiceCommand(text) {
     await assetPipeline(parseSymbol(text));
     return;
   }
-  await speak('Got it. I can brief stocks and crypto, quote any major symbol, open a chart, or send that chart to your phone. Paper only.');
+  await speak('Got it. Say find a trade to scan, take the trade to paper-enter, how is my book, or close trade. Also brief, quote, chart, send to phone. Paper only. No guaranteed profit.');
 }
 
 function startVoiceListen() {
@@ -1317,6 +1641,10 @@ function bindUi() {
   $('sendPhoneBtn').onclick = () => { markUserSpoke(); sendChartToPhone(state.lastSymbol); };
   $('openTvTabBtn').onclick = () => window.open(tvChartUrl(state.lastSymbol), '_blank', 'noopener,noreferrer');
   $('openRiskBtn').onclick = () => openDrawer('risk');
+  const scanBtn = $('scanBtn');
+  if (scanBtn) scanBtn.onclick = () => { scanMarket(); };
+  const botEnter = $('botEnterBtn');
+  if (botEnter) botEnter.onclick = () => { paperEnter(); };
   $('backdrop').onclick = closeDrawers;
   document.querySelectorAll('.drawer-close').forEach((btn) => {
     btn.onclick = closeDrawers;
@@ -1406,10 +1734,22 @@ function bootFromQuery() {
 
 seedCssFallback();
 loadState();
+// Migrate legacy paper book rows (pre-bot) into OPEN/CLOSED shape
+state.book = (state.book || []).map((t) => {
+  if (!t || typeof t !== 'object') return t;
+  if (!t.status) return { ...t, status: 'OPEN', mark: t.entry, unrealized: 0 };
+  return t;
+});
 bindUi();
+if (state.proposal) applyProposal(state.proposal);
 renderBook();
 analyzeRisk();
+updateBotCard();
 initSiriOrb();
 setStatus('IDLE');
 bootFromQuery();
 if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
+// Periodic mark refresh for open paper trades (quotes only — never live orders)
+setInterval(() => {
+  if (openTrades().length) refreshOpenMarks().catch(() => {});
+}, 45000);
