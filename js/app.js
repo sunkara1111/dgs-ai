@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser } from './gate.js?v=20260914ft';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser } from './gate.js?v=20260914ccxt';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -142,7 +142,7 @@ const state = {
   profile: null,
 };
 
-const CACHE_BUST = '20260914ft';
+const CACHE_BUST = '20260914ccxt';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';

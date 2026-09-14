@@ -35,7 +35,7 @@ class BotState:
     running: bool = False
     dry_run: bool = True
     enable_live: bool = False
-    exchange: str = "binance"
+    exchange: str = "kraken"
     stake_amount: float = 100.0
     stake_currency: str = "USDT"
     stoploss: float = -0.05
@@ -108,8 +108,25 @@ def run_once(
 ) -> BotState:
     dry = not (state.enable_live and api_key and secret)
     state.dry_run = dry
-    ex = make_exchange(state.exchange, api_key, secret, password, sandbox=False)
-    ex.load_markets()
+    # Prefer configured exchange; fall back if geo-blocked / unreachable (public dry-run path).
+    fallbacks = ["kraken", "coinbase", "kucoin", "okx", "gate", "bitstamp", "bitget", "mexc"]
+    tried = []
+    ex = None
+    last_err: Exception | None = None
+    for eid in [state.exchange, *[e for e in fallbacks if e != state.exchange]]:
+        try:
+            candidate = make_exchange(eid, api_key if eid == state.exchange else "", secret if eid == state.exchange else "", password if eid == state.exchange else "", sandbox=False)
+            candidate.load_markets()
+            ex = candidate
+            if eid != state.exchange:
+                log_action(state, f"public fallback exchange {eid} (preferred {state.exchange} unavailable)")
+            break
+        except Exception as err:
+            tried.append(f"{eid}:{err}")
+            last_err = err
+            continue
+    if ex is None:
+        raise RuntimeError(f"No usable public exchange ({'; '.join(tried[:3])})") from last_err
 
     tickers: dict[str, float] = {}
     for pair in state.whitelist:

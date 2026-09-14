@@ -75,7 +75,7 @@ Desk Connect panel stores CCXT keys in `localStorage` only. Real connectivity te
 
 1. **Profile** — one-time onboarding (name, country, experience, risk, budget, markets, paper-first agreement). Stored as `dgs-ai-profile` keyed by uid/email in `localStorage`. Desk stays blocked until saved.
 2. **Connect broker** — Settings → Connect: CoinSwitch (primary), Alpaca, Interactive Brokers (`127.0.0.1:7497`), TradingView charts. Keys stay on-device only.
-3. **Start bot** — managed autopilot using profile budget/risk (scan → gate → enter/exit, SL/TP). Default **paper**. Live badge only with valid keys + “Enable live orders” (OFF by default).
+3. **Start bot** (CCXT public path works without keys; geo-blocked venues fall back to Kraken/Yahoo) — managed autopilot using profile budget/risk (scan → gate → enter/exit, SL/TP). Default **paper**. Live badge only with valid keys + “Enable live orders” (OFF by default).
 
 No guaranteed profits. Do not list free owner emails in UI or docs.
 

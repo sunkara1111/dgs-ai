@@ -14,9 +14,9 @@ cd /workspace/dinesh-ai-fund
 
 ```bash
 .venv/bin/python -m tools.ft_bot exchanges
-.venv/bin/python -m tools.ft_bot test-connection -e binance
+.venv/bin/python -m tools.ft_bot test-connection -e kraken
 .venv/bin/python -m tools.ft_bot test-connection -e okx --private   # needs CCXT_API_KEY / CCXT_SECRET
-.venv/bin/python -m tools.ft_bot run -e binance --stake 100 --stoploss -0.05 --whitelist BTC/USDT,ETH/USDT --ticks 1
+.venv/bin/python -m tools.ft_bot run -e kraken --stake 100 --stoploss -0.05 --whitelist BTC/USDT,ETH/USDT --ticks 1
 .venv/bin/python -m tools.ft_bot status
 .venv/bin/python -m tools.ft_bot stop
 ```

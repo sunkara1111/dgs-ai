@@ -59,7 +59,7 @@ class BotConfig:
     )
     dry_run: bool = True
     strategy: str = "ema_cross"  # ema_cross | rsi
-    exchange_id: str = "binance"
+    exchange_id: str = "kraken"
     poll_seconds: float = 30.0
     max_open_trades: int = 3
     ema_fast: int = 9
@@ -132,7 +132,9 @@ def yahoo_last(pair: str) -> Optional[float]:
             "https://query1.finance.yahoo.com/v8/finance/chart/"
             f"{sym}?interval=1m&range=1d"
         )
-        req = urllib.request.Request(url, headers={"User-Agent": "DGS-AI-Bot/1.0"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (compatible; DGS-AI/1.0)"}
+        )
         with urllib.request.urlopen(req, timeout=12) as resp:
             data = json.loads(resp.read().decode())
         meta = data["chart"]["result"][0]["meta"]
@@ -142,48 +144,97 @@ def yahoo_last(pair: str) -> Optional[float]:
         return None
 
 
+PUBLIC_FALLBACK_EXCHANGES = [
+    "kraken",
+    "coinbase",
+    "kucoin",
+    "okx",
+    "gate",
+    "bitstamp",
+    "bitget",
+    "mexc",
+    "binance",
+]
+
+
+def _candidate_exchanges(preferred: str) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for eid in [preferred, *PUBLIC_FALLBACK_EXCHANGES]:
+        e = (eid or "").strip().lower()
+        if e and e not in seen:
+            seen.add(e)
+            out.append(e)
+    return out
+
+
 def fetch_ohlcv_closes(
     exchange_id: str, pair: str, timeframe: str, limit: int = 60
 ) -> Tuple[List[float], str]:
-    """Return closes + source tag. CCXT public first, Yahoo fallback for last only."""
-    try:
-        ex = build_exchange(exchange_id)
-        if ex.has.get("fetchOHLCV"):
-            rows = ex.fetch_ohlcv(pair, timeframe=timeframe, limit=limit)
-            closes = [float(r[4]) for r in rows if r and r[4] is not None]
-            try:
-                ex.close()
-            except Exception:
-                pass
-            if closes:
-                return closes, f"ccxt:{exchange_id}"
+    """Return closes + source tag. CCXT public first (with exchange fallbacks), then Yahoo."""
+    errors: List[str] = []
+    for eid in _candidate_exchanges(exchange_id):
         try:
-            ex.close()
-        except Exception:
-            pass
-    except Exception:
-        pass
-    # Fallback: single Yahoo last expanded as flat series (weak signal but dry-run safe)
-    last = yahoo_last(pair)
-    if last is not None:
-        # fabricate mild series so RSI/EMA don't explode; strategy will mostly hold
-        return [last * (1 + 0.0001 * ((i % 7) - 3)) for i in range(limit)], "yahoo"
-    raise RuntimeError(f"No market data for {pair} via ccxt or yahoo")
+            ex = build_exchange(eid)
+            try:
+                if ex.has.get("fetchOHLCV"):
+                    rows = ex.fetch_ohlcv(pair, timeframe=timeframe, limit=limit)
+                    closes = [float(r[4]) for r in rows if r and r[4] is not None]
+                    if closes:
+                        return closes, f"ccxt:{eid}"
+            finally:
+                try:
+                    ex.close()
+                except Exception:
+                    pass
+        except Exception as exc:
+            errors.append(f"{eid}:{exc}")
+    # Yahoo: try chart OHLCV then fabricate mild series from last
+    try:
+        import urllib.request
+
+        base, quote = pair.split("/")
+        yq = "USD" if quote.upper() in ("USDT", "USD", "USDC") else quote.upper()
+        sym = f"{base.upper()}-{yq}"
+        url = (
+            "https://query1.finance.yahoo.com/v8/finance/chart/"
+            f"{sym}?interval=5m&range=5d"
+        )
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (compatible; DGS-AI/1.0)"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+        result = data["chart"]["result"][0]
+        closes_raw = (result.get("indicators") or {}).get("quote", [{}])[0].get("close") or []
+        closes = [float(c) for c in closes_raw if c is not None]
+        if closes:
+            return closes[-limit:], "yahoo"
+        meta = result.get("meta") or {}
+        last = meta.get("regularMarketPrice") or meta.get("previousClose")
+        if last is not None:
+            last_f = float(last)
+            return [last_f * (1 + 0.0001 * ((i % 7) - 3)) for i in range(limit)], "yahoo"
+    except Exception as exc:
+        errors.append(f"yahoo:{exc}")
+    raise RuntimeError(f"No market data for {pair} via ccxt or yahoo ({'; '.join(errors[:3])})")
 
 
 def fetch_last(exchange_id: str, pair: str, yahoo_fallback: bool = True) -> Tuple[float, str]:
-    try:
-        t = fetch_ticker(exchange_id, pair)
-        last = t.get("last")
-        if last is not None:
-            return float(last), f"ccxt:{exchange_id}"
-    except Exception:
-        pass
+    errors: List[str] = []
+    for eid in _candidate_exchanges(exchange_id):
+        try:
+            t = fetch_ticker(eid, pair)
+            last = t.get("last")
+            if last is not None:
+                return float(last), f"ccxt:{eid}"
+        except Exception as exc:
+            errors.append(f"{eid}:{exc}")
     if yahoo_fallback:
         y = yahoo_last(pair)
         if y is not None:
             return float(y), "yahoo"
-    raise RuntimeError(f"Cannot price {pair}")
+    raise RuntimeError(f"Cannot price {pair} ({'; '.join(errors[:2])})")
 
 
 class DgsBot:
@@ -530,7 +581,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     st = sub.add_parser("start", help="Start managed loop (dry-run default)")
     st.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
-    st.add_argument("--exchange", default="binance")
+    st.add_argument("--exchange", default="kraken")
     st.add_argument("--pairs", default="BTC/USDT,ETH/USDT,SOL/USDT")
     st.add_argument("--stake-amount", dest="stake_amount", type=float, default=100.0)
     st.add_argument("--budget", type=float, default=1000.0)

@@ -16,6 +16,25 @@ cd /workspace/dinesh-ai-fund
 
 Yahoo-style data may be delayed ~15 minutes. Not financial advice. No guaranteed profits.
 
+
+## CCXT + managed bot (`exchange_ccxt.py`, `dgs_bot_runner.py`, `ft_bot/`)
+
+```bash
+.venv/bin/pip install ccxt
+.venv/bin/python tools/exchange_ccxt.py list
+.venv/bin/python tools/exchange_ccxt.py test --exchange binance   # public; falls back if geo-blocked
+.venv/bin/python tools/exchange_ccxt.py ticker --exchange kraken --symbol BTC/USDT
+.venv/bin/python tools/exchange_ccxt.py order --exchange kraken --symbol BTC/USDT --side buy --amount 0.001
+# Live create_order ONLY with --live + keys
+
+.venv/bin/python tools/dgs_bot_runner.py start --once --pairs BTC/USDT
+.venv/bin/python tools/dgs_bot_runner.py status
+.venv/bin/python tools/dgs_bot_runner.py stop
+# or: .venv/bin/python -m tools.ft_bot …
+```
+
+Public market data works **without keys**. If the preferred exchange is geo-restricted (e.g. Binance 451), helpers try Kraken / Coinbase / KuCoin / OKX / Gate / Bitstamp, then Yahoo. Dry-run is default. Educational — no guaranteed profit. CoinSwitch is **not** in CCXT.
+
 ## `coinswitch_client.py`
 
 CoinSwitch PRO Spot helper using Ed25519 (`X-AUTH-APIKEY`, `X-AUTH-SIGNATURE`, `X-AUTH-EPOCH`).

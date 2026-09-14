@@ -154,11 +154,32 @@ def test_connection(
                 }
             )
         else:
-            ticker = ex.fetch_ticker("BTC/USDT")
+            ticker = None
+            used = eid
+            try:
+                ticker = ex.fetch_ticker("BTC/USDT")
+            except Exception:
+                for alt in ["kraken", "coinbase", "kucoin", "okx", "gate", "bitstamp"]:
+                    if alt == eid:
+                        continue
+                    try:
+                        alt_ex = build_exchange(alt)
+                        ticker = alt_ex.fetch_ticker("BTC/USDT")
+                        used = alt
+                        try:
+                            alt_ex.close()
+                        except Exception:
+                            pass
+                        break
+                    except Exception:
+                        continue
+            if ticker is None:
+                raise ExchangeAPIError(f"Public ticker unavailable for {eid} and fallbacks")
             result.update(
                 {
                     "ok": True,
                     "mode": "public",
+                    "exchange_used": used,
                     "ticker": {
                         "symbol": ticker.get("symbol"),
                         "last": ticker.get("last"),
@@ -247,7 +268,17 @@ def create_order(
             last = last if last is not None else tick.get("last")
             ticker_note = tick
         except Exception as exc:
-            ticker_note = {"error": str(exc)}
+            ticker_note = {"error": str(exc), "fallbacks": []}
+            for alt in ["kraken", "coinbase", "kucoin", "okx", "gate", "bitstamp"]:
+                if alt == (exchange_id or "").lower():
+                    continue
+                try:
+                    tick = fetch_ticker(alt, symbol)
+                    last = last if last is not None else tick.get("last")
+                    ticker_note = {"fallback_from": exchange_id, "used": alt, **tick}
+                    break
+                except Exception as exc2:
+                    ticker_note["fallbacks"].append(f"{alt}:{exc2}")
             if last is None:
                 last = 0.0
         fill_price = float(last or 0.0)
