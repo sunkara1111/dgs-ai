@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=20260914ccxt" />
+  <link rel="stylesheet" href="css/styles.css?v=20260914desk3" />
 </head>
-<body data-gate="locked">
+<body data-gate="locked" data-theme="dark">
 
   <div id="gate" class="gate-shell" aria-live="polite">
     <div class="gate-void" aria-hidden="true"></div>
@@ -96,6 +96,8 @@
       <form id="onboardForm" class="gate-form onboard-form" autocomplete="on">
         <label class="gate-field"><span>Full name *</span>
           <input id="obFullName" type="text" name="name" required autocomplete="name" placeholder="Your name" /></label>
+        <label class="gate-field"><span>Bot / agent name</span>
+          <input id="obAgentName" type="text" name="agentName" maxlength="40" placeholder="DGS Agent" value="DGS Agent" /></label>
         <label class="gate-field"><span>Country *</span>
           <input id="obCountry" type="text" name="country" required autocomplete="country-name" placeholder="India, United States…" /></label>
         <label class="gate-field"><span>Phone (optional)</span>
@@ -150,9 +152,11 @@
       </div>
       <div class="tape" id="tape" aria-label="Market tape"></div>
       <div class="topbar-end">
+        <span class="agent-chip" id="agentChip" title="Running agent">DGS Agent</span>
         <span class="status-line" id="statusPill" data-state="READY">Ready</span>
         <span class="plan-chip" id="planChip" hidden>Starter</span>
         <span class="account-chip" id="accountChip" hidden></span>
+        <button type="button" class="ghost-btn theme-toggle" id="themeToggleBtn" aria-label="Toggle light or dark mode" title="Theme">Light</button>
         <button type="button" class="ghost-btn" id="openRiskBtn">Risk</button>
         <button type="button" class="ghost-btn" id="openSettingsBtn">Settings</button>
         <button type="button" class="signout-btn" id="signOutBtn">Sign out</button>
@@ -189,6 +193,16 @@
           </div>
           <div class="watch-table" id="watchlist"></div>
         </section>
+        <section class="panel news-panel" aria-label="Market news">
+          <div class="panel-head">
+            <h2>Market news</h2>
+            <button type="button" class="ghost-btn news-refresh-btn" id="newsRefreshBtn" title="Refresh headlines">Refresh</button>
+          </div>
+          <p class="news-source muted" id="newsSource">Watchlist headlines · stocks + crypto</p>
+          <div class="news-list" id="newsList" role="list">
+            <p class="news-empty">Loading headlines…</p>
+          </div>
+        </section>
         <section class="panel results-panel" aria-label="Results">
           <div class="panel-head">
             <h2>Results</h2>
@@ -207,7 +221,7 @@
         <div class="panel chart-stage" id="chartOverlay" data-ui="chart-stage">
           <div class="chart-head">
             <div>
-              <p class="chart-kicker">TradingView</p>
+              <p class="chart-kicker">TradingView · multi-asset</p>
               <h2 id="chartTitle">NVDA</h2>
             </div>
             <div class="chart-actions">
@@ -215,6 +229,32 @@
               <button type="button" class="ghost-btn" id="openTvTabBtn">Open TV</button>
               <button type="button" class="run-btn compact" id="sendPhoneBtn">Send to phone</button>
             </div>
+          </div>
+          <div class="markets-strip" id="marketsStrip" aria-label="Markets">
+            <span class="markets-label">Markets</span>
+            <button type="button" class="mkt-chip is-on" data-mkt="stocks">Stocks</button>
+            <button type="button" class="mkt-chip" data-mkt="crypto">Crypto</button>
+            <button type="button" class="mkt-chip" data-mkt="all">All</button>
+          </div>
+          <div class="chart-chips" id="chartChips" role="toolbar" aria-label="Chart symbols">
+            <span class="chip-group-label" data-asset="stock">Stocks</span>
+            <button type="button" class="sym-chip is-on" data-sym="NVDA" data-asset="stock">NVDA</button>
+            <button type="button" class="sym-chip" data-sym="AAPL" data-asset="stock">AAPL</button>
+            <button type="button" class="sym-chip" data-sym="MSFT" data-asset="stock">MSFT</button>
+            <button type="button" class="sym-chip" data-sym="TSLA" data-asset="stock">TSLA</button>
+            <button type="button" class="sym-chip" data-sym="AMD" data-asset="stock">AMD</button>
+            <button type="button" class="sym-chip" data-sym="META" data-asset="stock">META</button>
+            <button type="button" class="sym-chip" data-sym="SPY" data-asset="stock">SPY</button>
+            <button type="button" class="sym-chip" data-sym="QQQ" data-asset="stock">QQQ</button>
+            <span class="chip-group-label" data-asset="crypto">Crypto</span>
+            <button type="button" class="sym-chip" data-sym="BTC" data-asset="crypto">BTCUSDT</button>
+            <button type="button" class="sym-chip" data-sym="ETH" data-asset="crypto">ETHUSDT</button>
+            <button type="button" class="sym-chip" data-sym="SOL" data-asset="crypto">SOLUSDT</button>
+            <button type="button" class="sym-chip" data-sym="AVAX" data-asset="crypto">AVAXUSDT</button>
+            <button type="button" class="sym-chip" data-sym="LINK" data-asset="crypto">LINKUSDT</button>
+            <button type="button" class="sym-chip" data-sym="BNB" data-asset="crypto">BNBUSDT</button>
+            <button type="button" class="sym-chip" data-sym="XRP" data-asset="crypto">XRPUSDT</button>
+            <button type="button" class="sym-chip" data-sym="DOGE" data-asset="crypto">DOGEUSDT</button>
           </div>
           <iframe id="tvFrame" title="DGS AI chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
           <p class="chart-tip" id="chartTvTip">TradingView alert webhooks need a backend URL — GitHub Pages cannot receive them. Stub: <code>https://YOUR-BACKEND/hooks/tv</code></p>
@@ -226,10 +266,48 @@
           <div class="bot-card-top">
             <div>
               <p class="bot-kicker">Paper / Bot</p>
+              <p class="bot-agent-line">Agent · <strong id="botAgentLabel">DGS Agent</strong></p>
               <p class="bot-fine">Dry-run first · stake + stoploss · no guaranteed profit</p>
             </div>
             <span class="mode-badge" id="modeBadge" data-mode="paper">PAPER</span>
           </div>
+          <div class="agent-name-row">
+            <label class="agent-name-label">Bot name
+              <input id="agentNameInput" type="text" maxlength="40" value="DGS Agent" placeholder="DGS Agent" autocomplete="off" />
+            </label>
+            <button type="button" class="ghost-btn" id="saveAgentNameBtn">Save</button>
+          </div>
+          <section class="connect-exchange-card" id="connectExchangeCard" aria-label="Connect trading account">
+            <div class="connect-ex-top">
+              <div>
+                <h2 class="connect-ex-title">Connect trading account</h2>
+                <p class="bot-fine">Where customers link exchanges · CCXT · keys stay on this device · dry-run default</p>
+              </div>
+              <span class="broker-status desk-ccxt-status" id="deskCcxtStatus" data-on="0">Not connected</span>
+            </div>
+            <label>Exchange
+              <select id="deskCcxtExchange">
+                <option value="binance">Binance</option>
+                <option value="okx">OKX</option>
+                <option value="bybit">Bybit</option>
+                <option value="gate">Gate</option>
+                <option value="kraken" selected>Kraken</option>
+                <option value="kucoin">KuCoin</option>
+                <option value="bitget">Bitget</option>
+                <option value="mexc">MEXC</option>
+                <option value="coinbase">Coinbase</option>
+                <option value="alpaca">Alpaca (via CCXT)</option>
+              </select>
+            </label>
+            <label>API key <input id="deskCcxtKey" type="password" autocomplete="off" placeholder="key · local only" /></label>
+            <label>API secret <input id="deskCcxtSecret" type="password" autocomplete="off" placeholder="secret · local only" /></label>
+            <div class="btn-row tight connect-ex-actions">
+              <button type="button" class="btn" id="deskCcxtTestBtn">Test</button>
+              <button type="button" class="btn btn-accent" id="deskCcxtSaveBtn">Save &amp; connect</button>
+            </div>
+            <p class="connect-ex-cta">This is where you connect your trading account. Pick exchange → paste keys → Test → Save. Start bot stays dry-run until Enable live orders.</p>
+            <button type="button" class="linkish" id="openFullConnectBtn">Full settings · CoinSwitch / Alpaca / IB</button>
+          </section>
           <div class="start-row" data-feature="botCardFull">
             <button type="button" class="start-bot-btn" id="startBotBtn" data-feature="autopilot">Start bot</button>
             <button type="button" class="stop-bot-btn" id="stopBotBtn" hidden data-feature="autopilot">Stop bot</button>
@@ -551,6 +629,6 @@
   </aside>
 
   <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
-  <script type="module" src="js/app.js?v=20260914ccxt"></script>
+  <script type="module" src="js/app.js?v=20260914desk3"></script>
 </body>
 </html>

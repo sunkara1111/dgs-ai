@@ -142,7 +142,7 @@ body {
 }
 .muted { font: 400 0.58rem/1 var(--mono); color: var(--dim); }
 
-.watch-panel { flex: 0 0 auto; max-height: 38%; overflow: hidden; display: flex; flex-direction: column; }
+.watch-panel { flex: 0 0 auto; max-height: 32%; overflow: hidden; display: flex; flex-direction: column; }
 .watch-table { overflow: auto; font-family: var(--mono); font-size: 0.7rem; }
 .watch-row {
   display: grid; grid-template-columns: 52px 1fr auto auto;
@@ -193,6 +193,211 @@ body {
 }
 .chart-tip { margin: 0; padding: 0.3rem 0.55rem; font: 400 0.58rem/1.35 var(--mono); color: var(--dim); }
 .chart-tip code { color: var(--teal); }
+
+
+/* agent chip */
+.agent-chip {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.04em;
+  border: 1px solid #1e3d38; background: #0c1614; color: var(--teal);
+  border-radius: 3px; padding: 0.22rem 0.45rem; white-space: nowrap;
+  max-width: 22vw; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* chart symbol chips + markets strip */
+.markets-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.28rem;
+  padding: 0.28rem 0.55rem; border-bottom: 1px solid var(--line);
+  background: #0a0c10;
+}
+.markets-label, .chip-group-label {
+  font: 600 0.52rem/1 var(--mono); letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.mkt-chip, .sym-chip {
+  border: 1px solid var(--line-2); background: var(--panel);
+  color: var(--text); border-radius: 3px;
+  padding: 0.18rem 0.42rem; font: 600 0.58rem/1 var(--mono);
+  letter-spacing: 0.03em; cursor: pointer;
+}
+.mkt-chip:hover, .sym-chip:hover { border-color: var(--teal); color: var(--teal); }
+.mkt-chip.is-on, .sym-chip.is-on {
+  background: #12352f; color: var(--teal); border-color: #1e3d38;
+}
+.chart-chips {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem;
+  padding: 0.28rem 0.55rem; border-bottom: 1px solid var(--line);
+  max-height: 4.2rem; overflow: auto;
+}
+.chart-chips .chip-group-label { margin-left: 0.25rem; }
+.chart-chips .chip-group-label:first-child { margin-left: 0; }
+.chart-chips[data-filter="stocks"] .sym-chip[data-asset="crypto"],
+.chart-chips[data-filter="crypto"] .sym-chip[data-asset="stock"],
+.chart-chips[data-filter="stocks"] .chip-group-label[data-asset="crypto"],
+.chart-chips[data-filter="crypto"] .chip-group-label[data-asset="stock"] {
+  display: none;
+}
+
+/* market news */
+.news-panel {
+  flex: 0 0 auto; max-height: 28%;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.news-source { margin: 0; padding: 0.2rem 0.55rem 0; }
+.news-refresh-btn { min-height: 22px; padding: 0.12rem 0.4rem; font-size: 0.55rem; }
+.news-list { overflow: auto; padding: 0.2rem 0.35rem 0.45rem; }
+.news-item {
+  display: block; padding: 0.32rem 0.35rem; border-bottom: 1px solid #141820;
+  text-decoration: none; color: inherit;
+}
+.news-item:hover { background: #141922; }
+.news-item .news-sym {
+  font: 600 0.55rem/1 var(--mono); letter-spacing: 0.06em;
+  color: var(--teal); text-transform: uppercase;
+}
+.news-item .news-title {
+  display: block; margin-top: 0.15rem;
+  font: 500 0.68rem/1.3 var(--font); color: var(--text);
+}
+.news-item .news-meta {
+  display: block; margin-top: 0.12rem;
+  font: 400 0.52rem/1 var(--mono); color: var(--dim);
+}
+.news-empty { margin: 0.4rem 0.35rem; font: 400 0.68rem var(--mono); color: var(--dim); }
+.news-demo-tag {
+  display: inline-block; margin-left: 0.25rem;
+  font: 600 0.5rem var(--mono); color: var(--amber);
+  border: 1px solid #3d3418; padding: 0.05rem 0.28rem; border-radius: 2px;
+}
+
+/* connect exchange card on desk */
+
+/* Light / bright mode — toggled via data-theme on body */
+body[data-theme="light"] {
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --panel-2: #f0f3f8;
+  --line: #d8dee8;
+  --line-2: #c2cad6;
+  --text: #12161e;
+  --muted: #5a6472;
+  --dim: #8a93a1;
+  --teal: #0d9b8c;
+  --blue: #2f6fed;
+  --amber: #b78109;
+  --ok: #1a9a5c;
+  --danger: #d43838;
+  --warn: #b78109;
+  color: var(--text);
+  background: var(--bg);
+}
+body[data-theme="light"] .brand-mark,
+body[data-theme="light"] .gate-mark { color: #061014; }
+body[data-theme="light"] #commandInput,
+body[data-theme="light"] input,
+body[data-theme="light"] select,
+body[data-theme="light"] textarea,
+body[data-theme="light"] .analysis,
+body[data-theme="light"] .markets-strip,
+body[data-theme="light"] .bubble {
+  background: #ffffff;
+  border-color: var(--line-2);
+  color: var(--text);
+}
+body[data-theme="light"] .bubble { background: #f7f9fc; }
+body[data-theme="light"] .watch-row:hover,
+body[data-theme="light"] .watch-row.is-on,
+body[data-theme="light"] .news-item:hover { background: #eaf0f8; }
+body[data-theme="light"] .watch-row { border-bottom-color: #e6ebf2; }
+body[data-theme="light"] .news-item { border-bottom-color: #e6ebf2; }
+body[data-theme="light"] #tvFrame { background: #e8ecf2; }
+body[data-theme="light"] .connect-exchange-card {
+  background: linear-gradient(180deg, #e8f7f4 0%, #ffffff 55%);
+  border-color: #7ecfc4;
+  box-shadow: 0 0 0 1px rgba(13,155,140,0.12), 0 8px 24px rgba(18,22,30,0.06);
+}
+body[data-theme="light"] .agent-chip {
+  background: #e8f7f4; color: var(--teal); border-color: #7ecfc4;
+}
+body[data-theme="light"] .gate-shell { background: var(--bg); }
+body[data-theme="light"] .gate-card,
+body[data-theme="light"] .drawer {
+  background: #ffffff; color: var(--text); border-color: var(--line);
+}
+body[data-theme="light"] .mkt-chip.is-on,
+body[data-theme="light"] .sym-chip.is-on {
+  background: #d9f3ee; color: var(--teal); border-color: #7ecfc4;
+}
+body[data-theme="light"] .btn-accent,
+body[data-theme="light"] .run-btn,
+body[data-theme="light"] .start-bot-btn {
+  background: var(--teal); color: #061014;
+}
+body[data-theme="light"] .statusbar { color: var(--muted); }
+body[data-theme="light"] .plan-chip,
+body[data-theme="light"] .account-chip,
+body[data-theme="light"] .status-line,
+body[data-theme="light"] .ghost-btn,
+body[data-theme="light"] .signout-btn {
+  background: var(--panel-2); color: var(--muted); border-color: var(--line-2);
+}
+body[data-theme="light"] .ghost-btn,
+body[data-theme="light"] .signout-btn { color: var(--text); }
+body[data-theme="light"] .stats div { background: var(--panel-2); }
+body[data-theme="light"] .bar { background: #d8dee8; }
+
+.connect-ex-title {
+  margin: 0;
+  font: 700 0.92rem/1.2 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.connect-exchange-card {
+  margin: 0 0 0.55rem; padding: 0.55rem 0.55rem 0.6rem;
+  border: 1px solid #1e3d38; border-radius: 4px;
+  background: linear-gradient(180deg, #0f1a18 0%, #0c1014 100%);
+  box-shadow: 0 0 0 1px rgba(61,214,198,0.12), 0 10px 28px rgba(0,0,0,0.22);
+}
+.connect-ex-top {
+  display: flex; justify-content: space-between; gap: 0.4rem;
+  align-items: flex-start; margin-bottom: 0.35rem;
+}
+.desk-ccxt-status {
+  font: 500 0.58rem var(--mono); white-space: nowrap;
+  border: 1px solid var(--line-2); padding: 0.08rem 0.35rem; border-radius: 3px;
+}
+.connect-ex-actions { margin: 0.15rem 0 0.25rem; }
+.connect-ex-actions .btn { min-height: 34px; font-size: 0.62rem; padding: 0.35rem; }
+.connect-ex-cta {
+  margin: 0.15rem 0 0.35rem; font: 500 0.62rem/1.35 var(--mono);
+  color: var(--amber);
+}
+.linkish {
+  display: inline-block; background: none; border: 0; padding: 0;
+  color: var(--teal); font: 500 0.62rem var(--mono); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.linkish:hover { color: var(--text); }
+.bot-agent-line {
+  margin: 0.2rem 0 0; font: 500 0.68rem/1.2 var(--mono); color: var(--text);
+}
+.bot-agent-line strong { color: var(--teal); font-weight: 650; }
+.agent-name-row {
+  display: flex; gap: 0.35rem; align-items: end; margin: 0 0 0.45rem;
+}
+.agent-name-label {
+  flex: 1; margin: 0; font-size: 0.6rem; color: var(--muted);
+  display: grid; gap: 0.12rem;
+}
+.agent-name-label input { min-height: 30px; padding: 0.35rem 0.5rem; font-size: 0.72rem; }
+.connect-exchange-card label { margin-bottom: 0.32rem; font-size: 0.62rem; }
+.connect-exchange-card input,
+.connect-exchange-card select { min-height: 32px; padding: 0.35rem 0.5rem; font-size: 0.72rem; }
+
+@media (max-width: 980px) {
+  .news-panel { max-height: none; }
+  .agent-chip { max-width: 28vw; }
+}
 
 /* paper / bot */
 .bot-card { flex: 1; overflow: auto; padding: 0.55rem 0.6rem 0.7rem; }

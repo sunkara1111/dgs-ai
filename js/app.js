@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser } from './gate.js?v=20260914ccxt';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260914desk3';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -142,10 +142,267 @@ const state = {
   profile: null,
 };
 
-const CACHE_BUST = '20260914ccxt';
+const CACHE_BUST = '20260914desk3';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
+const THEME_KEY = 'dgs-ai-theme';
+const DEFAULT_AGENT_NAME = 'DGS Agent';
+
+const DEMO_NEWS = [
+  { sym: 'NVDA', title: 'NVIDIA leads AI chip demand into next earnings window', source: 'Demo feed', ago: '1h' },
+  { sym: 'AAPL', title: 'Apple services mix steadies Street into product cycle', source: 'Demo feed', ago: '2h' },
+  { sym: 'MSFT', title: 'Microsoft cloud + Copilot narrative keeps megacap bid firm', source: 'Demo feed', ago: '2h' },
+  { sym: 'BTC', title: 'Bitcoin holds range as ETF flows stay two-way', source: 'Demo feed', ago: '45m' },
+  { sym: 'ETH', title: 'Ether tracks BTC with L2 activity in focus', source: 'Demo feed', ago: '1h' },
+  { sym: 'SOL', title: 'Solana stays high-beta as memecoin volumes cool', source: 'Demo feed', ago: '90m' },
+  { sym: 'TSLA', title: 'Tesla volatility tied to delivery and autonomy headlines', source: 'Demo feed', ago: '3h' },
+  { sym: 'SPY', title: 'S&P 500 futures lean on megacap tech leadership', source: 'Demo feed', ago: '30m' },
+];
+
+function resolveAgentName(profile) {
+  const p = profile || getProfile() || state.profile;
+  const fromProfile = p && p.agentName ? String(p.agentName).trim() : '';
+  if (fromProfile) return fromProfile.slice(0, 40);
+  try {
+    const n = getAgentName();
+    if (n) return String(n).trim().slice(0, 40) || DEFAULT_AGENT_NAME;
+  } catch (_) {}
+  return DEFAULT_AGENT_NAME;
+}
+
+function applyAgentName(name) {
+  const n = (String(name || '').trim() || DEFAULT_AGENT_NAME).slice(0, 40);
+  if ($('agentChip')) $('agentChip').textContent = n;
+  if ($('botAgentLabel')) $('botAgentLabel').textContent = n;
+  if ($('agentNameInput') && document.activeElement !== $('agentNameInput')) {
+    $('agentNameInput').value = n;
+  }
+  return n;
+}
+
+function saveAgentNameFromUi() {
+  const raw = ($('agentNameInput') && $('agentNameInput').value) || DEFAULT_AGENT_NAME;
+  const n = (String(raw).trim() || DEFAULT_AGENT_NAME).slice(0, 40);
+  applyAgentName(n);
+  const patched = patchUserProfile({ agentName: n });
+  if (patched) {
+    state.profile = patched;
+    speak(`Agent name set to ${n}.`);
+  } else {
+    // No profile yet — still show locally; persist lightly on desk state
+    try {
+      const rawState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      rawState.agentName = n;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rawState));
+    } catch (_) {}
+    speak(`Agent name set to ${n} on this device.`);
+  }
+}
+
+function getTheme() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    if (t === 'light' || t === 'dark') return t;
+  } catch (_) {}
+  return 'dark';
+}
+
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.body.dataset.theme = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'light' ? '#f4f6fa' : '#07080a');
+  const btn = $('themeToggleBtn');
+  if (btn) {
+    btn.textContent = t === 'light' ? 'Dark' : 'Light';
+    btn.title = t === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+    btn.setAttribute('aria-label', btn.title);
+  }
+}
+
+function toggleTheme() {
+  applyTheme(getTheme() === 'light' ? 'dark' : 'light');
+}
+
+function syncDeskCcxtFromSettings() {
+  if ($('deskCcxtExchange') && $('ccxtExchange')) $('deskCcxtExchange').value = $('ccxtExchange').value;
+  if ($('deskCcxtKey') && $('ccxtKey')) $('deskCcxtKey').value = $('ccxtKey').value;
+  if ($('deskCcxtSecret') && $('ccxtSecret')) $('deskCcxtSecret').value = $('ccxtSecret').value;
+  syncDeskCcxtStatus();
+}
+
+function syncSettingsCcxtFromDesk() {
+  if ($('ccxtExchange') && $('deskCcxtExchange')) $('ccxtExchange').value = $('deskCcxtExchange').value;
+  if ($('ccxtKey') && $('deskCcxtKey')) $('ccxtKey').value = $('deskCcxtKey').value;
+  if ($('ccxtSecret') && $('deskCcxtSecret')) $('ccxtSecret').value = $('deskCcxtSecret').value;
+}
+
+function syncDeskCcxtStatus() {
+  const desk = $('deskCcxtStatus');
+  const settings = $('ccxtStatus');
+  if (!desk) return;
+  if (settings) {
+    desk.textContent = settings.textContent;
+    desk.dataset.on = settings.dataset.on || '0';
+  } else if (state.ccxtConnected) {
+    desk.textContent = `Connected · ${state.ccxtExchange || 'ccxt'} · format OK · local only · dry-run default`;
+    desk.dataset.on = '1';
+  } else {
+    desk.textContent = 'Not connected';
+    desk.dataset.on = '0';
+  }
+}
+
+function deskCcxtTest() {
+  syncSettingsCcxtFromDesk();
+  const key = $('deskCcxtKey')?.value || '';
+  const secret = $('deskCcxtSecret')?.value || '';
+  const ex = $('deskCcxtExchange')?.value || 'kraken';
+  if (!ccxtFormatOk(key, secret)) {
+    setBrokerStatus('ccxtStatus', false, 'Not connected · enter API key and secret');
+    syncDeskCcxtStatus();
+    speak('Test failed. Enter API key and secret (8+ chars each). Keys stay on this device only.');
+    return false;
+  }
+  setBrokerStatus('ccxtStatus', !!state.ccxtConnected, state.ccxtConnected
+    ? `Connected · ${ex} · format OK · local only · dry-run default`
+    : `Test OK · ${ex} · format valid · press Save & connect`);
+  if (!state.ccxtConnected) {
+    const desk = $('deskCcxtStatus');
+    if (desk) {
+      desk.textContent = `Test OK · ${ex} · format valid · press Save & connect`;
+      desk.dataset.on = '0';
+    }
+  } else {
+    syncDeskCcxtStatus();
+  }
+  saveBrokerStubs();
+  refreshBrokerConnectButtons();
+  speak(`Test OK for ${ex}. Format looks valid. Press Save and connect to keep it. Start bot stays dry-run.`);
+  return true;
+}
+
+function deskCcxtSave() {
+  if (!hasFeature('connectApps')) {
+    requireFeature('connectApps', 'Connect trading account / CCXT is a Pro feature. Starter can still paper trade.');
+    return;
+  }
+  syncSettingsCcxtFromDesk();
+  const key = $('deskCcxtKey')?.value || '';
+  const secret = $('deskCcxtSecret')?.value || '';
+  if (!ccxtFormatOk(key, secret)) {
+    state.ccxtConnected = false;
+    saveBrokerStubs({ ccxtOk: false });
+    setBrokerStatus('ccxtStatus', false, 'Not connected · enter API key and secret');
+    syncDeskCcxtStatus();
+    updateModeBadge();
+    speak('Need API key and secret before Save. Keys stay in localStorage only.');
+    return;
+  }
+  state.ccxtExchange = $('deskCcxtExchange')?.value || 'kraken';
+  if ($('ccxtExchange')) $('ccxtExchange').value = state.ccxtExchange;
+  state.ccxtConnected = true;
+  saveBrokerStubs({ ccxtOk: true, ccxtCheckedAt: new Date().toISOString() });
+  setBrokerStatus('ccxtStatus', true, `Connected · ${state.ccxtExchange} · format OK · local only · dry-run default`);
+  syncDeskCcxtStatus();
+  refreshCcxtCliHint();
+  updateModeBadge();
+  speak(`Trading account connected for ${state.ccxtExchange} on this device. Start bot stays dry-run until Enable live orders. Not advice.`);
+}
+
+function setChartChipActive(sym) {
+  const s = String(sym || '').toUpperCase();
+  document.querySelectorAll('#chartChips .sym-chip').forEach((btn) => {
+    btn.classList.toggle('is-on', (btn.getAttribute('data-sym') || '').toUpperCase() === s);
+  });
+}
+
+function setMarketsFilter(mode) {
+  const m = mode === 'stocks' || mode === 'crypto' ? mode : 'all';
+  const wrap = $('chartChips');
+  if (wrap) wrap.dataset.filter = m === 'all' ? 'all' : m;
+  document.querySelectorAll('#marketsStrip .mkt-chip').forEach((btn) => {
+    btn.classList.toggle('is-on', (btn.getAttribute('data-mkt') || '') === m);
+  });
+}
+
+function renderNewsList(items, sourceLabel, isDemo) {
+  const box = $('newsList');
+  const src = $('newsSource');
+  if (src) {
+    src.innerHTML = `${escapeHtml(sourceLabel || 'Watchlist headlines')}${isDemo ? ' <span class="news-demo-tag">DEMO FEED</span>' : ''}`;
+  }
+  if (!box) return;
+  if (!items || !items.length) {
+    box.innerHTML = '<p class="news-empty">No headlines right now. Tap Refresh.</p>';
+    return;
+  }
+  box.innerHTML = items.map((it) => {
+    const href = it.url ? ` href="${escapeHtml(it.url)}" target="_blank" rel="noopener noreferrer"` : '';
+    const tag = it.url ? 'a' : 'div';
+    return `<${tag} class="news-item" role="listitem"${href}>
+      <span class="news-sym">${escapeHtml(it.sym || '')}</span>
+      <span class="news-title">${escapeHtml(it.title || '')}</span>
+      <span class="news-meta">${escapeHtml(it.source || 'News')}${it.ago ? ' · ' + escapeHtml(it.ago) : ''}</span>
+    </${tag}>`;
+  }).join('');
+}
+
+function newsSymbols() {
+  const stocks = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY'];
+  const crypto = ['BTC', 'ETH', 'SOL'];
+  return [...stocks, ...crypto];
+}
+
+async function fetchYahooHeadlines(sym) {
+  const ysym = CRYPTO.has(sym) ? `${sym}-USD` : sym;
+  const rss = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(ysym)}&region=US&lang=en-US`;
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(rss)}`,
+    `https://corsproxy.io/?${encodeURIComponent(rss)}`,
+  ];
+  for (const url of proxies) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const xml = await res.text();
+      if (!xml || xml.length < 40) continue;
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      const items = [...doc.querySelectorAll('item')].slice(0, 3).map((node) => {
+        const title = (node.querySelector('title')?.textContent || '').trim();
+        const link = (node.querySelector('link')?.textContent || '').trim();
+        const pub = (node.querySelector('pubDate')?.textContent || '').trim();
+        return title ? { sym, title, url: link || '', source: 'Yahoo Finance', ago: pub ? pub.slice(0, 16) : '' } : null;
+      }).filter(Boolean);
+      if (items.length) return items;
+    } catch (_) {}
+  }
+  return [];
+}
+
+async function refreshMarketNews() {
+  const box = $('newsList');
+  if (box) box.innerHTML = '<p class="news-empty">Refreshing headlines…</p>';
+  const syms = newsSymbols();
+  const out = [];
+  try {
+    const batches = await Promise.all(syms.map((s) => fetchYahooHeadlines(s)));
+    batches.forEach((arr) => out.push(...arr));
+  } catch (_) {}
+  if (out.length) {
+    renderNewsList(out.slice(0, 14), 'Yahoo Finance · watchlist symbols', false);
+    return;
+  }
+  // Fallback demo feed (CORS / network blocked on static Pages)
+  const demo = DEMO_NEWS.filter((n) => WATCHLIST.includes(n.sym) || newsSymbols().includes(n.sym));
+  renderNewsList(demo, 'Demo headlines (live RSS blocked by CORS)', true);
+}
+
 
 const RISK_BY_TOLERANCE = {
   low: { riskPct: 0.35, dailyLoss: 1.5, maxDd: 8, maxTrades: 4, minRr: 1.6, mode: 'INTRADAY', maxHold: 60 },
@@ -170,6 +427,7 @@ function applyProfileToDesk(profile) {
   if ($('mode')) $('mode').value = tol.mode;
   if ($('maxHold')) $('maxHold').value = tol.maxHold;
   if ($('noOvernight')) $('noOvernight').checked = true;
+  applyAgentName(resolveAgentName(profile));
   saveState();
   try { analyzeRisk(); } catch (_) {}
   updateModeBadge();
@@ -820,7 +1078,11 @@ async function assetPipeline(symbol) {
 }
 
 function openChart(symbol, opts = {}) {
-  const sym = (symbol || state.lastSymbol || $('symbol')?.value || 'NVDA').toUpperCase();
+  let raw = (symbol || state.lastSymbol || $('symbol')?.value || 'NVDA').toUpperCase();
+  // Accept BTCUSDT-style chips → BTC
+  if (raw.endsWith('USDT') && raw.length > 4) raw = raw.slice(0, -4);
+  if (raw.endsWith('USD') && raw.length > 3 && CRYPTO.has(raw.slice(0, -3))) raw = raw.slice(0, -3);
+  const sym = raw.replace(/[^A-Z0-9]/g, '') || 'NVDA';
   state.lastSymbol = sym;
   if ($('symbol')) $('symbol').value = sym;
   const title = $('chartTitle');
@@ -830,6 +1092,7 @@ function openChart(symbol, opts = {}) {
   const overlay = $('chartOverlay');
   if (overlay) overlay.classList.remove('hidden');
   state.chartOpen = true;
+  setChartChipActive(sym);
   showPane('chart');
   if (!(opts && opts.silent)) {
     speak(`Opening ${sym} chart. Paper only. Use Send to phone for the handoff.`);
@@ -1169,6 +1432,7 @@ function updateBotCard() {
     openRiskEl.textContent = money(r);
     openRiskEl.style.color = r > 0 ? 'var(--amber)' : 'var(--muted)';
   }
+  applyAgentName(resolveAgentName(state.profile || getProfile()));
   updateStartStopUi();
   updateModeBadge();
 }
@@ -1835,6 +2099,7 @@ function loadBrokerStubs() {
     }
     refreshBrokerConnectButtons();
     refreshCcxtCliHint();
+    syncDeskCcxtFromSettings();
     updateModeBadge();
   } catch (_) {}
 }
@@ -1904,6 +2169,7 @@ function setBrokerStatus(id, on, text) {
   if (!el) return;
   el.textContent = text;
   el.dataset.on = on ? '1' : '0';
+  if (id === 'ccxtStatus') syncDeskCcxtStatus();
 }
 
 function bindBrokerStubs() {
@@ -1911,8 +2177,8 @@ function bindBrokerStubs() {
    'ccxtExchange', 'ccxtKey', 'ccxtSecret', 'ccxtPassword', 'ccxtWhitelist', 'ccxtStake', 'ccxtStoplossPct'].forEach((id) => {
     const el = $(id);
     if (!el) return;
-    el.addEventListener('input', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
-    el.addEventListener('change', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
+    el.addEventListener('input', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); syncDeskCcxtFromSettings(); });
+    el.addEventListener('change', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); syncDeskCcxtFromSettings(); });
   });
 
   const cxBtn = $('ccxtConnectBtn');
@@ -1946,6 +2212,7 @@ function bindBrokerStubs() {
       setBrokerStatus('ccxtStatus', true, `Connected · ${state.ccxtExchange} · format OK · local only · dry-run default`);
       refreshCcxtCliHint();
       updateModeBadge();
+      syncDeskCcxtFromSettings();
       speak(`CCXT ${state.ccxtExchange} saved on this device. Test connection on the box with python -m tools.ft_bot test-connection. Start bot stays dry-run until Enable live orders. Not advice.`);
     };
   }
@@ -1956,8 +2223,11 @@ function bindBrokerStubs() {
       if ($('ccxtKey')) $('ccxtKey').value = '';
       if ($('ccxtSecret')) $('ccxtSecret').value = '';
       if ($('ccxtPassword')) $('ccxtPassword').value = '';
+      if ($('deskCcxtKey')) $('deskCcxtKey').value = '';
+      if ($('deskCcxtSecret')) $('deskCcxtSecret').value = '';
       saveBrokerStubs({ ccxtOk: false, ccxtKey: '', ccxtSecret: '', ccxtPassword: '' });
       setBrokerStatus('ccxtStatus', false, 'Not connected');
+      syncDeskCcxtStatus();
       updateModeBadge();
       speak('CCXT exchange disconnected on this device.');
     };
@@ -2657,6 +2927,45 @@ function bindUi() {
   if ($('openRiskBtn')) $('openRiskBtn').onclick = riskOpen;
   if ($('openRiskBtn2')) $('openRiskBtn2').onclick = riskOpen;
   if ($('openSettingsBtn')) $('openSettingsBtn').onclick = () => openDrawer('settings');
+  if ($('themeToggleBtn')) $('themeToggleBtn').onclick = () => toggleTheme();
+  if ($('saveAgentNameBtn')) $('saveAgentNameBtn').onclick = () => saveAgentNameFromUi();
+  if ($('agentNameInput')) {
+    $('agentNameInput').addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); saveAgentNameFromUi(); }
+    });
+  }
+  if ($('newsRefreshBtn')) $('newsRefreshBtn').onclick = () => { refreshMarketNews().catch(() => {}); };
+  if ($('openFullConnectBtn')) $('openFullConnectBtn').onclick = () => openDrawer('settings');
+  if ($('deskCcxtTestBtn')) $('deskCcxtTestBtn').onclick = () => deskCcxtTest();
+  if ($('deskCcxtSaveBtn')) $('deskCcxtSaveBtn').onclick = () => deskCcxtSave();
+  ['deskCcxtExchange', 'deskCcxtKey', 'deskCcxtSecret'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    const sync = () => {
+      syncSettingsCcxtFromDesk();
+      saveBrokerStubs();
+      refreshBrokerConnectButtons();
+    };
+    el.addEventListener('input', sync);
+    el.addEventListener('change', sync);
+  });
+  const chips = $('chartChips');
+  if (chips) {
+    chips.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.sym-chip');
+      if (!btn) return;
+      const sym = btn.getAttribute('data-sym');
+      if (sym) openChart(sym, { silent: true });
+    });
+  }
+  const mstrip = $('marketsStrip');
+  if (mstrip) {
+    mstrip.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.mkt-chip');
+      if (!btn) return;
+      setMarketsFilter(btn.getAttribute('data-mkt') || 'all');
+    });
+  }
 
   if ($('closeChartBtn')) $('closeChartBtn').onclick = closeChart;
   if ($('sendPhoneBtn')) $('sendPhoneBtn').onclick = () => { sendChartToPhone(state.lastSymbol); };
@@ -2785,8 +3094,14 @@ let booted = false;
 function bootApp() {
   if (booted) return;
   booted = true;
+  applyTheme(getTheme());
   loadState();
   loadConnectApps();
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (raw.agentName) applyAgentName(raw.agentName);
+  } catch (_) {}
+  applyAgentName(resolveAgentName(getProfile()));
   state.book = (state.book || []).map((t) => {
     if (!t || typeof t !== 'object') return t;
     if (!t.status) return { ...t, status: 'OPEN', mark: t.entry, unrealized: 0 };
@@ -2811,12 +3126,15 @@ function bootApp() {
   updateModeBadge();
   renderWatchlist();
   renderTape();
+  setMarketsFilter('all');
   setStatus('READY');
   if (!new URLSearchParams(location.search).get('chart')) {
     openChart(state.lastSymbol || 'NVDA', { silent: true });
   }
   bootFromQuery();
   refreshDeskQuotes().catch(() => {});
+  refreshMarketNews().catch(() => {});
+  syncDeskCcxtFromSettings();
   if (state.halted && $('activityLog')) $('activityLog').textContent = 'Force halt is on. Reset day to re-arm.';
   // Only resume bot if desk is open (profile complete) and autopilot was on
   const deskOpen = document.body.dataset.gate === 'open';
@@ -2833,4 +3151,5 @@ function bootApp() {
   }, 45000);
 }
 
+applyTheme(getTheme());
 onUnlocked(bootApp);

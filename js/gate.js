@@ -6,14 +6,14 @@
  * Plans: owner (private) | limited/starter | pro
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260914ccxt';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260914desk3';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js?v=20260914ccxt';
+} from './billing-config.js?v=20260914desk3';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -134,6 +134,7 @@ function readProfile(user) {
 
 export function saveUserProfile(fields) {
   if (!currentUser) return null;
+  const agentName = String(fields.agentName || '').trim() || 'DGS Agent';
   const record = {
     fullName: String(fields.fullName || '').trim(),
     country: String(fields.country || '').trim(),
@@ -143,6 +144,7 @@ export function saveUserProfile(fields) {
     budget: Number(fields.budget) || 0,
     currency: String(fields.currency || 'USD').trim().toUpperCase(),
     markets: String(fields.markets || '').trim(),
+    agentName: agentName.slice(0, 40),
     agreed: !!fields.agreed,
     uid: currentUser.uid || '',
     email: normalizeEmail(currentUser.email),
@@ -175,6 +177,31 @@ export function finishOnboarding(fields) {
     try { fn(snapshot); } catch (err) { console.error(err); }
   });
   return saved;
+}
+
+/** Merge optional fields (e.g. agentName) into the saved profile on this device. */
+export function patchUserProfile(fields) {
+  if (!currentUser) return null;
+  const prev = getProfile() || {};
+  if (!prev.fullName) return null;
+  const next = {
+    ...prev,
+    ...fields,
+    agentName: String(fields.agentName != null ? fields.agentName : (prev.agentName || 'DGS Agent')).trim().slice(0, 40) || 'DGS Agent',
+    uid: currentUser.uid || prev.uid || '',
+    email: normalizeEmail(currentUser.email) || prev.email || '',
+    at: Date.now(),
+  };
+  for (const key of profileKeys(currentUser)) {
+    localStorage.setItem(key, JSON.stringify(next));
+  }
+  return next;
+}
+
+export function getAgentName() {
+  const p = getProfile();
+  const name = (p && p.agentName) ? String(p.agentName).trim() : '';
+  return name || 'DGS Agent';
 }
 
 /** Current plan: 'owner' | 'pro' | 'limited' | null */
@@ -642,6 +669,7 @@ function bindGateUi() {
       const msg = $('onboardMsg');
       const fields = {
         fullName: $('obFullName') && $('obFullName').value,
+        agentName: ($('obAgentName') && $('obAgentName').value) || 'DGS Agent',
         country: $('obCountry') && $('obCountry').value,
         phone: $('obPhone') && $('obPhone').value,
         experience: $('obExperience') && $('obExperience').value,
