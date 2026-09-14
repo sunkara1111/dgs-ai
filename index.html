@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=20260913desk" />
+  <link rel="stylesheet" href="css/styles.css?v=20260914start" />
 </head>
 <body data-gate="locked">
 
@@ -86,6 +86,57 @@
       <button type="button" class="gate-btn gate-btn-text" id="paySignOutBtn">Sign out</button>
       <p class="gate-msg" id="payMsg" role="status"></p>
     </section>
+
+    <section id="gateOnboard" class="gate-card gate-onboard" hidden aria-label="DGS AI account profile">
+      <div class="gate-mark" aria-hidden="true">D</div>
+      <p class="gate-brand">DGS AI</p>
+      <h1 class="gate-title">Set up your account</h1>
+      <p class="gate-credit">Required once · saved on this device</p>
+      <p class="gate-lead">Tell us how you trade so the bot can size risk. Paper first. Not financial advice. Losses are possible. No guaranteed profit.</p>
+      <form id="onboardForm" class="gate-form onboard-form" autocomplete="on">
+        <label class="gate-field"><span>Full name *</span>
+          <input id="obFullName" type="text" name="name" required autocomplete="name" placeholder="Your name" /></label>
+        <label class="gate-field"><span>Country *</span>
+          <input id="obCountry" type="text" name="country" required autocomplete="country-name" placeholder="India, United States…" /></label>
+        <label class="gate-field"><span>Phone (optional)</span>
+          <input id="obPhone" type="tel" name="tel" autocomplete="tel" placeholder="+91…" /></label>
+        <label class="gate-field"><span>Experience *</span>
+          <select id="obExperience" required>
+            <option value="">Select…</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="pro">Pro</option>
+          </select></label>
+        <label class="gate-field"><span>Risk tolerance *</span>
+          <select id="obRisk" required>
+            <option value="">Select…</option>
+            <option value="low">Low</option>
+            <option value="med">Medium</option>
+            <option value="high">High</option>
+          </select></label>
+        <div class="onboard-budget-row">
+          <label class="gate-field"><span>Trading budget *</span>
+            <input id="obBudget" type="number" min="100" step="100" required placeholder="10000" /></label>
+          <label class="gate-field"><span>Currency *</span>
+            <select id="obCurrency" required>
+              <option value="INR">INR</option>
+              <option value="USD" selected>USD</option>
+            </select></label>
+        </div>
+        <label class="gate-field"><span>Markets *</span>
+          <select id="obMarkets" required>
+            <option value="">Select…</option>
+            <option value="stocks">Stocks</option>
+            <option value="crypto">Crypto</option>
+            <option value="both">Both</option>
+          </select></label>
+        <label class="check gate-agree"><input id="obAgree" type="checkbox" required />
+          I agree: paper first · not financial advice · losses possible · no guaranteed profit</label>
+        <button type="submit" class="gate-btn gate-btn-accent" id="onboardSaveBtn">Save profile &amp; continue</button>
+      </form>
+      <button type="button" class="gate-btn gate-btn-text" id="onboardSignOutBtn">Sign out</button>
+      <p class="gate-msg" id="onboardMsg" role="status"></p>
+    </section>
   </div>
 
   <div class="app" data-ui="desk" id="app" data-status="READY">
@@ -116,6 +167,7 @@
           placeholder="NVDA technicals · scan AAPL,MSFT · quote BTC · fundamentals MSFT · report NVDA" />
       </label>
       <button type="submit" class="run-btn" id="commandRunBtn">Run</button>
+      <button type="button" class="run-btn start-cmd-btn" id="startBotCmdBtn" data-feature="autopilot">Start bot</button>
       <div class="skill-chips" role="toolbar" aria-label="Skills">
         <button type="button" class="chip" data-cmd="quote {SYM}">Quote</button>
         <button type="button" class="chip" data-cmd="{SYM} technicals">Technicals</button>
@@ -174,23 +226,30 @@
           <div class="bot-card-top">
             <div>
               <p class="bot-kicker">Paper / Bot</p>
-              <p class="bot-fine">Paper only · no guaranteed profit · IB SL dry-run</p>
+              <p class="bot-fine">Managed autopilot · loss/profit rules · no guaranteed profit</p>
             </div>
-            <div class="bot-card-actions" data-feature="botCardFull">
-              <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false" data-feature="autopilot">Autopilot OFF</button>
-              <button type="button" class="bot-scan" id="scanBtn" data-feature="scan">Scan</button>
-            </div>
+            <span class="mode-badge" id="modeBadge" data-mode="paper">PAPER</span>
+          </div>
+          <div class="start-row" data-feature="botCardFull">
+            <button type="button" class="start-bot-btn" id="startBotBtn" data-feature="autopilot">Start bot</button>
+            <button type="button" class="stop-bot-btn" id="stopBotBtn" hidden data-feature="autopilot">Stop bot</button>
+          </div>
+          <div class="bot-card-actions" data-feature="botCardFull">
+            <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false" data-feature="autopilot" hidden>Autopilot OFF</button>
+            <button type="button" class="bot-scan" id="scanBtn" data-feature="scan">Scan</button>
           </div>
           <div class="stats">
             <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
-            <div><span>Drawdown</span><strong id="ddNow">0.00%</strong></div>
+            <div><span>Open risk</span><strong id="openRisk">$0.00</strong></div>
             <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
           </div>
+          <p class="bot-live-line" id="botLiveLine">Day P&amp;L · open risk · last actions update while the bot runs.</p>
           <div class="bot-proposal" id="botProposal" data-feature="scan">
-            <p class="bot-empty">No setup — run <em>Scan</em> or <em>find a trade</em></p>
+            <p class="bot-empty">No setup — press <em>Start bot</em> or run <em>Scan</em></p>
           </div>
-          <p class="bot-auto-line" id="botAutoLine" data-feature="autopilot">Autopilot OFF · paper default</p>
-          <p class="bot-sltp" id="botSltp" data-feature="slTpManage">SL/TP managed on paper marks while autopilot is on.</p>
+          <p class="bot-auto-line" id="botAutoLine" data-feature="autopilot">Bot OFF · paper default</p>
+          <p class="bot-sltp" id="botSltp" data-feature="slTpManage">SL/TP managed on marks while the bot is on. Auto stop-loss / take-profit.</p>
+          <label class="check live-orders-check" data-feature="coinswitch"><input id="enableLiveOrders" type="checkbox" /> Enable live orders (default OFF — paper until checked; needs valid broker keys)</label>
           <div class="bot-budget" id="botBudgetWrap" data-feature="budget">
             <label class="bot-budget-label">Budget (paper)
               <input id="tradingBudget" type="number" min="100" step="100" value="1000" inputmode="decimal" />
@@ -200,6 +259,7 @@
           <div class="bot-meta">
             <span id="botGate" data-open="0">Gate CLOSED</span>
             <span id="botDayPnl">Day $0.00</span>
+            <span id="ddNow" class="bot-dd">DD 0.00%</span>
             <button type="button" class="bot-enter" id="botEnterBtn" disabled>Paper enter</button>
           </div>
           <p class="bot-upgrade" id="botUpgradeHint" hidden>Starter: manual paper. Pro unlocks autopilot, scan, budget, CoinSwitch.</p>
@@ -319,30 +379,29 @@
       </div>
     </section>
 
-    <details id="connectAppsPanel" data-feature="connectApps" open>
-      <summary>Connect AI / trading apps</summary>
-      <p class="fine">Keys stay in <strong>localStorage only</strong>. Live CoinSwitch still runs via DGS AI assistant. App Store / Play = roadmap.</p>
-      <label>OpenAI-compatible API key (optional stub)
-        <input id="openaiCompatKey" type="password" autocomplete="off" placeholder="sk-… local only" /></label>
-      <label class="check"><input id="coinswitchFlagToggle" type="checkbox" /> CoinSwitch connected preference</label>
-      <div class="btn-row">
-        <button type="button" class="btn" id="saveConnectAppsBtn">Save locally</button>
-        <button type="button" class="btn" id="clearConnectAppsBtn">Clear</button>
-      </div>
-      <p class="broker-status" id="connectAppsStatus">Not saved</p>
-    </details>
+    <section class="connect-steps analysis-card" id="connectSteps">
+      <p class="bot-kicker">Get started</p>
+      <ol class="connect-steps-list">
+        <li><strong>1 Profile</strong> — complete account setup (required once).</li>
+        <li><strong>2 Connect broker</strong> — add API keys locally (device only).</li>
+        <li><strong>3 Start</strong> — press <em>Start bot</em> for managed paper trading.</li>
+      </ol>
+      <p class="fine">No guaranteed profits. Live orders need valid keys and an explicit Enable live orders check (default OFF = paper).</p>
+    </section>
 
-    <details id="liveBrokers" open data-feature="coinswitch">
-      <summary>CoinSwitch (India) · PRIMARY live</summary>
-      <p class="fine">Live CoinSwitch orders are executed by <strong>DGS AI assistant</strong> with API keys <em>server-side</em>. This page never embeds secrets or signs orders.</p>
-      <p class="broker-tip">TradingView webhook stub: <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code></p>
-      <div class="broker-block broker-primary" data-broker="coinswitch">
+    <details id="connectAppsPanel" data-feature="connectApps" open>
+      <summary>Connect trading account</summary>
+      <p class="fine">API key/secret stay in <strong>localStorage on this device only</strong> — never shipped to GitHub. Until live is enabled with valid keys, <strong>Start bot</strong> runs paper managed mode.</p>
+
+      <div class="broker-block broker-primary" data-broker="coinswitch" data-feature="coinswitch">
         <h4>CoinSwitch <span class="broker-badge">PRIMARY · India</span></h4>
-        <p class="broker-status" id="coinswitchStatus" data-on="0">Not connected</p>
+        <label>API key <input id="coinswitchKey" type="password" autocomplete="off" placeholder="key · local only" /></label>
+        <label>API secret <input id="coinswitchSecret" type="password" autocomplete="off" placeholder="secret · local only" /></label>
         <div class="btn-row">
-          <button type="button" class="btn btn-accent" id="coinswitchConnectBtn">Mark connected</button>
+          <button type="button" class="btn btn-accent" id="coinswitchConnectBtn">Connect (format check)</button>
           <button type="button" class="btn" id="coinswitchDisconnectBtn">Disconnect</button>
         </div>
+        <p class="broker-status" id="coinswitchStatus" data-on="0">Not connected</p>
         <div class="compare-row cs-intent-form">
           <label>Side
             <select id="csIntentSide"><option>BUY</option><option>SELL</option><option>TRADE</option></select>
@@ -353,24 +412,58 @@
         <p class="broker-kicker">Last trade intents</p>
         <ul id="coinswitchIntents" class="cs-intents"><li class="empty">None yet</li></ul>
       </div>
-    </details>
 
-    <details id="otherBrokers">
-      <summary>Other brokers (optional stubs)</summary>
       <div class="broker-block" data-broker="alpaca">
-        <h4>Alpaca <span class="broker-badge">official paper/live API</span></h4>
+        <h4>Alpaca <span class="broker-badge">US stocks / paper</span></h4>
         <label>API key <input id="alpacaKey" type="password" autocomplete="off" placeholder="PK…" /></label>
         <label>API secret <input id="alpacaSecret" type="password" autocomplete="off" placeholder="secret" /></label>
         <label class="check"><input id="alpacaPaper" type="checkbox" checked /> Prefer Alpaca paper endpoint</label>
         <div class="btn-row">
           <button type="button" class="btn" id="alpacaConnectBtn" disabled>Connect (format check)</button>
-          <span class="broker-status" id="alpacaStatus">Not connected · orders disabled</span>
+          <button type="button" class="btn" id="alpacaDisconnectBtn">Disconnect</button>
         </div>
+        <p class="broker-status" id="alpacaStatus" data-on="0">Not connected</p>
       </div>
+
+      <div class="broker-block" data-broker="ibkr" data-feature="ibPortfolio">
+        <h4>Interactive Brokers <span class="broker-badge">paper 7497</span></h4>
+        <label>Host:port <input id="ibHostPort" type="text" autocomplete="off" placeholder="127.0.0.1:7497" value="127.0.0.1:7497" /></label>
+        <div class="btn-row">
+          <button type="button" class="btn" id="ibConnectBtn">Connect (format check)</button>
+          <button type="button" class="btn" id="ibDisconnectBtn">Disconnect</button>
+        </div>
+        <p class="broker-status" id="ibStatus" data-on="0">Not connected</p>
+        <p class="fine">TWS / IB Gateway paper default port 7497. Stop-loss dry-run unless you execute on the box CLI.</p>
+      </div>
+
+      <div class="broker-block" data-broker="tradingview">
+        <h4>TradingView <span class="broker-badge">charts only</span></h4>
+        <p class="fine">Charts are already embedded on the desk. Webhook alerts need a backend URL — GitHub Pages cannot receive them.</p>
+        <p class="broker-tip">Stub: <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code></p>
+        <p class="broker-status" id="tvStatus" data-on="1">Charts ready · no order API</p>
+      </div>
+
       <div class="broker-block" data-broker="robinhood">
         <h4>Robinhood</h4>
-        <p class="broker-warn">No official bot API. We will not ask for your Robinhood password.</p>
+        <p class="broker-warn">No official API — not supported. We will not ask for your Robinhood password.</p>
       </div>
+
+      <label>OpenAI-compatible API key (optional stub)
+        <input id="openaiCompatKey" type="password" autocomplete="off" placeholder="sk-… local only" /></label>
+      <label class="check" hidden><input id="coinswitchFlagToggle" type="checkbox" /> CoinSwitch connected preference</label>
+      <div class="btn-row">
+        <button type="button" class="btn" id="saveConnectAppsBtn">Save locally</button>
+        <button type="button" class="btn" id="clearConnectAppsBtn">Clear AI key</button>
+      </div>
+      <p class="broker-status" id="connectAppsStatus">Not saved</p>
+    </details>
+
+    <details id="liveBrokers" hidden data-feature="coinswitch">
+      <summary>CoinSwitch legacy</summary>
+    </details>
+
+    <details id="otherBrokers" hidden>
+      <summary>Other brokers legacy</summary>
     </details>
 
     <details>
@@ -422,6 +515,6 @@
   </aside>
 
   <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
-  <script type="module" src="js/app.js?v=20260913desk"></script>
+  <script type="module" src="js/app.js?v=20260914start"></script>
 </body>
 </html>

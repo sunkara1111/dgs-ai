@@ -6,14 +6,14 @@
  * Plans: owner (private) | limited/starter | pro
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260913desk';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260914start';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js?v=20260913desk';
+} from './billing-config.js?v=20260914start';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -24,6 +24,9 @@ const FREE_EMAIL_HASHES = new Set([
 ]);
 
 const ENT_PREFIX = 'dgs-ai-pro';
+const PROFILE_PREFIX = 'dgs-ai-profile';
+
+const profileReadyListeners = [];
 
 /** Features available on Starter (limited). Everything else needs Pro/owner. */
 const LIMITED_FEATURES = new Set([
@@ -72,6 +75,106 @@ export function onUnlocked(fn) {
 
 export function isUnlocked() {
   return unlocked;
+}
+
+export function getCurrentUser() {
+  return currentUser;
+}
+
+export function onProfileReady(fn) {
+  if (typeof fn !== 'function') return;
+  if (unlocked && readProfile(currentUser)) fn(readProfile(currentUser));
+  else profileReadyListeners.push(fn);
+}
+
+export function getProfile() {
+  return readProfile(currentUser);
+}
+
+export function isProfileComplete(user) {
+  return !!readProfile(user || currentUser);
+}
+
+function profileKeys(user) {
+  const keys = [];
+  if (user && user.uid) keys.push(`${PROFILE_PREFIX}:uid:${user.uid}`);
+  const email = normalizeEmail(user && user.email);
+  if (email) keys.push(`${PROFILE_PREFIX}:email:${email}`);
+  // also keep a uid-or-email composite under the documented prefix name
+  if (user && user.uid) keys.push(`${PROFILE_PREFIX}:${user.uid}`);
+  else if (email) keys.push(`${PROFILE_PREFIX}:${email}`);
+  return keys;
+}
+
+function readProfile(user) {
+  if (!user) return null;
+  for (const key of profileKeys(user)) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const data = JSON.parse(raw);
+      if (
+        data &&
+        data.fullName &&
+        data.country &&
+        data.experience &&
+        data.riskTolerance &&
+        data.budget != null &&
+        Number(data.budget) > 0 &&
+        data.currency &&
+        data.markets &&
+        data.agreed === true
+      ) {
+        return data;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+export function saveUserProfile(fields) {
+  if (!currentUser) return null;
+  const record = {
+    fullName: String(fields.fullName || '').trim(),
+    country: String(fields.country || '').trim(),
+    phone: String(fields.phone || '').trim(),
+    experience: String(fields.experience || '').trim(),
+    riskTolerance: String(fields.riskTolerance || '').trim(),
+    budget: Number(fields.budget) || 0,
+    currency: String(fields.currency || 'USD').trim().toUpperCase(),
+    markets: String(fields.markets || '').trim(),
+    agreed: !!fields.agreed,
+    uid: currentUser.uid || '',
+    email: normalizeEmail(currentUser.email),
+    at: Date.now(),
+  };
+  if (
+    !record.fullName ||
+    !record.country ||
+    !record.experience ||
+    !record.riskTolerance ||
+    !(record.budget > 0) ||
+    !record.currency ||
+    !record.markets ||
+    !record.agreed
+  ) {
+    return null;
+  }
+  for (const key of profileKeys(currentUser)) {
+    localStorage.setItem(key, JSON.stringify(record));
+  }
+  return record;
+}
+
+export function finishOnboarding(fields) {
+  const saved = saveUserProfile(fields);
+  if (!saved) return null;
+  setGate('open');
+  const snapshot = saved;
+  profileReadyListeners.splice(0).forEach((fn) => {
+    try { fn(snapshot); } catch (err) { console.error(err); }
+  });
+  return saved;
 }
 
 /** Current plan: 'owner' | 'pro' | 'limited' | null */
@@ -179,8 +282,10 @@ function setGate(mode) {
   document.body.dataset.gate = mode;
   const login = $('gateLogin');
   const pay = $('gatePay');
+  const onboard = $('gateOnboard');
   if (login) login.hidden = mode !== 'locked';
   if (pay) pay.hidden = mode !== 'paywall';
+  if (onboard) onboard.hidden = mode !== 'onboarding';
 }
 
 function setLoginMsg(text, kind) {
@@ -241,7 +346,6 @@ function resolvePendingPlan() {
 async function fireUnlock() {
   if (unlocked) return;
   unlocked = true;
-  setGate('open');
   const chip = $('accountChip');
   const plan = getPlan();
   if (chip && currentUser) {
@@ -259,9 +363,18 @@ async function fireUnlock() {
     planChip.dataset.tier = plan || 'limited';
   }
   document.body.dataset.plan = getPlan() || '';
+  // Block desk until customer/owner profile is saved once
+  const existingProfile = readProfile(currentUser);
+  if (!existingProfile) setGate('onboarding');
+  else setGate('open');
   unlockListeners.splice(0).forEach((fn) => {
     try { fn(); } catch (err) { console.error(err); }
   });
+  if (existingProfile) {
+    profileReadyListeners.splice(0).forEach((fn) => {
+      try { fn(existingProfile); } catch (err) { console.error(err); }
+    });
+  }
 }
 
 async function applyUser(user) {
@@ -521,6 +634,39 @@ function bindGateUi() {
 
   const appOut = $('signOutBtn');
   if (appOut) appOut.onclick = () => { signOutUser(); };
+
+  const onboardForm = $('onboardForm');
+  if (onboardForm) {
+    onboardForm.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const msg = $('onboardMsg');
+      const fields = {
+        fullName: $('obFullName') && $('obFullName').value,
+        country: $('obCountry') && $('obCountry').value,
+        phone: $('obPhone') && $('obPhone').value,
+        experience: $('obExperience') && $('obExperience').value,
+        riskTolerance: $('obRisk') && $('obRisk').value,
+        budget: $('obBudget') && $('obBudget').value,
+        currency: $('obCurrency') && $('obCurrency').value,
+        markets: $('obMarkets') && $('obMarkets').value,
+        agreed: !!( $('obAgree') && $('obAgree').checked ),
+      };
+      const saved = finishOnboarding(fields);
+      if (!saved) {
+        if (msg) {
+          msg.textContent = 'Complete required fields and accept the paper-first disclaimer.';
+          msg.dataset.kind = 'err';
+        }
+        return;
+      }
+      if (msg) {
+        msg.textContent = 'Profile saved on this device. Opening desk…';
+        msg.dataset.kind = '';
+      }
+    });
+  }
+  const onboardOut = $('onboardSignOutBtn');
+  if (onboardOut) onboardOut.onclick = () => { signOutUser(); };
 }
 
 async function initGate() {

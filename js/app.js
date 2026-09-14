@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature } from './gate.js?v=20260913desk';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser } from './gate.js?v=20260914start';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -134,12 +134,148 @@ const state = {
   coinswitchConnected: false,
   coinswitchIntents: [],
   tradingBudget: 1000,
+  liveOrdersEnabled: false,
+  alpacaConnected: false,
+  ibConnected: false,
+  profile: null,
 };
 
-const CACHE_BUST = '20260913desk';
+const CACHE_BUST = '20260914start';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
+
+const RISK_BY_TOLERANCE = {
+  low: { riskPct: 0.35, dailyLoss: 1.5, maxDd: 8, maxTrades: 4, minRr: 1.6, mode: 'INTRADAY', maxHold: 60 },
+  med: { riskPct: 0.5, dailyLoss: 2, maxDd: 10, maxTrades: 6, minRr: 1.5, mode: 'INTRADAY', maxHold: 90 },
+  high: { riskPct: 0.75, dailyLoss: 2.5, maxDd: 12, maxTrades: 8, minRr: 1.4, mode: 'MOMENTUM', maxHold: 120 },
+};
+
+function applyProfileToDesk(profile) {
+  if (!profile) return;
+  state.profile = profile;
+  const tol = RISK_BY_TOLERANCE[profile.riskTolerance] || RISK_BY_TOLERANCE.med;
+  const budget = Math.max(100, Number(profile.budget) || 1000);
+  state.tradingBudget = budget;
+  if ($('tradingBudget')) $('tradingBudget').value = budget;
+  if ($('equity')) $('equity').value = budget;
+  state.peakEquity = Math.max(state.peakEquity || 0, budget);
+  if ($('riskPct')) $('riskPct').value = tol.riskPct;
+  if ($('dailyLoss')) $('dailyLoss').value = tol.dailyLoss;
+  if ($('maxDd')) $('maxDd').value = tol.maxDd;
+  if ($('maxTrades')) $('maxTrades').value = tol.maxTrades;
+  if ($('minRr')) $('minRr').value = tol.minRr;
+  if ($('mode')) $('mode').value = tol.mode;
+  if ($('maxHold')) $('maxHold').value = tol.maxHold;
+  if ($('noOvernight')) $('noOvernight').checked = true;
+  saveState();
+  try { analyzeRisk(); } catch (_) {}
+  updateModeBadge();
+  updateBotCard();
+}
+
+function openRiskDollars() {
+  return openTrades().reduce((sum, t) => {
+    const stopDist = Math.abs((t.entry || 0) - (t.stop || 0));
+    return sum + stopDist * (t.shares || 0);
+  }, 0);
+}
+
+function brokerKeysPresent() {
+  const cs = coinswitchFormatOk($('coinswitchKey')?.value, $('coinswitchSecret')?.value) && state.coinswitchConnected;
+  const alp = state.alpacaConnected && alpacaFormatOk($('alpacaKey')?.value, $('alpacaSecret')?.value);
+  const ib = state.ibConnected && ibFormatOk($('ibHostPort')?.value);
+  return !!(cs || alp || ib);
+}
+
+function updateModeBadge() {
+  const badge = $('modeBadge');
+  const live = !!(state.liveOrdersEnabled && brokerKeysPresent());
+  // Force paper if keys missing
+  if (!brokerKeysPresent() && state.liveOrdersEnabled) {
+    state.liveOrdersEnabled = false;
+    if ($('enableLiveOrders')) $('enableLiveOrders').checked = false;
+  }
+  const mode = (state.liveOrdersEnabled && brokerKeysPresent()) ? 'live' : 'paper';
+  if (badge) {
+    badge.dataset.mode = mode;
+    badge.textContent = mode === 'live' ? 'LIVE (broker)' : 'PAPER';
+  }
+  const line = $('botLiveLine');
+  if (line) {
+    const pnl = sessionDayPnL();
+    const risk = openRiskDollars();
+    const last = state.autopilotLastAction || 'idle';
+    line.textContent = `Day P&L ${money(pnl)} · open risk ${money(risk)} · last: ${last}` +
+      (mode === 'live'
+        ? ' · LIVE badge on — HTTP live orders still require Enable live orders + valid keys (default paper).'
+        : ' · paper managed mode');
+  }
+}
+
+function startManagedBot(opts = {}) {
+  const announce = !(opts && opts.quiet);
+  if (!hasFeature('autopilot')) {
+    if (announce) requireFeature('autopilot', 'Start bot / managed autopilot is a Pro feature. Starter includes manual paper enter.');
+    return;
+  }
+  const profile = getProfile() || state.profile;
+  if (profile) applyProfileToDesk(profile);
+  updateModeBadge();
+  const liveWanted = !!($('enableLiveOrders') && $('enableLiveOrders').checked);
+  if (liveWanted && !brokerKeysPresent()) {
+    state.liveOrdersEnabled = false;
+    if ($('enableLiveOrders')) $('enableLiveOrders').checked = false;
+    if (announce) speak('Live orders need a connected broker with valid keys. Forcing paper managed mode.');
+  } else {
+    state.liveOrdersEnabled = liveWanted && brokerKeysPresent();
+  }
+  state.halted = false;
+  startAutopilot({ quiet: true });
+  const mode = state.liveOrdersEnabled ? 'LIVE (broker) badge — orders still gated; paper marks until live HTTP is wired' : 'paper managed';
+  setAutopilotAction(`Start bot · ${mode} · risk from profile`);
+  updateStartStopUi();
+  updateModeBadge();
+  if (announce) {
+    const p = getProfile() || state.profile;
+    const risk = (p && p.riskTolerance) || 'med';
+    const budget = state.tradingBudget || 1000;
+    speak(`Bot started. Budget ${budget}, risk ${risk}. Scanning, gating, entering and exiting with auto stop-loss and take-profit. ${state.liveOrdersEnabled ? 'Live broker badge on — Enable live orders is checked.' : 'Paper managed mode.'} Not advice. No guaranteed profit.`);
+  }
+}
+
+function stopManagedBot(opts = {}) {
+  const announce = !(opts && opts.quiet);
+  stopAutopilot({ quiet: true });
+  setAutopilotAction('Stop bot · halted');
+  updateStartStopUi();
+  updateModeBadge();
+  if (announce) speak('Bot stopped. Open paper positions stay as-is. Press Start bot to resume.');
+}
+
+function updateStartStopUi() {
+  const on = !!state.autopilot;
+  const start = $('startBotBtn');
+  const stop = $('stopBotBtn');
+  const startCmd = $('startBotCmdBtn');
+  if (start) {
+    start.hidden = on;
+    start.dataset.on = on ? '1' : '0';
+    start.disabled = !hasFeature('autopilot');
+  }
+  if (stop) stop.hidden = !on;
+  if (startCmd) {
+    startCmd.textContent = on ? 'Stop bot' : 'Start bot';
+    startCmd.dataset.on = on ? '1' : '0';
+  }
+  const autoBtn = $('autopilotBtn');
+  if (autoBtn) {
+    autoBtn.dataset.on = on ? '1' : '0';
+    autoBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    autoBtn.textContent = on ? 'Autopilot ON' : 'Autopilot OFF';
+  }
+}
+
 
 function requireFeature(name, upgradeMsg) {
   if (hasFeature(name)) return true;
@@ -173,12 +309,13 @@ function applyPlanGates() {
   const hint = $('botUpgradeHint');
   if (hint) hint.hidden = pro;
   if (pro) {
-    ['autopilotBtn', 'scanBtn', 'budgetRunBtn', 'saveConnectAppsBtn', 'clearConnectAppsBtn'].forEach((id) => {
+    ['autopilotBtn', 'scanBtn', 'budgetRunBtn', 'saveConnectAppsBtn', 'clearConnectAppsBtn', 'startBotBtn', 'stopBotBtn', 'startBotCmdBtn'].forEach((id) => {
       const el = $(id);
       if (el && el.tagName === 'BUTTON') el.disabled = false;
     });
     const csConnect = $('coinswitchConnectBtn');
     if (csConnect) csConnect.disabled = false;
+    updateStartStopUi();
   }
   updateBotCard();
 }
@@ -990,9 +1127,17 @@ function updateBotCard() {
   }
   if (autoLine) {
     autoLine.dataset.on = state.autopilot ? '1' : '0';
-    const flag = state.autopilot ? 'Autopilot ON' : 'Autopilot OFF';
+    const flag = state.autopilot ? 'Bot ON' : 'Bot OFF';
     autoLine.textContent = `${flag} · ${state.autopilotLastAction || 'paper default'}`;
   }
+  const openRiskEl = $('openRisk');
+  if (openRiskEl) {
+    const r = openRiskDollars();
+    openRiskEl.textContent = money(r);
+    openRiskEl.style.color = r > 0 ? 'var(--amber)' : 'var(--muted)';
+  }
+  updateStartStopUi();
+  updateModeBadge();
 }
 
 function updateStats(dd, open) {
@@ -1002,7 +1147,7 @@ function updateStats(dd, open) {
     pnl.textContent = money(shown);
     pnl.style.color = shown >= 0 ? 'var(--ok)' : 'var(--danger)';
   }
-  if ($('ddNow')) $('ddNow').textContent = `${dd.toFixed(2)}%`;
+  if ($('ddNow')) $('ddNow').textContent = `DD ${dd.toFixed(2)}%`;
   if ($('gateBadge')) {
     $('gateBadge').textContent = open ? 'OPEN' : 'CLOSED';
     $('gateBadge').style.color = open ? 'var(--ok)' : 'var(--danger)';
@@ -1326,6 +1471,7 @@ let autopilotTimer = null;
 function setAutopilotAction(msg) {
   state.autopilotLastAction = msg || '';
   updateBotCard();
+  updateModeBadge();
   saveState();
 }
 
@@ -1505,8 +1651,11 @@ function updateCoinSwitchUi() {
   const label = on ? 'Connected' : 'Not connected';
   const st = $('coinswitchStatus');
   if (st) {
+    const hasKeys = coinswitchFormatOk($('coinswitchKey')?.value, $('coinswitchSecret')?.value);
     st.textContent = on
-      ? 'Connected · preference only · live via DGS AI assistant'
+      ? (hasKeys
+        ? 'Connected · format OK · local only · live HTTP behind Enable live orders'
+        : 'Connected · preference only · add API key/secret for format check')
       : 'Not connected';
     st.dataset.on = on ? '1' : '0';
   }
@@ -1613,15 +1762,31 @@ function parseCoinSwitchTrade(t) {
 function loadBrokerStubs() {
   try {
     const raw = localStorage.getItem(BROKER_LS_KEY);
-    if (!raw) return;
+    if (!raw) {
+      refreshBrokerConnectButtons();
+      return;
+    }
     const data = JSON.parse(raw);
     if (data.alpacaKey && $('alpacaKey')) $('alpacaKey').value = data.alpacaKey;
     if (data.alpacaSecret && $('alpacaSecret')) $('alpacaSecret').value = data.alpacaSecret;
     if (typeof data.alpacaPaper === 'boolean' && $('alpacaPaper')) $('alpacaPaper').checked = data.alpacaPaper;
-    if (data.alpacaOk && $('alpacaStatus')) {
-      $('alpacaStatus').textContent = 'Format OK · stored locally · orders still disabled';
+    if (data.coinswitchKey && $('coinswitchKey')) $('coinswitchKey').value = data.coinswitchKey;
+    if (data.coinswitchSecret && $('coinswitchSecret')) $('coinswitchSecret').value = data.coinswitchSecret;
+    if (data.ibHostPort && $('ibHostPort')) $('ibHostPort').value = data.ibHostPort;
+    state.alpacaConnected = !!data.alpacaOk;
+    state.ibConnected = !!data.ibOk;
+    state.liveOrdersEnabled = !!data.liveOrdersEnabled && (data.alpacaOk || data.coinswitchOk || data.ibOk);
+    if ($('enableLiveOrders')) $('enableLiveOrders').checked = !!state.liveOrdersEnabled;
+    if (data.alpacaOk) setBrokerStatus('alpacaStatus', true, 'Connected · format OK · local only · orders need Enable live orders');
+    else setBrokerStatus('alpacaStatus', false, 'Not connected');
+    if (data.coinswitchOk) {
+      state.coinswitchConnected = true;
+      setBrokerStatus('coinswitchStatus', true, 'Connected · format OK · local only · live HTTP behind Enable live orders');
     }
+    if (data.ibOk) setBrokerStatus('ibStatus', true, `Connected · ${data.ibHostPort || '127.0.0.1:7497'} · paper 7497 format OK · local only`);
+    else setBrokerStatus('ibStatus', false, 'Not connected');
     refreshBrokerConnectButtons();
+    updateModeBadge();
   } catch (_) {}
 }
 
@@ -1634,11 +1799,15 @@ function saveBrokerStubs(extra = {}) {
     alpacaKey: $('alpacaKey')?.value || '',
     alpacaSecret: $('alpacaSecret')?.value || '',
     alpacaPaper: !!($('alpacaPaper')?.checked),
+    coinswitchKey: $('coinswitchKey')?.value || '',
+    coinswitchSecret: $('coinswitchSecret')?.value || '',
+    ibHostPort: $('ibHostPort')?.value || '127.0.0.1:7497',
+    liveOrdersEnabled: !!state.liveOrdersEnabled,
+    alpacaOk: !!state.alpacaConnected,
+    ibOk: !!state.ibConnected,
+    coinswitchOk: !!state.coinswitchConnected,
     ...extra,
   };
-  // CoinSwitch secrets intentionally NOT stored — preference lives in CS_LS_KEY
-  delete data.coinswitchKey;
-  delete data.coinswitchSecret;
   localStorage.setItem(BROKER_LS_KEY, JSON.stringify(data));
 }
 
@@ -1648,55 +1817,171 @@ function alpacaFormatOk(key, secret) {
   return k.length >= 8 && s.length >= 8 && /^[A-Za-z0-9_-]+$/.test(k) && /^[A-Za-z0-9_-]+$/.test(s);
 }
 
+function coinswitchFormatOk(key, secret) {
+  const k = (key || '').trim();
+  const s = (secret || '').trim();
+  return k.length >= 8 && s.length >= 8;
+}
+
+function ibFormatOk(hostPort) {
+  const raw = String(hostPort || '').trim();
+  // host:port e.g. 127.0.0.1:7497
+  return /^(localhost|127\.0\.0\.1|[\w.-]+):(\d{2,5})$/i.test(raw);
+}
+
 function refreshBrokerConnectButtons() {
   const aOk = alpacaFormatOk($('alpacaKey')?.value, $('alpacaSecret')?.value);
   if ($('alpacaConnectBtn')) $('alpacaConnectBtn').disabled = !aOk;
+  const cOk = coinswitchFormatOk($('coinswitchKey')?.value, $('coinswitchSecret')?.value);
+  if ($('coinswitchConnectBtn')) $('coinswitchConnectBtn').disabled = !cOk || !hasFeature('coinswitch');
+  const iOk = ibFormatOk($('ibHostPort')?.value || '127.0.0.1:7497');
+  if ($('ibConnectBtn')) $('ibConnectBtn').disabled = !iOk;
+  updateModeBadge();
+}
+
+function setBrokerStatus(id, on, text) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.dataset.on = on ? '1' : '0';
 }
 
 function bindBrokerStubs() {
-  ['alpacaKey', 'alpacaSecret', 'alpacaPaper'].forEach((id) => {
+  ['alpacaKey', 'alpacaSecret', 'alpacaPaper', 'coinswitchKey', 'coinswitchSecret', 'ibHostPort'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.addEventListener('input', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
     el.addEventListener('change', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
   });
+
   const aBtn = $('alpacaConnectBtn');
   if (aBtn) {
     aBtn.onclick = () => {
       const key = $('alpacaKey')?.value || '';
       const secret = $('alpacaSecret')?.value || '';
       if (!alpacaFormatOk(key, secret)) {
-        if ($('alpacaStatus')) $('alpacaStatus').textContent = 'Invalid format · check key/secret';
+        setBrokerStatus('alpacaStatus', false, 'Not connected · invalid format');
+        state.alpacaConnected = false;
+        saveBrokerStubs({ alpacaOk: false });
+        updateModeBadge();
         return;
       }
+      state.alpacaConnected = true;
       saveBrokerStubs({ alpacaOk: true, alpacaCheckedAt: new Date().toISOString() });
-      if ($('alpacaStatus')) {
-        $('alpacaStatus').textContent = 'Format OK · stored locally · orders still disabled';
-      }
-      speak('Alpaca credentials look valid in format and are stored only in this browser. Connect is a stub — DGS AI will not send live or paper broker orders from this page. CoinSwitch India remains the primary live path via DGS AI assistant.');
+      setBrokerStatus('alpacaStatus', true, 'Connected · format OK · local only · orders need Enable live orders');
+      updateModeBadge();
+      speak('Alpaca connected on format check. Keys stored only in this browser. Start bot stays paper until Enable live orders is checked. No guaranteed profit.');
     };
   }
+  const aDisc = $('alpacaDisconnectBtn');
+  if (aDisc) {
+    aDisc.onclick = () => {
+      state.alpacaConnected = false;
+      saveBrokerStubs({ alpacaOk: false });
+      setBrokerStatus('alpacaStatus', false, 'Not connected');
+      updateModeBadge();
+      speak('Alpaca disconnected on this device.');
+    };
+  }
+
   const cBtn = $('coinswitchConnectBtn');
   if (cBtn) {
-    cBtn.onclick = () => setCoinSwitchConnected(true);
+    cBtn.onclick = () => {
+      if (!hasFeature('coinswitch')) {
+        requireFeature('coinswitch', 'CoinSwitch connect is a Pro feature.');
+        return;
+      }
+      const key = $('coinswitchKey')?.value || '';
+      const secret = $('coinswitchSecret')?.value || '';
+      if (!coinswitchFormatOk(key, secret)) {
+        setCoinSwitchConnected(false, false);
+        setBrokerStatus('coinswitchStatus', false, 'Not connected · enter API key and secret');
+        speak('CoinSwitch needs API key and secret on this device for a format check. Keys never leave this browser from this panel.');
+        return;
+      }
+      saveBrokerStubs({ coinswitchOk: true, coinswitchCheckedAt: new Date().toISOString() });
+      setCoinSwitchConnected(true, false);
+      setBrokerStatus('coinswitchStatus', true, 'Connected · format OK · local only · live HTTP behind Enable live orders');
+      if ($('coinswitchFlagToggle')) $('coinswitchFlagToggle').checked = true;
+      updateModeBadge();
+      speak('CoinSwitch connected on format check. Keys stay in localStorage on this device only — never shipped to GitHub. Start bot runs paper until Enable live orders is checked.');
+    };
   }
   const dBtn = $('coinswitchDisconnectBtn');
   if (dBtn) {
-    dBtn.onclick = () => setCoinSwitchConnected(false);
+    dBtn.onclick = () => {
+      saveBrokerStubs({ coinswitchOk: false, coinswitchKey: '', coinswitchSecret: '' });
+      if ($('coinswitchKey')) $('coinswitchKey').value = '';
+      if ($('coinswitchSecret')) $('coinswitchSecret').value = '';
+      setCoinSwitchConnected(false);
+      setBrokerStatus('coinswitchStatus', false, 'Not connected');
+      updateModeBadge();
+    };
   }
+
+  const iBtn = $('ibConnectBtn');
+  if (iBtn) {
+    iBtn.onclick = () => {
+      const hp = $('ibHostPort')?.value || '127.0.0.1:7497';
+      if (!ibFormatOk(hp)) {
+        state.ibConnected = false;
+        saveBrokerStubs({ ibOk: false });
+        setBrokerStatus('ibStatus', false, 'Not connected · use host:port like 127.0.0.1:7497');
+        updateModeBadge();
+        return;
+      }
+      state.ibConnected = true;
+      saveBrokerStubs({ ibOk: true, ibHostPort: hp, ibCheckedAt: new Date().toISOString() });
+      setBrokerStatus('ibStatus', true, `Connected · ${hp} · paper 7497 format OK · local only`);
+      updateModeBadge();
+      speak('Interactive Brokers host and port saved locally. Paper default port 7497. Portfolio tools still run via the box CLI. Not advice.');
+    };
+  }
+  const iDisc = $('ibDisconnectBtn');
+  if (iDisc) {
+    iDisc.onclick = () => {
+      state.ibConnected = false;
+      saveBrokerStubs({ ibOk: false });
+      setBrokerStatus('ibStatus', false, 'Not connected');
+      updateModeBadge();
+    };
+  }
+
+  const live = $('enableLiveOrders');
+  if (live) {
+    live.onchange = () => {
+      if (live.checked && !brokerKeysPresent()) {
+        live.checked = false;
+        state.liveOrdersEnabled = false;
+        speak('Connect a broker with valid keys before enabling live orders. Paper remains default.');
+        updateModeBadge();
+        return;
+      }
+      state.liveOrdersEnabled = !!live.checked && brokerKeysPresent();
+      saveBrokerStubs({ liveOrdersEnabled: state.liveOrdersEnabled });
+      updateModeBadge();
+      speak(state.liveOrdersEnabled
+        ? 'Live orders preference ON. UI shows LIVE broker badge. Actual HTTP live order routing stays gated — paper marks remain the default path until server-side execution is linked.'
+        : 'Live orders OFF. Start bot uses paper managed mode.');
+    };
+  }
+
   loadBrokerStubs();
   loadCoinSwitchPref();
+  refreshBrokerConnectButtons();
 }
 
 function forceHalt() {
   markUserSpoke();
   state.halted = true;
   if (state.autopilot) {
-    setAutopilotAction('Force halt · autopilot paused');
+    stopManagedBot({ quiet: true });
+    setAutopilotAction('Force halt · bot stopped');
   }
   saveState();
   analyzeRisk();
-  speak('Force halt engaged. All paper entries blocked until you reset the day.');
+  updateStartStopUi();
+  speak('Force halt engaged. Bot stopped. All paper entries blocked until you reset the day.');
 }
 
 function resetDay() {
@@ -2259,8 +2544,19 @@ function bindUi() {
   const autoBtn = $('autopilotBtn');
   if (autoBtn) {
     autoBtn.onclick = () => {
-      if (state.autopilot) stopAutopilot();
-      else startAutopilot();
+      if (state.autopilot) stopManagedBot();
+      else startManagedBot();
+    };
+  }
+  const startBot = $('startBotBtn');
+  if (startBot) startBot.onclick = () => { startManagedBot(); };
+  const stopBot = $('stopBotBtn');
+  if (stopBot) stopBot.onclick = () => { stopManagedBot(); };
+  const startCmd = $('startBotCmdBtn');
+  if (startCmd) {
+    startCmd.onclick = () => {
+      if (state.autopilot) stopManagedBot();
+      else startManagedBot();
     };
   }
   const botEnter = $('botEnterBtn');
@@ -2376,10 +2672,21 @@ function bootApp() {
   });
   bindUi();
   applyPlanGates();
+  const hadProfileAtBoot = !!getProfile();
+  if (hadProfileAtBoot) applyProfileToDesk(getProfile());
+  onProfileReady((p) => {
+    applyProfileToDesk(p);
+    if (!hadProfileAtBoot) {
+      if ($('activityLog')) $('activityLog').textContent = 'Profile saved · desk unlocked · paper risk armed';
+      speak('Profile saved. Connect a broker in Settings when ready, then press Start bot. Paper first. No guaranteed profit.');
+    }
+  });
   if (state.proposal) applyProposal(state.proposal);
   renderBook();
   analyzeRisk();
   updateBotCard();
+  updateStartStopUi();
+  updateModeBadge();
   renderWatchlist();
   renderTape();
   setStatus('READY');
@@ -2389,13 +2696,18 @@ function bootApp() {
   bootFromQuery();
   refreshDeskQuotes().catch(() => {});
   if (state.halted && $('activityLog')) $('activityLog').textContent = 'Force halt is on. Reset day to re-arm.';
-  if (state.autopilot) {
+  // Only resume bot if desk is open (profile complete) and autopilot was on
+  const deskOpen = document.body.dataset.gate === 'open';
+  if (deskOpen && state.autopilot) {
     state.autopilot = false;
-    startAutopilot({ quiet: true });
-    setAutopilotAction(state.autopilotLastAction || 'Resumed · paper loop');
+    startManagedBot({ quiet: true });
+    setAutopilotAction(state.autopilotLastAction || 'Resumed · managed bot');
+  } else if (!deskOpen) {
+    state.autopilot = false;
   }
   setInterval(() => {
     if (openTrades().length) refreshOpenMarks().catch(() => {});
+    updateModeBadge();
   }, 45000);
 }
 

@@ -60,6 +60,15 @@ Pay $49 or ₹3,999 → plan `pro`.
 
 **Honest limit:** client-side `?paid=1` / “I’ve paid” is not fraud-proof. Production needs Razorpay/Stripe webhooks plus server-side entitlement before this can be trusted.
 
+
+## After login (customers + owners)
+
+1. **Profile** — one-time onboarding (name, country, experience, risk, budget, markets, paper-first agreement). Stored as `dgs-ai-profile` keyed by uid/email in `localStorage`. Desk stays blocked until saved.
+2. **Connect broker** — Settings → Connect: CoinSwitch (primary), Alpaca, Interactive Brokers (`127.0.0.1:7497`), TradingView charts. Keys stay on-device only.
+3. **Start bot** — managed autopilot using profile budget/risk (scan → gate → enter/exit, SL/TP). Default **paper**. Live badge only with valid keys + “Enable live orders” (OFF by default).
+
+No guaranteed profits. Do not list free owner emails in UI or docs.
+
 ## Session
 
 Firebase Auth persists the session in the browser. Use **Sign out** on the paywall or in the app top bar.
