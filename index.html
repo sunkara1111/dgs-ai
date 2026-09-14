@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=20260914start" />
+  <link rel="stylesheet" href="css/styles.css?v=20260914ft" />
 </head>
 <body data-gate="locked">
 
@@ -226,7 +226,7 @@
           <div class="bot-card-top">
             <div>
               <p class="bot-kicker">Paper / Bot</p>
-              <p class="bot-fine">Managed autopilot · loss/profit rules · no guaranteed profit</p>
+              <p class="bot-fine">Dry-run first · stake + stoploss · no guaranteed profit</p>
             </div>
             <span class="mode-badge" id="modeBadge" data-mode="paper">PAPER</span>
           </div>
@@ -249,7 +249,7 @@
           </div>
           <p class="bot-auto-line" id="botAutoLine" data-feature="autopilot">Bot OFF · paper default</p>
           <p class="bot-sltp" id="botSltp" data-feature="slTpManage">SL/TP managed on marks while the bot is on. Auto stop-loss / take-profit.</p>
-          <label class="check live-orders-check" data-feature="coinswitch"><input id="enableLiveOrders" type="checkbox" /> Enable live orders (default OFF — paper until checked; needs valid broker keys)</label>
+          <label class="check live-orders-check" data-feature="coinswitch"><input id="enableLiveOrders" type="checkbox" /> Enable live orders / enable_live (default OFF = paper dry-run; needs valid keys)</label>
           <div class="bot-budget" id="botBudgetWrap" data-feature="budget">
             <label class="bot-budget-label">Budget (paper)
               <input id="tradingBudget" type="number" min="100" step="100" value="1000" inputmode="decimal" />
@@ -383,17 +383,53 @@
       <p class="bot-kicker">Get started</p>
       <ol class="connect-steps-list">
         <li><strong>1 Profile</strong> — complete account setup (required once).</li>
-        <li><strong>2 Connect broker</strong> — add API keys locally (device only).</li>
-        <li><strong>3 Start</strong> — press <em>Start bot</em> for managed paper trading.</li>
+        <li><strong>2 Connect exchange</strong> — CCXT crypto (Binance, OKX…) or CoinSwitch / Alpaca / IB — keys local only.</li>
+        <li><strong>3 Start</strong> — <em>Start bot</em> = dry-run / paper first (Freqtrade-style). Live needs enable_live.</li>
       </ol>
-      <p class="fine">No guaranteed profits. Live orders need valid keys and an explicit Enable live orders check (default OFF = paper).</p>
+      <p class="fine">No guaranteed profits. Default is paper / dry-run. Live CCXT orders only with Enable live orders + valid keys.</p>
     </section>
 
     <details id="connectAppsPanel" data-feature="connectApps" open>
       <summary>Connect trading account</summary>
-      <p class="fine">API key/secret stay in <strong>localStorage on this device only</strong> — never shipped to GitHub. Until live is enabled with valid keys, <strong>Start bot</strong> runs paper managed mode.</p>
+      <p class="fine">API key/secret stay in <strong>localStorage on this device only</strong> — never shipped to GitHub. Desk <strong>Start bot</strong> is paper/dry-run by default. Box CLI: <code>python -m tools.ft_bot</code> (CCXT + Freqtrade concepts).</p>
 
-      <div class="broker-block broker-primary" data-broker="coinswitch" data-feature="coinswitch">
+      <div class="broker-block broker-primary" data-broker="ccxt" data-feature="connectApps">
+        <h4>CCXT crypto exchange <span class="broker-badge">unified API</span></h4>
+        <p class="fine">Powered by <a href="https://github.com/ccxt/ccxt" target="_blank" rel="noopener">CCXT</a>. CoinSwitch is <em>not</em> in CCXT — use the India panel below.</p>
+        <label>Exchange
+          <select id="ccxtExchange">
+            <option value="binance">Binance</option>
+            <option value="okx">OKX</option>
+            <option value="bybit">Bybit</option>
+            <option value="gate">Gate</option>
+            <option value="kraken" selected>Kraken</option>
+            <option value="kucoin">KuCoin</option>
+            <option value="bitget">Bitget</option>
+            <option value="mexc">MEXC</option>
+            <option value="coinbase">Coinbase</option>
+            <option value="alpaca">Alpaca (via CCXT)</option>
+          </select>
+        </label>
+        <label>API key <input id="ccxtKey" type="password" autocomplete="off" placeholder="key · local only" /></label>
+        <label>API secret <input id="ccxtSecret" type="password" autocomplete="off" placeholder="secret · local only" /></label>
+        <label>Passphrase (OKX / KuCoin) <input id="ccxtPassword" type="password" autocomplete="off" placeholder="optional" /></label>
+        <label>Whitelist pairs <input id="ccxtWhitelist" type="text" value="BTC/USDT,ETH/USDT,SOL/USDT" placeholder="BTC/USDT,ETH/USDT" /></label>
+        <div class="compare-row">
+          <label>Stake / budget slice <input id="ccxtStake" type="number" min="1" step="1" value="100" /></label>
+          <label>Stoploss % <input id="ccxtStoplossPct" type="number" min="0.5" max="25" step="0.5" value="5" /></label>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-accent" id="ccxtConnectBtn">Save &amp; format-check</button>
+          <button type="button" class="btn" id="ccxtDisconnectBtn">Disconnect</button>
+          <button type="button" class="btn" id="ccxtCopyCliBtn">Copy test CLI</button>
+        </div>
+        <p class="broker-status" id="ccxtStatus" data-on="0">Not connected</p>
+        <pre class="analysis" id="ccxtCliHint">Test on the DGS AI box (never from GitHub Pages):
+.venv/bin/python -m tools.ft_bot test-connection -e kraken
+.venv/bin/python -m tools.ft_bot run -e kraken --stake 100 --stoploss -0.05 --whitelist BTC/USDT,ETH/USDT --ticks 1</pre>
+      </div>
+
+      <div class="broker-block" data-broker="coinswitch" data-feature="coinswitch">
         <h4>CoinSwitch <span class="broker-badge">PRIMARY · India</span></h4>
         <label>API key <input id="coinswitchKey" type="password" autocomplete="off" placeholder="key · local only" /></label>
         <label>API secret <input id="coinswitchSecret" type="password" autocomplete="off" placeholder="secret · local only" /></label>
@@ -515,6 +551,6 @@
   </aside>
 
   <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
-  <script type="module" src="js/app.js?v=20260914start"></script>
+  <script type="module" src="js/app.js?v=20260914ft"></script>
 </body>
 </html>

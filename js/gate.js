@@ -6,14 +6,14 @@
  * Plans: owner (private) | limited/starter | pro
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260914start';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260914ft';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js?v=20260914start';
+} from './billing-config.js?v=20260914ft';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([

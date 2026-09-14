@@ -54,3 +54,17 @@ python3 -m venv .venv
 ```
 
 Mutating calls never hit the network unless `dry_run=False` / CLI `--live`.
+
+
+## FT bot (`ft_bot/`) — CCXT + Freqtrade concepts
+
+Dry-run-first crypto bot runner using [CCXT](https://github.com/ccxt/ccxt). Adopts Freqtrade ideas (stake, stoploss, whitelist, persistence, Start/Stop) without forking Freqtrade.
+
+```bash
+.venv/bin/pip install -r tools/ft_bot/requirements.txt
+.venv/bin/python -m tools.ft_bot exchanges
+.venv/bin/python -m tools.ft_bot test-connection -e kraken
+.venv/bin/python -m tools.ft_bot run -e kraken --stake 100 --stoploss -0.05 --whitelist BTC/USDT,ETH/USDT --ticks 1
+```
+
+Live CCXT orders require `--enable-live --i-understand-live`. CoinSwitch is **not** in CCXT — use `coinswitch_client.py`.

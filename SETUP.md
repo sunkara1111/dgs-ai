@@ -61,6 +61,16 @@ Pay $49 or ₹3,999 → plan `pro`.
 **Honest limit:** client-side `?paid=1` / “I’ve paid” is not fraud-proof. Production needs Razorpay/Stripe webhooks plus server-side entitlement before this can be trusted.
 
 
+## CCXT / FT bot (box)
+
+```bash
+.venv/bin/pip install -r tools/ft_bot/requirements.txt
+.venv/bin/python -m tools.ft_bot test-connection -e kraken
+.venv/bin/python -m tools.ft_bot run -e kraken --ticks 1   # dry-run default
+```
+
+Desk Connect panel stores CCXT keys in `localStorage` only. Real connectivity tests and dry-run loops run on the box. Live needs `--enable-live --i-understand-live`.
+
 ## After login (customers + owners)
 
 1. **Profile** — one-time onboarding (name, country, experience, risk, budget, markets, paper-first agreement). Stored as `dgs-ai-profile` keyed by uid/email in `localStorage`. Desk stays blocked until saved.

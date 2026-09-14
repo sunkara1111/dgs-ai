@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser } from './gate.js?v=20260914start';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser } from './gate.js?v=20260914ft';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -137,10 +137,12 @@ const state = {
   liveOrdersEnabled: false,
   alpacaConnected: false,
   ibConnected: false,
+  ccxtConnected: false,
+  ccxtExchange: 'kraken',
   profile: null,
 };
 
-const CACHE_BUST = '20260914start';
+const CACHE_BUST = '20260914ft';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
@@ -185,7 +187,35 @@ function brokerKeysPresent() {
   const cs = coinswitchFormatOk($('coinswitchKey')?.value, $('coinswitchSecret')?.value) && state.coinswitchConnected;
   const alp = state.alpacaConnected && alpacaFormatOk($('alpacaKey')?.value, $('alpacaSecret')?.value);
   const ib = state.ibConnected && ibFormatOk($('ibHostPort')?.value);
-  return !!(cs || alp || ib);
+  const cx = state.ccxtConnected && ccxtFormatOk($('ccxtKey')?.value, $('ccxtSecret')?.value);
+  return !!(cs || alp || ib || cx);
+}
+
+function ccxtFormatOk(key, secret) {
+  const k = (key || '').trim();
+  const s = (secret || '').trim();
+  return k.length >= 8 && s.length >= 8;
+}
+
+function buildCcxtCliHint() {
+  const ex = ($('ccxtExchange') && $('ccxtExchange').value) || state.ccxtExchange || 'kraken';
+  const stake = Number(($('ccxtStake') && $('ccxtStake').value) || 100);
+  const slPct = Number(($('ccxtStoplossPct') && $('ccxtStoplossPct').value) || 5);
+  const sl = -Math.abs(slPct / 100);
+  const wl = String(($('ccxtWhitelist') && $('ccxtWhitelist').value) || 'BTC/USDT,ETH/USDT').replace(/\s+/g, '');
+  return [
+    `Test on the DGS AI box (GitHub Pages cannot call exchange APIs with your secrets):`,
+    `.venv/bin/python -m tools.ft_bot test-connection -e ${ex}`,
+    `.venv/bin/python -m tools.ft_bot test-connection -e ${ex} --private   # uses env CCXT_API_KEY / CCXT_SECRET`,
+    `.venv/bin/python -m tools.ft_bot run -e ${ex} --stake ${stake} --stoploss ${sl} --whitelist ${wl} --ticks 1`,
+    `# Live (dangerous): add --enable-live --i-understand-live`,
+    `# CoinSwitch is not in CCXT — use tools/coinswitch_client.py`,
+  ].join('\n');
+}
+
+function refreshCcxtCliHint() {
+  const el = $('ccxtCliHint');
+  if (el) el.textContent = buildCcxtCliHint();
 }
 
 function updateModeBadge() {
@@ -199,17 +229,18 @@ function updateModeBadge() {
   const mode = (state.liveOrdersEnabled && brokerKeysPresent()) ? 'live' : 'paper';
   if (badge) {
     badge.dataset.mode = mode;
-    badge.textContent = mode === 'live' ? 'LIVE (broker)' : 'PAPER';
+    badge.textContent = mode === 'live' ? 'LIVE (enable_live)' : 'DRY-RUN';
   }
   const line = $('botLiveLine');
   if (line) {
     const pnl = sessionDayPnL();
     const risk = openRiskDollars();
     const last = state.autopilotLastAction || 'idle';
+    const ex = state.ccxtConnected ? (state.ccxtExchange || 'ccxt') : 'desk';
     line.textContent = `Day P&L ${money(pnl)} · open risk ${money(risk)} · last: ${last}` +
       (mode === 'live'
-        ? ' · LIVE badge on — HTTP live orders still require Enable live orders + valid keys (default paper).'
-        : ' · paper managed mode');
+        ? ` · LIVE enable_live on (${ex}) — real CCXT orders only via box CLI with --enable-live`
+        : ` · dry-run / paper (Freqtrade-style) · ${ex}`);
   }
 }
 
@@ -232,15 +263,17 @@ function startManagedBot(opts = {}) {
   }
   state.halted = false;
   startAutopilot({ quiet: true });
-  const mode = state.liveOrdersEnabled ? 'LIVE (broker) badge — orders still gated; paper marks until live HTTP is wired' : 'paper managed';
-  setAutopilotAction(`Start bot · ${mode} · risk from profile`);
+  const mode = state.liveOrdersEnabled
+    ? 'LIVE enable_live — desk still paper-marks; CCXT live via box CLI'
+    : 'dry-run / paper managed';
+  setAutopilotAction(`Start bot · ${mode} · stake+stoploss from profile`);
   updateStartStopUi();
   updateModeBadge();
   if (announce) {
     const p = getProfile() || state.profile;
     const risk = (p && p.riskTolerance) || 'med';
     const budget = state.tradingBudget || 1000;
-    speak(`Bot started. Budget ${budget}, risk ${risk}. Scanning, gating, entering and exiting with auto stop-loss and take-profit. ${state.liveOrdersEnabled ? 'Live broker badge on — Enable live orders is checked.' : 'Paper managed mode.'} Not advice. No guaranteed profit.`);
+    speak(`Bot started. Dry-run first. Budget ${budget}, risk ${risk}. Strategy-style entries and exits with stop-loss and take-profit. ${state.liveOrdersEnabled ? 'Enable live is on — use the box CLI with enable live for real CCXT orders.' : 'Paper dry-run mode.'} Not advice. No guaranteed profit.`);
   }
 }
 
@@ -1764,6 +1797,7 @@ function loadBrokerStubs() {
     const raw = localStorage.getItem(BROKER_LS_KEY);
     if (!raw) {
       refreshBrokerConnectButtons();
+      refreshCcxtCliHint();
       return;
     }
     const data = JSON.parse(raw);
@@ -1773,9 +1807,18 @@ function loadBrokerStubs() {
     if (data.coinswitchKey && $('coinswitchKey')) $('coinswitchKey').value = data.coinswitchKey;
     if (data.coinswitchSecret && $('coinswitchSecret')) $('coinswitchSecret').value = data.coinswitchSecret;
     if (data.ibHostPort && $('ibHostPort')) $('ibHostPort').value = data.ibHostPort;
+    if (data.ccxtExchange && $('ccxtExchange')) $('ccxtExchange').value = data.ccxtExchange;
+    if (data.ccxtKey && $('ccxtKey')) $('ccxtKey').value = data.ccxtKey;
+    if (data.ccxtSecret && $('ccxtSecret')) $('ccxtSecret').value = data.ccxtSecret;
+    if (data.ccxtPassword && $('ccxtPassword')) $('ccxtPassword').value = data.ccxtPassword;
+    if (data.ccxtWhitelist && $('ccxtWhitelist')) $('ccxtWhitelist').value = data.ccxtWhitelist;
+    if (data.ccxtStake != null && $('ccxtStake')) $('ccxtStake').value = data.ccxtStake;
+    if (data.ccxtStoplossPct != null && $('ccxtStoplossPct')) $('ccxtStoplossPct').value = data.ccxtStoplossPct;
+    state.ccxtExchange = data.ccxtExchange || 'kraken';
+    state.ccxtConnected = !!data.ccxtOk;
     state.alpacaConnected = !!data.alpacaOk;
     state.ibConnected = !!data.ibOk;
-    state.liveOrdersEnabled = !!data.liveOrdersEnabled && (data.alpacaOk || data.coinswitchOk || data.ibOk);
+    state.liveOrdersEnabled = !!data.liveOrdersEnabled && (data.alpacaOk || data.coinswitchOk || data.ibOk || data.ccxtOk);
     if ($('enableLiveOrders')) $('enableLiveOrders').checked = !!state.liveOrdersEnabled;
     if (data.alpacaOk) setBrokerStatus('alpacaStatus', true, 'Connected · format OK · local only · orders need Enable live orders');
     else setBrokerStatus('alpacaStatus', false, 'Not connected');
@@ -1785,7 +1828,13 @@ function loadBrokerStubs() {
     }
     if (data.ibOk) setBrokerStatus('ibStatus', true, `Connected · ${data.ibHostPort || '127.0.0.1:7497'} · paper 7497 format OK · local only`);
     else setBrokerStatus('ibStatus', false, 'Not connected');
+    if (data.ccxtOk) {
+      setBrokerStatus('ccxtStatus', true, `Connected · ${state.ccxtExchange} · format OK · local only · dry-run default`);
+    } else {
+      setBrokerStatus('ccxtStatus', false, 'Not connected');
+    }
     refreshBrokerConnectButtons();
+    refreshCcxtCliHint();
     updateModeBadge();
   } catch (_) {}
 }
@@ -1802,10 +1851,18 @@ function saveBrokerStubs(extra = {}) {
     coinswitchKey: $('coinswitchKey')?.value || '',
     coinswitchSecret: $('coinswitchSecret')?.value || '',
     ibHostPort: $('ibHostPort')?.value || '127.0.0.1:7497',
+    ccxtExchange: $('ccxtExchange')?.value || state.ccxtExchange || 'kraken',
+    ccxtKey: $('ccxtKey')?.value || '',
+    ccxtSecret: $('ccxtSecret')?.value || '',
+    ccxtPassword: $('ccxtPassword')?.value || '',
+    ccxtWhitelist: $('ccxtWhitelist')?.value || 'BTC/USDT,ETH/USDT,SOL/USDT',
+    ccxtStake: Number($('ccxtStake')?.value || 100),
+    ccxtStoplossPct: Number($('ccxtStoplossPct')?.value || 5),
     liveOrdersEnabled: !!state.liveOrdersEnabled,
     alpacaOk: !!state.alpacaConnected,
     ibOk: !!state.ibConnected,
     coinswitchOk: !!state.coinswitchConnected,
+    ccxtOk: !!state.ccxtConnected,
     ...extra,
   };
   localStorage.setItem(BROKER_LS_KEY, JSON.stringify(data));
@@ -1836,6 +1893,9 @@ function refreshBrokerConnectButtons() {
   if ($('coinswitchConnectBtn')) $('coinswitchConnectBtn').disabled = !cOk || !hasFeature('coinswitch');
   const iOk = ibFormatOk($('ibHostPort')?.value || '127.0.0.1:7497');
   if ($('ibConnectBtn')) $('ibConnectBtn').disabled = !iOk;
+  const xOk = ccxtFormatOk($('ccxtKey')?.value, $('ccxtSecret')?.value);
+  if ($('ccxtConnectBtn')) $('ccxtConnectBtn').disabled = !xOk || !hasFeature('connectApps');
+  refreshCcxtCliHint();
   updateModeBadge();
 }
 
@@ -1847,12 +1907,74 @@ function setBrokerStatus(id, on, text) {
 }
 
 function bindBrokerStubs() {
-  ['alpacaKey', 'alpacaSecret', 'alpacaPaper', 'coinswitchKey', 'coinswitchSecret', 'ibHostPort'].forEach((id) => {
+  ['alpacaKey', 'alpacaSecret', 'alpacaPaper', 'coinswitchKey', 'coinswitchSecret', 'ibHostPort',
+   'ccxtExchange', 'ccxtKey', 'ccxtSecret', 'ccxtPassword', 'ccxtWhitelist', 'ccxtStake', 'ccxtStoplossPct'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.addEventListener('input', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
     el.addEventListener('change', () => { saveBrokerStubs(); refreshBrokerConnectButtons(); });
   });
+
+  const cxBtn = $('ccxtConnectBtn');
+  if (cxBtn) {
+    cxBtn.onclick = () => {
+      if (!hasFeature('connectApps')) {
+        requireFeature('connectApps', 'CCXT exchange connect is a Pro feature.');
+        return;
+      }
+      const key = $('ccxtKey')?.value || '';
+      const secret = $('ccxtSecret')?.value || '';
+      if (!ccxtFormatOk(key, secret)) {
+        state.ccxtConnected = false;
+        saveBrokerStubs({ ccxtOk: false });
+        setBrokerStatus('ccxtStatus', false, 'Not connected · enter API key and secret');
+        updateModeBadge();
+        speak('CCXT needs API key and secret on this device. Keys stay in localStorage only.');
+        return;
+      }
+      state.ccxtExchange = $('ccxtExchange')?.value || 'kraken';
+      state.ccxtConnected = true;
+      // Apply stake/stoploss to desk risk when connecting
+      const stake = Math.max(1, Number($('ccxtStake')?.value || 100));
+      const slPct = Math.max(0.5, Number($('ccxtStoplossPct')?.value || 5));
+      state.tradingBudget = Math.max(state.tradingBudget || 0, stake);
+      if ($('tradingBudget')) $('tradingBudget').value = state.tradingBudget;
+      if ($('riskPct')) {
+        // map stoploss severity lightly into risk pct display
+      }
+      saveBrokerStubs({ ccxtOk: true, ccxtCheckedAt: new Date().toISOString() });
+      setBrokerStatus('ccxtStatus', true, `Connected · ${state.ccxtExchange} · format OK · local only · dry-run default`);
+      refreshCcxtCliHint();
+      updateModeBadge();
+      speak(`CCXT ${state.ccxtExchange} saved on this device. Test connection on the box with python -m tools.ft_bot test-connection. Start bot stays dry-run until Enable live orders. Not advice.`);
+    };
+  }
+  const cxDisc = $('ccxtDisconnectBtn');
+  if (cxDisc) {
+    cxDisc.onclick = () => {
+      state.ccxtConnected = false;
+      if ($('ccxtKey')) $('ccxtKey').value = '';
+      if ($('ccxtSecret')) $('ccxtSecret').value = '';
+      if ($('ccxtPassword')) $('ccxtPassword').value = '';
+      saveBrokerStubs({ ccxtOk: false, ccxtKey: '', ccxtSecret: '', ccxtPassword: '' });
+      setBrokerStatus('ccxtStatus', false, 'Not connected');
+      updateModeBadge();
+      speak('CCXT exchange disconnected on this device.');
+    };
+  }
+  const cxCopy = $('ccxtCopyCliBtn');
+  if (cxCopy) {
+    cxCopy.onclick = async () => {
+      refreshCcxtCliHint();
+      const text = buildCcxtCliHint();
+      try {
+        await navigator.clipboard.writeText(text);
+        speak('Copied CCXT test CLI commands. Run them on the DGS AI box — not in the browser.');
+      } catch (_) {
+        speak('Could not copy. Select the CLI hint text manually.');
+      }
+    };
+  }
 
   const aBtn = $('alpacaConnectBtn');
   if (aBtn) {

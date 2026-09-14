@@ -1,0 +1,12 @@
+{
+  "exchange": "binance",
+  "dry_run": true,
+  "enable_live": false,
+  "stake_amount": 100,
+  "stake_currency": "USDT",
+  "stoploss": -0.05,
+  "max_open_trades": 3,
+  "whitelist": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+  "timeframe": "15m",
+  "note": "Keys via env CCXT_API_KEY / CCXT_SECRET — never commit secrets. CoinSwitch is not in CCXT."
+}
