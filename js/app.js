@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature } from './gate.js?v=20260913skills';
+import { onUnlocked, signOutUser, getPlan, hasFeature } from './gate.js?v=20260913desk';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -102,9 +102,8 @@ const TV_MAP = {
 };
 
 const FILLERS = [
-  'Give the cloud a breath…',
-  'One moment while I pull the tape…',
-  'Packaging that now…',
+  'Pulling the tape…',
+  'Working…',
 ];
 
 const WATCHLIST = [
@@ -113,6 +112,8 @@ const WATCHLIST = [
   'BTC', 'ETH', 'SOL', 'AVAX', 'LINK', 'NEAR',
 ];
 
+const TAPE_SYMS = ['SPY', 'QQQ', 'NVDA', 'AAPL', 'MSFT', 'TSLA', 'BTC', 'ETH'];
+
 const state = {
   status: 'IDLE',
   book: [],
@@ -120,14 +121,10 @@ const state = {
   peakEquity: 10000,
   lastOpen: false,
   halted: false,
-  gestureOn: false,
   lastSymbol: 'NVDA',
   lastQuote: null,
   chartOpen: false,
-  talkActive: false,
-  speaking: false,
-  userSpoke: false,
-  ttsEnabled: false,
+  activePane: 'paper',
   proposal: null,
   lastScanAt: 0,
   quotesCache: {},
@@ -139,14 +136,14 @@ const state = {
   tradingBudget: 1000,
 };
 
-const CACHE_BUST = '20260913skills';
+const CACHE_BUST = '20260913desk';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
 
 function requireFeature(name, upgradeMsg) {
   if (hasFeature(name)) return true;
-  const msg = upgradeMsg || 'That feature needs DGS AI Pro. Starter covers voice, chart, send-to-phone, and manual paper trades. No guaranteed profit.';
+  const msg = upgradeMsg || 'That feature needs DGS AI Pro. Starter covers quote, technicals, chart, send-to-phone, and manual paper trades. No guaranteed profit.';
   speak(msg);
   const hint = $('botUpgradeHint');
   if (hint) {
@@ -176,7 +173,7 @@ function applyPlanGates() {
   const hint = $('botUpgradeHint');
   if (hint) hint.hidden = pro;
   if (pro) {
-    ['autopilotBtn', 'scanBtn', 'budgetRunBtn', 'saveConnectAppsBtn', 'clearConnectAppsBtn', 'openConnectBtn'].forEach((id) => {
+    ['autopilotBtn', 'scanBtn', 'budgetRunBtn', 'saveConnectAppsBtn', 'clearConnectAppsBtn'].forEach((id) => {
       const el = $(id);
       if (el && el.tagName === 'BUTTON') el.disabled = false;
     });
@@ -241,7 +238,6 @@ function runWithinBudget() {
 }
 
 
-let talkLoop = null;
 let shareBlob = null;
 let shareUrl = '';
 
@@ -282,14 +278,20 @@ function saveState() {
 }
 
 function setStatus(s) {
-  state.status = s;
+  const map = {
+    IDLE: 'READY', LISTENING: 'WORKING', SPEAKING: 'WORKING',
+    READY: 'READY', WORKING: 'WORKING',
+  };
+  const norm = map[s] || String(s || 'READY').toUpperCase();
+  state.status = norm;
+  const label = norm === 'WORKING' ? 'Working' : 'Ready';
   const pill = $('statusPill');
   if (pill) {
-    pill.textContent = s;
-    pill.dataset.state = s;
+    pill.textContent = label;
+    pill.dataset.state = norm;
   }
   const app = $('app');
-  if (app) app.dataset.voice = s;
+  if (app) app.dataset.status = norm;
 }
 
 function escapeHtml(s) {
@@ -305,18 +307,13 @@ function addLine(who, text) {
   el.className = `bubble ${who}`;
   el.innerHTML = `<span class="who">${who === 'user' ? 'You' : 'DGS AI'}</span><p>${escapeHtml(text)}</p>`;
   box.appendChild(el);
-  while (box.children.length > 8) box.removeChild(box.firstChild);
+  while (box.children.length > 16) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
 }
 
-function hideHint() {
-  const h = $('hint');
-  if (h) h.style.opacity = '0.25';
-}
+function hideHint() {}
 
-function markUserSpoke() {
-  state.userSpoke = true;
-}
+function markUserSpoke() {}
 
 function isPhoneDevice() {
   try {
@@ -351,45 +348,23 @@ function tvChartUrl(sym) {
 }
 
 /**
- * TTS only after the user has spoken in this session, said speak/talk,
- * enabled ttsEnabled, or pressed an explicit content button (Brief / Chart / Send / Scan).
- * Always updates transcript/status. Quiet by default until then.
+ * Text-only announce. No speechSynthesis / SpeechRecognition.
  */
 function speak(text, opts = {}) {
   if (!text) return Promise.resolve();
-  const force = !!(opts && opts.force);
   const quiet = !!(opts && opts.quiet);
-  const allow = !quiet && (force || state.userSpoke || state.ttsEnabled);
-  if (!opts || opts.transcript !== false) addLine('dgs', text);
-  if ($('voiceLog')) $('voiceLog').textContent = text;
-  hideHint();
-  if (!allow) {
-    return Promise.resolve();
-  }
-  setStatus('SPEAKING');
-  state.speaking = true;
-  return new Promise((resolve) => {
-    const done = () => {
-      state.speaking = false;
-      if (!state.talkActive) setStatus('IDLE');
-      else setStatus('LISTENING');
-      resolve();
-    };
-    if (!('speechSynthesis' in window)) {
-      setTimeout(done, 900);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.02;
-    u.onend = done;
-    u.onerror = done;
-    window.speechSynthesis.speak(u);
-  });
+  if (!quiet && (!opts || opts.transcript !== false)) addLine('dgs', text);
+  const log = $('activityLog');
+  if (log) log.textContent = text;
+  if (!quiet) setStatus('READY');
+  return Promise.resolve();
 }
 
 function speakFiller() {
-  return speak(FILLERS[Math.floor(Math.random() * FILLERS.length)]);
+  setStatus('WORKING');
+  const log = $('activityLog');
+  if (log) log.textContent = FILLERS[Math.floor(Math.random() * FILLERS.length)];
+  return Promise.resolve();
 }
 
 function num(id) { return Number($(id).value); }
@@ -499,6 +474,8 @@ async function fetchQuote(symbol) {
     };
     state.lastQuote = q;
     state.lastSymbol = symbol;
+    state.quotesCache[symbol] = q;
+    paintQuoteUi(q);
     return q;
   } catch (_) {
     clearTimeout(timer);
@@ -514,8 +491,81 @@ async function fetchQuote(symbol) {
     };
     state.lastQuote = q;
     state.lastSymbol = symbol;
+    state.quotesCache[symbol] = q;
+    paintQuoteUi(q);
     return q;
   }
+}
+
+function paintQuoteUi(q) {
+  if (!q || !q.symbol) return;
+  const row = document.querySelector(`.watch-row[data-sym="${q.symbol}"]`);
+  if (row) {
+    const px = row.querySelector('.px');
+    const ch = row.querySelector('.chg');
+    if (px) px.textContent = fmtPx(q.last);
+    if (ch) {
+      const sign = q.chgPct >= 0 ? '+' : '';
+      ch.textContent = `${sign}${q.chgPct.toFixed(2)}%`;
+      ch.className = `chg ${q.chgPct >= 0 ? 'up' : 'dn'}`;
+    }
+    row.classList.toggle('is-on', q.symbol === state.lastSymbol);
+  }
+  const tapeItem = document.querySelector(`.tape-item[data-sym="${q.symbol}"]`);
+  if (tapeItem) {
+    const ch = tapeItem.querySelector('.chg');
+    const px = tapeItem.querySelector('.px');
+    if (px) px.textContent = fmtPx(q.last);
+    if (ch) {
+      const sign = q.chgPct >= 0 ? '+' : '';
+      ch.textContent = `${sign}${q.chgPct.toFixed(2)}%`;
+      ch.className = `chg ${q.chgPct >= 0 ? 'up' : 'dn'}`;
+    }
+  }
+}
+
+function renderWatchlist() {
+  const box = $('watchlist');
+  if (!box) return;
+  const syms = ['NVDA','AAPL','MSFT','TSLA','AMD','META','SPY','QQQ','BTC','ETH','SOL','COIN'];
+  box.innerHTML = syms.map((sym) => {
+    const d = state.quotesCache[sym] || DEMO_QUOTES[sym] || { last: 0, chgPct: 0, name: sym };
+    const cls = (d.chgPct || 0) >= 0 ? 'up' : 'dn';
+    const sign = (d.chgPct || 0) >= 0 ? '+' : '';
+    const on = state.lastSymbol === sym ? ' is-on' : '';
+    return `<button type="button" class="watch-row${on}" data-sym="${sym}"><span class="sym">${sym}</span><span class="name">${escapeHtml(d.name || sym)}</span><span class="px">${fmtPx(d.last)}</span><span class="chg ${cls}">${sign}${Number(d.chgPct || 0).toFixed(2)}%</span></button>`;
+  }).join('');
+  box.querySelectorAll('.watch-row').forEach((btn) => {
+    btn.onclick = () => {
+      const sym = btn.getAttribute('data-sym');
+      if ($('commandInput')) $('commandInput').value = `quote ${sym}`;
+      handleCommand(`quote ${sym}`);
+      openChart(sym, { silent: true });
+    };
+  });
+}
+
+function renderTape() {
+  const box = $('tape');
+  if (!box) return;
+  box.innerHTML = TAPE_SYMS.map((sym) => {
+    const d = state.quotesCache[sym] || DEMO_QUOTES[sym] || { last: 0, chgPct: 0 };
+    const cls = (d.chgPct || 0) >= 0 ? 'up' : 'dn';
+    const sign = (d.chgPct || 0) >= 0 ? '+' : '';
+    return `<span class="tape-item" data-sym="${sym}"><b>${sym}</b><span class="px">${fmtPx(d.last)}</span><span class="chg ${cls}">${sign}${Number(d.chgPct || 0).toFixed(2)}%</span></span>`;
+  }).join('');
+}
+
+async function refreshDeskQuotes() {
+  const syms = [...new Set([...TAPE_SYMS, 'NVDA','AAPL','MSFT','TSLA','AMD','META','SOL','COIN'])];
+  await Promise.all(syms.map(async (sym) => {
+    try {
+      const q = await fetchQuote(sym);
+      state.quotesCache[sym] = q;
+    } catch (_) {}
+  }));
+  renderWatchlist();
+  renderTape();
 }
 
 function fmtPx(n) {
@@ -559,7 +609,7 @@ function appendBriefCard(q, nextHint) {
     </div>
     <div class="brief-next">${escapeHtml(nextHint || 'Want the chart? Or send to phone?')}</div>`;
   box.appendChild(el);
-  while (box.children.length > 8) box.removeChild(box.firstChild);
+  while (box.children.length > 16) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
 }
 
@@ -582,7 +632,7 @@ async function marketBrief(kind) {
   const label = kind === 'crypto' ? 'Crypto brief.' : kind === 'stocks' ? 'Equity brief.' : 'Market brief — stocks and crypto.';
   const line = `${src} ${label} ${bits.join('. ')}. Paper only — not advice. Want a chart on any of these?`;
   await speak(line);
-  quotes.slice(0, 3).forEach((q) => appendBriefCard(q, 'Say show chart, or send to phone.'));
+  quotes.slice(0, 3).forEach((q) => appendBriefCard(q, 'Open chart, or send to phone.'));
 }
 
 async function assetPipeline(symbol) {
@@ -596,7 +646,7 @@ async function assetPipeline(symbol) {
   if (q.high != null && q.low != null) range = ` Session range ${fmtPx(q.low)} to ${fmtPx(q.high)}.`;
   const line = `${q.name} is a ${kind}. Last ${fmtPx(q.last)}, ${dir} ${Math.abs(q.chgPct).toFixed(2)} percent.${range} ${src} Paper risk only — DGS AI is not a broker and this is not financial advice. Want the chart, send to phone, or analyze a paper setup?`;
   await speak(line);
-  appendBriefCard(q, 'Next: open chart · send to phone · analyze paper setup');
+  appendBriefCard(q, 'Next: Chart tab · send to phone · analyze paper setup');
 }
 
 function openChart(symbol, opts = {}) {
@@ -610,15 +660,16 @@ function openChart(symbol, opts = {}) {
   const overlay = $('chartOverlay');
   if (overlay) overlay.classList.remove('hidden');
   state.chartOpen = true;
+  showPane('chart');
   if (!(opts && opts.silent)) {
-    speak(`Opening ${sym} chart. Paper only. Say send to my phone when you want the handoff.`);
+    speak(`Opening ${sym} chart. Paper only. Use Send to phone for the handoff.`);
   }
 }
 
 function closeChart() {
-  const overlay = $('chartOverlay');
-  if (overlay) overlay.classList.add('hidden');
-  state.chartOpen = false;
+  const frame = $('tvFrame');
+  if (frame) frame.src = embedUrl(state.lastSymbol || 'NVDA');
+  state.chartOpen = true;
 }
 
 function paintShareCard(q) {
@@ -640,7 +691,7 @@ function paintShareCard(q) {
   ctx.fillText('DGS AI', 72, 110);
   ctx.fillStyle = 'rgba(244,241,234,0.45)';
   ctx.font = '300 24px Inter, sans-serif';
-  ctx.fillText('Voice trading · stocks & crypto · paper only', 72, 150);
+  ctx.fillText('Trading dashboard · stocks & crypto · paper only', 72, 150);
 
   ctx.fillStyle = '#eef3f8';
   ctx.font = '500 86px Inter, sans-serif';
@@ -914,7 +965,7 @@ function updateBotCard() {
   const p = state.proposal;
   if (propEl) {
     if (!p) {
-      propEl.innerHTML = '<p class="bot-empty">No setup yet — say <em>find a trade</em> or tap Scan</p>';
+      propEl.innerHTML = '<p class="bot-empty">No setup yet — tap <em>Scan</em> or run <em>find a trade</em></p>';
     } else {
       const dir = p.side === 'LONG' ? 'long' : 'short';
       propEl.innerHTML = `
@@ -1061,7 +1112,8 @@ async function scanMarket(opts = {}) {
   const filler = (opts.silent || quiet) ? Promise.resolve() : speakFiller();
   const mode = $('mode')?.value || 'INTRADAY';
   const minRr = Number($('minRr')?.value) || 1.5;
-  const list = WATCHLIST.slice();
+  const extra = Array.isArray(opts.symbols) ? opts.symbols.map((s) => String(s).toUpperCase()).filter(Boolean) : [];
+  const list = extra.length ? extra : WATCHLIST.slice();
   const quotes = await Promise.all(list.map(async (sym) => {
     try {
       const q = await fetchQuote(sym);
@@ -1117,7 +1169,7 @@ async function scanMarket(opts = {}) {
     ? `Risk gate is OPEN for about ${chosen.shares || '?'} shares.`
     : 'Risk gate is CLOSED on this setup — I will not paper-enter until rules pass.';
   const flat = $('noOvernight')?.checked ? ' Flat-by-close is on.' : '';
-  const msg = `Best paper setup: ${chosen.side} ${chosen.symbol}. Entry ${fmtPx(chosen.entry)}, stop ${fmtPx(chosen.stop)}, target ${fmtPx(chosen.target)}, reward to risk ${chosen.rr.toFixed(2)}, setup score ${chosen.setupScore}. ${gateLine}${flat} Say take the trade to paper-enter, or find another. Not financial advice. No guaranteed profit.`;
+  const msg = `Best paper setup: ${chosen.side} ${chosen.symbol}. Entry ${fmtPx(chosen.entry)}, stop ${fmtPx(chosen.stop)}, target ${fmtPx(chosen.target)}, reward to risk ${chosen.rr.toFixed(2)}, setup score ${chosen.setupScore}. ${gateLine}${flat} Tap Paper enter to book it, or scan again. Not financial advice. No guaranteed profit.`;
   if (quiet) {
     setAutopilotAction(`Scan: ${chosen.side} ${chosen.symbol} · gate ${state.lastOpen ? 'OPEN' : 'CLOSED'}`);
     await speak(msg, { quiet: true, transcript: false });
@@ -1410,7 +1462,7 @@ function stopAutopilot(opts = {}) {
   setAutopilotAction('Stopped');
   saveState();
   updateBotCard();
-  if (announce) speak('Autopilot off. Paper book stays as-is. Say start autopilot to resume.');
+  if (announce) speak('Autopilot off. Paper book stays as-is. Tap Autopilot to resume.');
 }
 
 const CS_LS_KEY = 'dgs-ai-coinswitch';
@@ -1467,7 +1519,7 @@ function updateCoinSwitchUi() {
   const intents = state.coinswitchIntents || [];
   if (intentEl) {
     if (!intents.length) {
-      intentEl.innerHTML = 'No live intents yet · say <em>coinswitch status</em> or <em>buy BTC on coinswitch</em>';
+      intentEl.innerHTML = 'No live intents yet — type <em>coinswitch status</em> or log an intent in Settings';
     } else {
       const last = intents[0];
       intentEl.textContent = `Last intent: ${last.summary || last.text || '—'}`;
@@ -1476,7 +1528,7 @@ function updateCoinSwitchUi() {
   const list = $('coinswitchIntents');
   if (list) {
     if (!intents.length) {
-      list.innerHTML = '<li class="empty">None yet — say <em>buy BTC on coinswitch</em></li>';
+      list.innerHTML = '<li class="empty">None yet — log an intent or type <em>buy BTC on coinswitch</em></li>';
     } else {
       list.innerHTML = intents.slice(0, 8).map((it) => {
         const when = it.at ? new Date(it.at).toLocaleString() : '';
@@ -1537,7 +1589,7 @@ function coinswitchStatusSpeech() {
   const lastLine = last
     ? ` Last intent: ${last.summary || last.text}.`
     : ' No live intents yet.';
-  return `CoinSwitch India is primary live broker path. Status: ${on} — local preference only. Live orders are executed by DGS AI assistant with your API keys server-side, not from this page.${lastLine} Say buy or sell a coin on coinswitch to log an intent. Link keys in DGS AI chat to execute.`;
+  return `CoinSwitch India is primary live broker path. Status: ${on} — local preference only. Live orders are executed by DGS AI assistant with your API keys server-side, not from this page.${lastLine} Type buy or sell a coin on coinswitch, or use the Settings form, to log an intent. Link keys in DGS AI chat to execute.`;
 }
 
 function parseCoinSwitchTrade(t) {
@@ -1809,14 +1861,15 @@ function parseTwoSymbols(text) {
 
 
 function helpSpeech() {
-  return 'I am DGS AI. Say speak or talk to me to enable voice replies. Starter: quote, technicals, chart, send to phone, manual paper. Pro: fundamentals, options Greeks, bullish scan, risk compare, full report, IB portfolio, stop-loss dry-run, autopilot, CoinSwitch intents. Also: find a trade, take the trade, how is my book, close trade, brief. Paper default. Delayed data possible. Not advice. No guaranteed profit.';
+  return 'I am DGS AI. Type commands in the bar or tap a skill. Starter: quote, technicals, chart, send to phone, manual paper. Pro: fundamentals, options Greeks, bullish scan, risk compare, full report, IB portfolio, stop-loss dry-run, autopilot, CoinSwitch intents. Also: find a trade, take the trade, how is my book, close trade, brief. Paper default. Delayed data possible. Not advice. No guaranteed profit.';
 }
 
-function wake() {
-  setStatus('LISTENING');
-  hideHint();
-  if ($('voiceLog')) $('voiceLog').textContent = 'Listening…';
-  // No greeting TTS — talk only after the user speaks.
+function showPane(name) {
+  const pane = name || 'paper';
+  state.activePane = pane;
+  if (pane === 'settings') openDrawer('settings');
+  if (pane === 'risk') openDrawer('risk');
+  if (pane === 'paper') closeDrawers();
 }
 
 async function quoteSpeech(symbol) {
@@ -1830,25 +1883,25 @@ async function quoteSpeech(symbol) {
 function quickAnswer(q) {
   const t = q.toLowerCase();
   if (/(who are you|your name|what are you)/.test(t)) {
-    return 'I am DGS AI, built for Dineshgopi Sunkara. Voice first. Stocks and crypto brief, charts, and paper risk. I do not place live orders.';
+    return 'I am DGS AI, built for Dineshgopi Sunkara. Text-first dashboard. Stocks and crypto brief, charts, and paper risk. I do not place live orders.';
   }
   if (/(help|what can you|commands)/.test(t)) return helpSpeech();
   if (/(profit|guarantee|guaranteed)/.test(t)) {
     return 'No profit is guaranteed. DGS AI blocks bad paper size. It does not promise returns.';
   }
   if (/(broker|live order|real money|place a trade)/.test(t)) {
-    return 'Paper autopilot is the default. CoinSwitch India is the primary live path — orders are executed by DGS AI assistant with your keys server-side, not from this page. Say coinswitch status or buy BTC on coinswitch to log an intent. Alpaca is an optional stub. Robinhood has no official bot API; we will not ask for your password.';
+    return 'Paper autopilot is the default. CoinSwitch India is the primary live path — orders are executed by DGS AI assistant with your keys server-side, not from this page. Type coinswitch status or buy BTC on coinswitch to log an intent. Alpaca is an optional stub. Robinhood has no official bot API; we will not ask for your password.';
   }
   if (/(social|instagram|linkedin|twitter|post)/.test(t)) {
-    openDrawer('social');
-    return 'Social drawer is open. I draft. You approve before posting.';
+    showPane('settings');
+    return 'Settings is open on Social drafts. I draft. You approve before posting.';
   }
   if (/(work|email|sop|priority|priorities)/.test(t)) {
-    openDrawer('work');
-    return 'Work drawer is open. Plans and drafts only.';
+    showPane('settings');
+    return 'Settings is open on Work drafts. Plans and drafts only.';
   }
   if (/(hello|hi |hey )/.test(t) || t === 'hi' || t === 'hey') {
-    return 'Listening. Say quote, technicals, chart, find a trade, or ask about any stock or crypto.';
+    return 'Ready. Type quote, technicals, chart, find a trade, or any stock or crypto.';
   }
   if (/(not financial advice|disclaimer|delayed data|fifteen minute|15 ?m)/.test(t)) {
     return 'Disclaimer: DGS AI is not financial advice. Yahoo-style quotes may be delayed about fifteen minutes. No profits are guaranteed. IB stop-loss is dry-run by default.';
@@ -1859,21 +1912,23 @@ function quickAnswer(q) {
   return null;
 }
 
-async function handleVoiceCommand(text) {
+async function handleCommand(text) {
   const t = text.toLowerCase().trim();
-  markUserSpoke();
   addLine('user', text);
+  setStatus('WORKING');
 
-  // Explicit TTS enable — quiet by default until speak/talk or user utterance/buttons
-  if (/^(speak|talk|talk to me|you can speak)[.!]?$/.test(t) || /\b(you can speak|talk to me)\b/.test(t)) {
-    state.ttsEnabled = true;
-    setStatus(state.talkActive ? 'LISTENING' : 'IDLE');
-    if ($('voiceLog')) $('voiceLog').textContent = 'Speaking on · listening for commands…';
-    await speak('Speaking on. I am listening for commands.', { force: true });
-    return;
+  // scan AAPL,MSFT — optional ticker list
+  if (/^scan\b/.test(t) && /[a-z]{1,5}\s*,/.test(t)) {
+    const tickers = [...text.toUpperCase().matchAll(/\b([A-Z]{1,5})\b/g)]
+      .map((m) => m[1])
+      .filter((s) => !['SCAN', 'FOR', 'AND', 'THE'].includes(s));
+    if (tickers.length) {
+      await scanMarket({ symbols: tickers });
+      return;
+    }
   }
 
-  // --- DGS AI market skills voice intents ---
+  // --- DGS AI market skills (text) ---
   if (/(ib (stop|stop-loss|stoploss)|stop-loss dry|dry-?run stop)/.test(t)) {
     await ibStopLossSpeech();
     return;
@@ -2028,10 +2083,6 @@ async function handleVoiceCommand(text) {
     await speak(statusSpeech());
     return;
   }
-  if (/(wake|hey dgs)/.test(t)) {
-    wake();
-    return;
-  }
   if (/(close chart|hide chart)/.test(t)) {
     closeChart();
     await speak('Chart closed.');
@@ -2047,97 +2098,7 @@ async function handleVoiceCommand(text) {
     await assetPipeline(parseSymbol(text));
     return;
   }
-  await speak('Got it. Say speak, quote, technicals, fundamentals, options, risk compare, full report, my IB portfolio, find a trade, take the trade, autopilot, brief, chart, send to phone, or coinswitch status. Paper default. Delayed data possible. Not advice. No guaranteed profit.');
-}
-
-function startVoiceListen() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    setStatus('IDLE');
-    if ($('voiceLog')) $('voiceLog').textContent = 'Voice recognition not available — use the buttons.';
-    return;
-  }
-  if (state.talkActive) {
-    state.talkActive = false;
-    try { talkLoop && talkLoop.stop(); } catch (_) {}
-    $('listenBtn').textContent = 'Talk';
-    $('listenBtn').dataset.on = '0';
-    setStatus('IDLE');
-    if ($('voiceLog')) $('voiceLog').textContent = 'Talk mode off.';
-    return;
-  }
-  state.talkActive = true;
-  $('listenBtn').textContent = 'Stop';
-  $('listenBtn').dataset.on = '1';
-  const rec = new SR();
-  talkLoop = rec;
-  rec.lang = 'en-US';
-  rec.interimResults = false;
-  rec.continuous = false;
-  const arm = () => {
-    if (!state.talkActive) return;
-    if (state.speaking) {
-      setTimeout(arm, 280);
-      return;
-    }
-    setStatus('LISTENING');
-    try { rec.start(); } catch (_) {}
-  };
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    handleVoiceCommand(text);
-  };
-  rec.onerror = () => { if (state.talkActive) setTimeout(arm, 350); };
-  rec.onend = () => { if (state.talkActive) setTimeout(arm, 260); };
-  arm();
-  // Silent arm — no "Talk mode on" greeting.
-  if ($('voiceLog')) $('voiceLog').textContent = 'Listening…';
-}
-
-function dist(a, b) {
-  const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
-  return Math.hypot(dx, dy, dz);
-}
-
-async function enablePinchCamera() {
-  if (state.gestureOn) {
-    if ($('voiceLog')) $('voiceLog').textContent = 'Pinch camera already on.';
-    return;
-  }
-  if (!window.Hands || !window.Camera) {
-    if ($('voiceLog')) $('voiceLog').textContent = 'Pinch camera library failed — use Wake or Talk.';
-    return;
-  }
-  const video = $('gestureCam');
-  video.style.display = 'block';
-  const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-  hands.setOptions({
-    maxNumHands: 1,
-    modelComplexity: 0,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.5,
-  });
-  let cool = 0;
-  hands.onResults((results) => {
-    if (cool > 0) { cool -= 1; return; }
-    const hand = results.multiHandLandmarks?.[0];
-    if (!hand) return;
-    if (dist(hand[4], hand[8]) < 0.05) {
-      cool = 45;
-      setStatus('LISTENING');
-      hideHint();
-      if ($('voiceLog')) $('voiceLog').textContent = 'Listening…';
-      // Silent pinch wake — no TTS greeting.
-    }
-  });
-  const camera = new Camera(video, {
-    onFrame: async () => { await hands.send({ image: video }); },
-    width: 320,
-    height: 240,
-  });
-  await camera.start();
-  state.gestureOn = true;
-  if ($('voiceLog')) $('voiceLog').textContent = 'Pinch camera on — pinch to wake.';
+  await speak('Got it. Try quote, technicals, fundamentals, options, risk compare, full report, my IB portfolio, find a trade, take the trade, autopilot, brief, chart, send to phone, or coinswitch status. Paper default. Delayed data possible. Not advice. No guaranteed profit.');
 }
 
 function openDrawer(name) {
@@ -2151,12 +2112,6 @@ function openDrawer(name) {
 function closeDrawers() {
   document.querySelectorAll('.drawer').forEach((d) => d.classList.remove('open'));
   $('backdrop').classList.add('hidden');
-}
-
-function setAppMode(mode) {
-  if (mode === 'trading') openDrawer('risk');
-  if (mode === 'social') openDrawer('social');
-  if (mode === 'work') openDrawer('work');
 }
 
 function draftSocial() {
@@ -2263,168 +2218,47 @@ function runWork() {
   speak('Work draft ready.');
 }
 
-function seedCssFallback() {
-  // Unused — abstract Siri orb is primary stage.
-}
-
-/**
- * Apple Siri–like living fluid orb (Canvas 2D).
- * Soft iridescent pinks / purples / blues / teals.
- * Amplifies on LISTENING / SPEAKING via state.status.
- */
-function initSiriOrb() {
-  const canvas = $('siriOrb');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d', { alpha: true });
-  if (!ctx) return;
-
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
-  let cssSize = 320;
-  let t = 0;
-  let energy = 0;
-  let hueShift = 0;
-
-  // Soft blobs that morph like Siri's fluid waveform
-  const blobs = [
-    { r: 0.42, a: 0.55, sx: 1.0, sy: 1.0, px: 0.55, py: 0.72, ox: 0, oy: 0, color: [255, 55, 95] },      // pink
-    { r: 0.48, a: 0.5, sx: 1.05, sy: 0.92, px: 0.72, py: 0.55, ox: 0, oy: 0, color: [191, 90, 242] },   // purple
-    { r: 0.44, a: 0.52, sx: 0.95, sy: 1.08, px: 0.48, py: 0.88, ox: 0, oy: 0, color: [94, 92, 230] },   // indigo
-    { r: 0.4, a: 0.48, sx: 1.1, sy: 0.95, px: 0.9, py: 0.62, ox: 0, oy: 0, color: [10, 132, 255] },    // blue
-    { r: 0.38, a: 0.45, sx: 0.92, sy: 1.05, px: 0.65, py: 0.95, ox: 0, oy: 0, color: [100, 210, 255] }, // teal
-    { r: 0.28, a: 0.55, sx: 1.0, sy: 1.0, px: 1.1, py: 0.8, ox: 0, oy: 0, color: [255, 255, 255] },    // hot core
-  ];
-
-  function resize() {
-    const rect = canvas.getBoundingClientRect();
-    cssSize = Math.max(180, Math.round(rect.width || 280));
-    canvas.width = Math.round(cssSize * DPR);
-    canvas.height = Math.round(cssSize * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  function drawBlob(b, cx, cy, scale, alphaMul) {
-    const [cr, cg, cb] = b.color;
-    const rx = b.r * cssSize * b.sx * scale;
-    const ry = b.r * cssSize * b.sy * scale;
-    const x = cx + b.ox * cssSize * 0.12;
-    const y = cy + b.oy * cssSize * 0.12;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
-    const a = b.a * alphaMul;
-    g.addColorStop(0, `rgba(${cr},${cg},${cb},${Math.min(1, a)})`);
-    g.addColorStop(0.35, `rgba(${cr},${cg},${cb},${a * 0.55})`);
-    g.addColorStop(0.7, `rgba(${cr},${cg},${cb},${a * 0.12})`);
-    g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, b.rot || 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  function frame() {
-    t += 0.016;
-    const speakNow = state.status === 'SPEAKING';
-    const listen = state.status === 'LISTENING';
-    const targetE = speakNow ? 1 : listen ? 0.55 : 0.12;
-    energy += (targetE - energy) * 0.07;
-    hueShift += 0.004 + energy * 0.01;
-
-    const cx = cssSize / 2;
-    const cy = cssSize / 2;
-    const breathe = 1 + Math.sin(t * 0.9) * (0.028 + energy * 0.02);
-    const pulse = speakNow
-      ? breathe + Math.sin(t * 6.5) * 0.055
-      : listen
-        ? breathe + Math.sin(t * 3.2) * 0.03
-        : breathe;
-
-    ctx.clearRect(0, 0, cssSize, cssSize);
-
-    // Soft outer halo
-    const halo = ctx.createRadialGradient(cx, cy, cssSize * 0.08, cx, cy, cssSize * 0.48);
-    halo.addColorStop(0, `rgba(255,255,255,${0.08 + energy * 0.1})`);
-    halo.addColorStop(0.4, `rgba(191,90,242,${0.1 + energy * 0.12})`);
-    halo.addColorStop(0.75, `rgba(10,132,255,${0.05 + energy * 0.06})`);
-    halo.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(0, 0, cssSize, cssSize);
-
-    ctx.globalCompositeOperation = 'lighter';
-
-    blobs.forEach((b, i) => {
-      const phase = t * b.px + i * 1.1 + hueShift * 2;
-      b.ox = Math.sin(phase) * (0.35 + energy * 0.55) + Math.sin(t * b.py + i) * 0.15;
-      b.oy = Math.cos(phase * 0.85 + i) * (0.32 + energy * 0.5) + Math.cos(t * 0.7 + i) * 0.12;
-      b.sx = 1 + Math.sin(t * (0.7 + i * 0.13) + i) * (0.12 + energy * 0.18);
-      b.sy = 1 + Math.cos(t * (0.65 + i * 0.11) + i * 0.5) * (0.12 + energy * 0.18);
-      b.rot = Math.sin(t * 0.4 + i) * (0.25 + energy * 0.35);
-      const scale = pulse * (0.92 + energy * 0.18);
-      const alphaMul = 0.85 + energy * 0.45;
-      drawBlob(b, cx, cy, scale, alphaMul);
-    });
-
-    // Bright inner core (Siri hot spot)
-    const coreR = cssSize * (0.1 + energy * 0.04) * pulse;
-    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 2.2);
-    core.addColorStop(0, `rgba(255,255,255,${0.85 + energy * 0.15})`);
-    core.addColorStop(0.25, `rgba(255,220,240,${0.45 + energy * 0.2})`);
-    core.addColorStop(0.55, `rgba(191,90,242,${0.2 + energy * 0.15})`);
-    core.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = core;
-    ctx.beginPath();
-    ctx.arc(cx, cy, coreR * 2.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Subtle waveform rings when active
-    if (energy > 0.15) {
-      ctx.globalCompositeOperation = 'source-over';
-      const rings = speakNow ? 3 : 2;
-      for (let r = 0; r < rings; r++) {
-        const rr = cssSize * (0.22 + r * 0.08) * pulse + Math.sin(t * (4 + r) + r) * cssSize * 0.012 * energy;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rr, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255,255,255,${(0.08 + energy * 0.1) * (1 - r * 0.25)})`;
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      }
-    }
-
-    ctx.globalCompositeOperation = 'source-over';
-
-    // Soft circular mask edge (orb silhouette)
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-in';
-    const mask = ctx.createRadialGradient(cx, cy, cssSize * 0.18, cx, cy, cssSize * 0.48);
-    mask.addColorStop(0, 'rgba(0,0,0,1)');
-    mask.addColorStop(0.72, 'rgba(0,0,0,0.92)');
-    mask.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = mask;
-    ctx.fillRect(0, 0, cssSize, cssSize);
-    ctx.restore();
-
-    requestAnimationFrame(frame);
-  }
-  frame();
+function analysisSymbol() {
+  const raw = ($('analysisSymbol') && $('analysisSymbol').value) || $('symbol')?.value || state.lastSymbol || 'NVDA';
+  return parseSymbol(raw);
 }
 
 function bindUi() {
   const signOutBtn = $('signOutBtn');
   if (signOutBtn) signOutBtn.onclick = () => { signOutUser(); };
-  $('wakeBtn').onclick = wake;
-  $('listenBtn').onclick = startVoiceListen;
-  $('briefBtn').onclick = () => { markUserSpoke(); marketBrief(); };
-  $('chartBtn').onclick = () => { markUserSpoke(); openChart(parseSymbol($('symbol')?.value || state.lastSymbol)); };
-  $('closeChartBtn').onclick = closeChart;
-  $('sendPhoneBtn').onclick = () => { markUserSpoke(); sendChartToPhone(state.lastSymbol); };
-  $('openTvTabBtn').onclick = () => window.open(tvChartUrl(state.lastSymbol), '_blank', 'noopener,noreferrer');
-  $('openRiskBtn').onclick = () => openDrawer('risk');
+
+  const form = $('commandForm');
+  if (form) {
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const input = $('commandInput');
+      const text = String((input && input.value) || '').trim();
+      if (!text) return;
+      handleCommand(text);
+    });
+  }
+  document.querySelectorAll('.chip[data-cmd]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const raw = btn.getAttribute('data-cmd') || '';
+      const cmd = raw.replace(/\{SYM\}/g, state.lastSymbol || 'NVDA');
+      const input = $('commandInput');
+      if (input) input.value = cmd;
+      handleCommand(cmd);
+    });
+  });
+  const riskOpen = () => openDrawer('risk');
+  if ($('openRiskBtn')) $('openRiskBtn').onclick = riskOpen;
+  if ($('openRiskBtn2')) $('openRiskBtn2').onclick = riskOpen;
+  if ($('openSettingsBtn')) $('openSettingsBtn').onclick = () => openDrawer('settings');
+
+  if ($('closeChartBtn')) $('closeChartBtn').onclick = closeChart;
+  if ($('sendPhoneBtn')) $('sendPhoneBtn').onclick = () => { sendChartToPhone(state.lastSymbol); };
+  if ($('openTvTabBtn')) $('openTvTabBtn').onclick = () => window.open(tvChartUrl(state.lastSymbol), '_blank', 'noopener,noreferrer');
   const scanBtn = $('scanBtn');
   if (scanBtn) scanBtn.onclick = () => { scanMarket(); };
   const autoBtn = $('autopilotBtn');
   if (autoBtn) {
     autoBtn.onclick = () => {
-      markUserSpoke();
       if (state.autopilot) stopAutopilot();
       else startAutopilot();
     };
@@ -2432,43 +2266,51 @@ function bindUi() {
   const botEnter = $('botEnterBtn');
   if (botEnter) botEnter.onclick = () => { paperEnter(); };
   bindBrokerStubs();
-  $('backdrop').onclick = closeDrawers;
+  if ($('backdrop')) $('backdrop').onclick = closeDrawers;
   document.querySelectorAll('.drawer-close').forEach((btn) => {
     btn.onclick = closeDrawers;
   });
-  document.querySelectorAll('.corner-rail .tab').forEach((tab) => {
-    tab.addEventListener('click', () => setAppMode(tab.dataset.mode));
-  });
-  const dock = $('dock');
-  if (dock) {
-    dock.querySelectorAll('button').forEach((b) => {
-      b.addEventListener('focus', () => dock.classList.add('has-focus'));
-      b.addEventListener('blur', () => setTimeout(() => {
-        if (!dock.contains(document.activeElement)) dock.classList.remove('has-focus');
-      }, 0));
-    });
-  }
 
-  $('analyzeBtn').onclick = () => { markUserSpoke(); analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
-  $('paperBtn').onclick = paperEnter;
-  $('haltBtn').onclick = forceHalt;
-  $('resetDayBtn').onclick = resetDay;
-  $('clearBookBtn').onclick = clearBook;
-  $('gestureBtn').onclick = () => {
-    enablePinchCamera().catch(() => {
-      if ($('voiceLog')) $('voiceLog').textContent = 'Could not start pinch camera.';
-    });
-  };
-  $('downloadCardBtn').onclick = downloadShareCard;
+  if ($('analyzeBtn')) $('analyzeBtn').onclick = () => { analyzeRisk(); speak(state.lastOpen ? 'Risk gate open.' : 'Risk gate closed.'); };
+  if ($('paperBtn')) $('paperBtn').onclick = paperEnter;
+  if ($('haltBtn')) $('haltBtn').onclick = forceHalt;
+  if ($('resetDayBtn')) $('resetDayBtn').onclick = resetDay;
+  if ($('clearBookBtn')) $('clearBookBtn').onclick = clearBook;
+  if ($('downloadCardBtn')) $('downloadCardBtn').onclick = downloadShareCard;
   const openPhoneBtn = $('openOnPhoneBtn');
   if (openPhoneBtn) openPhoneBtn.onclick = openOnThisPhone;
   const copyBtn = $('copyLinkBtn');
   if (copyBtn) copyBtn.onclick = () => { copyHandoffLink(); };
-  $('socialDraftBtn').onclick = draftSocial;
-  $('socialChecklistBtn').onclick = socialChecklist;
-  $('workRunBtn').onclick = runWork;
+  if ($('socialDraftBtn')) $('socialDraftBtn').onclick = draftSocial;
+  if ($('socialChecklistBtn')) $('socialChecklistBtn').onclick = socialChecklist;
+  if ($('workRunBtn')) $('workRunBtn').onclick = runWork;
+  if ($('budgetRunBtn')) $('budgetRunBtn').onclick = runWithinBudget;
+  if ($('saveConnectAppsBtn')) $('saveConnectAppsBtn').onclick = saveConnectApps;
+  if ($('clearConnectAppsBtn')) $('clearConnectAppsBtn').onclick = clearConnectApps;
 
-  $('presetScalp').onclick = () => {
+  const skill = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  skill('skillQuoteBtn', () => { quoteSpeech(analysisSymbol()); });
+  skill('skillTechBtn', () => { technicalsSpeech(analysisSymbol()); });
+  skill('skillFundBtn', () => { fundamentalsSpeech(analysisSymbol()); });
+  skill('skillOptBtn', () => { optionsSpeech(analysisSymbol()); });
+  skill('skillReportBtn', () => { fullReportSpeech(analysisSymbol()); });
+  skill('skillIbBtn', () => { ibPortfolioSpeech(); });
+  skill('skillIbSlBtn', () => { ibStopLossSpeech(); });
+  skill('skillScanBtn', () => { scanMarket(); });
+  skill('skillCompareBtn', () => {
+    const a = parseSymbol(($('compareA') && $('compareA').value) || 'NVDA');
+    const b = parseSymbol(($('compareB') && $('compareB').value) || 'SPY');
+    riskCompareSpeech(a, b);
+  });
+  skill('csIntentBtn', () => {
+    const side = ($('csIntentSide') && $('csIntentSide').value) || 'BUY';
+    const symbol = String(($('csIntentSymbol') && $('csIntentSymbol').value) || 'BTC').toUpperCase();
+    const summary = `${side} ${symbol} on CoinSwitch`;
+    appendCoinSwitchIntent(summary, { side, symbol, summary });
+    speak(`${summary} intent logged. Live CoinSwitch orders are executed by DGS AI assistant with your API keys server-side when linked in chat — not from this static page.`);
+  });
+
+  if ($('presetScalp')) $('presetScalp').onclick = () => {
     $('mode').value = 'SCALP';
     $('riskPct').value = '0.35';
     $('dailyLoss').value = '1.5';
@@ -2479,7 +2321,7 @@ function bindUi() {
     analyzeRisk();
     speak('Scalp preset loaded.');
   };
-  $('presetDay').onclick = () => {
+  if ($('presetDay')) $('presetDay').onclick = () => {
     $('mode').value = 'INTRADAY';
     $('riskPct').value = '0.5';
     $('dailyLoss').value = '2';
@@ -2490,7 +2332,7 @@ function bindUi() {
     analyzeRisk();
     speak('Intraday day-trade preset loaded.');
   };
-  $('presetMom').onclick = () => {
+  if ($('presetMom')) $('presetMom').onclick = () => {
     $('mode').value = 'MOMENTUM';
     $('riskPct').value = '0.75';
     $('dailyLoss').value = '2.5';
@@ -2503,10 +2345,12 @@ function bindUi() {
   };
 
   ['equity','riskPct','dailyLoss','maxDd','minRr','symbol','side','entry','stop','target','mode','maxTrades','maxHold'].forEach((id) => {
-    $(id).addEventListener('change', () => { analyzeRisk(); if (id === 'equity') saveState(); });
-    $(id).addEventListener('input', analyzeRisk);
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('change', () => { analyzeRisk(); if (id === 'equity') saveState(); });
+    el.addEventListener('input', analyzeRisk);
   });
-  $('noOvernight').addEventListener('change', analyzeRisk);
+  if ($('noOvernight')) $('noOvernight').addEventListener('change', analyzeRisk);
 }
 
 function bootFromQuery() {
@@ -2523,30 +2367,33 @@ let booted = false;
 function bootApp() {
   if (booted) return;
   booted = true;
-  seedCssFallback();
   loadState();
-  // Migrate legacy paper book rows (pre-bot) into OPEN/CLOSED shape
+  loadConnectApps();
   state.book = (state.book || []).map((t) => {
     if (!t || typeof t !== 'object') return t;
     if (!t.status) return { ...t, status: 'OPEN', mark: t.entry, unrealized: 0 };
     return t;
   });
   bindUi();
+  applyPlanGates();
   if (state.proposal) applyProposal(state.proposal);
   renderBook();
   analyzeRisk();
   updateBotCard();
-  initSiriOrb();
-  setStatus('IDLE');
+  renderWatchlist();
+  renderTape();
+  setStatus('READY');
+  if (!new URLSearchParams(location.search).get('chart')) {
+    openChart(state.lastSymbol || 'NVDA', { silent: true });
+  }
   bootFromQuery();
-  if (state.halted && $('voiceLog')) $('voiceLog').textContent = 'Force halt is on. Reset day to re-arm.';
-  // Resume paper autopilot if flag was persisted (quiet — no TTS on page load)
+  refreshDeskQuotes().catch(() => {});
+  if (state.halted && $('activityLog')) $('activityLog').textContent = 'Force halt is on. Reset day to re-arm.';
   if (state.autopilot) {
-    state.autopilot = false; // startAutopilot flips it on
+    state.autopilot = false;
     startAutopilot({ quiet: true });
     setAutopilotAction(state.autopilotLastAction || 'Resumed · paper loop');
   }
-  // Periodic mark refresh for open paper trades (quotes only — never live orders)
   setInterval(() => {
     if (openTrades().length) refreshOpenMarks().catch(() => {});
   }, 45000);

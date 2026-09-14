@@ -3,66 +3,60 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#07080a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>DGS AI</title>
-  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Voice trading assistant. Paper default. CoinSwitch India primary live via DGS AI assistant." />
-  <link rel="stylesheet" href="css/styles.css?v=20260913skills" />
+  <meta name="description" content="DGS AI by Dineshgopi Sunkara. Trading desk. Paper default. CoinSwitch India primary live via DGS AI assistant." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css?v=20260913desk" />
 </head>
 <body data-gate="locked">
-  
+
   <div id="gate" class="gate-shell" aria-live="polite">
     <div class="gate-void" aria-hidden="true"></div>
-    <div class="gate-glow" aria-hidden="true"></div>
-
     <section id="gateLogin" class="gate-card" aria-label="DGS AI sign in">
+      <div class="gate-mark" aria-hidden="true">D</div>
       <p class="gate-brand">DGS AI</p>
-      <h1 class="gate-title">Voice trading, gated.</h1>
+      <h1 class="gate-title">Trading desk.</h1>
       <p class="gate-credit">Founder Dineshgopi Sunkara</p>
       <p class="gate-lead">Sign in with Google or create an account. Choose Starter ($19 / ₹1,499) or Pro ($49 / ₹3,999). Paper default · delayed data possible · no guaranteed profit.</p>
-
       <button type="button" class="gate-btn gate-btn-google" id="googleSignInBtn">
         <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
           <path fill="#EA4335" d="M9 7.2v3.5h4.9c-.2 1.2-1.5 3.5-4.9 3.5-3 0-5.4-2.5-5.4-5.5S6 3.2 9 3.2c1.7 0 2.8.7 3.4 1.3l2.3-2.2C13.4.9 11.4 0 9 0 4 0 0 4 0 9s4 9 9 9c5.2 0 8.6-3.6 8.6-8.8 0-.6-.1-1-.2-1.5H9z"/>
         </svg>
         Continue with Google
       </button>
-
       <p class="gate-or"><span>or create an account</span></p>
-
       <form id="emailAuthForm" class="gate-form" autocomplete="on">
-        <label class="gate-field">
-          <span>Email</span>
-          <input id="authEmail" type="email" name="email" autocomplete="username" required placeholder="you@email.com" />
-        </label>
-        <label class="gate-field">
-          <span>Password</span>
-          <input id="authPassword" type="password" name="password" autocomplete="new-password" required minlength="6" placeholder="6+ characters" />
-        </label>
+        <label class="gate-field"><span>Email</span>
+          <input id="authEmail" type="email" name="email" autocomplete="username" required placeholder="you@email.com" /></label>
+        <label class="gate-field"><span>Password</span>
+          <input id="authPassword" type="password" name="password" autocomplete="new-password" required minlength="6" placeholder="6+ characters" /></label>
         <button type="submit" class="gate-btn gate-btn-accent" id="createAccountBtn">Create account</button>
         <button type="button" class="gate-btn gate-btn-ghost" id="emailSignInBtn">Sign in</button>
       </form>
-
       <p class="gate-msg" id="gateMsg" role="status"></p>
     </section>
 
     <section id="gatePay" class="gate-card gate-pay" hidden aria-label="DGS AI plans paywall">
+      <div class="gate-mark" aria-hidden="true">D</div>
       <p class="gate-brand">DGS AI</p>
       <h1 class="gate-title">Choose your plan</h1>
-      <p class="gate-credit">Unlock the trading app</p>
+      <p class="gate-credit">Unlock the trading desk</p>
       <p class="gate-lead" id="payAccount"></p>
       <p class="gate-lead">Paper default. No guaranteed profit. Live brokers need official APIs. App Store / Play Store = future roadmap.</p>
-
       <div class="plan-grid">
         <article class="plan-card" data-plan="limited">
           <p class="plan-kicker">Starter</p>
           <h2 class="plan-price">$19 <span>/ mo</span></h2>
           <p class="plan-alt">or ₹1,499 / mo</p>
           <ul class="plan-bullets">
-            <li>Sign-in · Siri orb · voice Q&amp;A</li>
-            <li>Quote · technicals · TradingView chart</li>
-            <li>Send to phone · manual paper · risk drawer</li>
+            <li>Desk · command bar · quote · technicals</li>
+            <li>TradingView chart · send to phone</li>
+            <li>Manual paper · risk drawer</li>
             <li class="plan-no">No scanners / PDF reports / options Greeks</li>
             <li class="plan-no">No autopilot · no IB portfolio · no CoinSwitch intents</li>
           </ul>
@@ -70,7 +64,6 @@
           <button type="button" class="gate-btn gate-btn-ghost" id="payStarterInrBtn">Pay ₹1,499</button>
           <button type="button" class="gate-btn gate-btn-text" id="ivePaidStarterBtn">I’ve paid Starter</button>
         </article>
-
         <article class="plan-card plan-card-pro" data-plan="pro">
           <p class="plan-kicker">Pro</p>
           <h2 class="plan-price">$49 <span>/ mo</span></h2>
@@ -89,110 +82,152 @@
           <button type="button" class="gate-btn gate-btn-text" id="ivePaidProBtn">I’ve paid Pro</button>
         </article>
       </div>
-
       <button type="button" class="gate-btn gate-btn-ghost" id="ivePaidBtn" hidden>I’ve paid</button>
       <button type="button" class="gate-btn gate-btn-text" id="paySignOutBtn">Sign out</button>
       <p class="gate-msg" id="payMsg" role="status"></p>
     </section>
   </div>
 
-  <div class="app" data-ui="voice-stage" id="app" data-voice="IDLE">
+  <div class="app" data-ui="desk" id="app" data-status="READY">
     <header class="topbar">
-      <p class="brand">DGS AI</p>
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <div>
+          <p class="brand">DGS AI</p>
+          <p class="brand-sub">DESK</p>
+        </div>
+      </div>
+      <div class="tape" id="tape" aria-label="Market tape"></div>
       <div class="topbar-end">
+        <span class="status-line" id="statusPill" data-state="READY">Ready</span>
+        <span class="plan-chip" id="planChip" hidden>Starter</span>
         <span class="account-chip" id="accountChip" hidden></span>
+        <button type="button" class="ghost-btn" id="openRiskBtn">Risk</button>
+        <button type="button" class="ghost-btn" id="openSettingsBtn">Settings</button>
         <button type="button" class="signout-btn" id="signOutBtn">Sign out</button>
-        <div class="status-pill" id="statusPill" data-state="IDLE">IDLE</div>
       </div>
     </header>
 
-    <main class="stage" id="stage">
-      <div class="void-depth" aria-hidden="true"></div>
-      <div class="siri-stage" aria-hidden="true">
-        <div class="siri-glow"></div>
-        <canvas id="siriOrb" width="512" height="512" aria-hidden="true"></canvas>
-        <div class="siri-ripple" id="siriRipple"></div>
+    <form class="command-bar" id="commandForm" role="search" aria-label="Market command">
+      <span class="cmd-prompt" aria-hidden="true">/</span>
+      <label class="command-wrap">
+        <span class="visually-hidden">Command</span>
+        <input id="commandInput" type="search" autocomplete="off" spellcheck="false"
+          placeholder="NVDA technicals · scan AAPL,MSFT · quote BTC · fundamentals MSFT · report NVDA" />
+      </label>
+      <button type="submit" class="run-btn" id="commandRunBtn">Run</button>
+      <div class="skill-chips" role="toolbar" aria-label="Skills">
+        <button type="button" class="chip" data-cmd="quote {SYM}">Quote</button>
+        <button type="button" class="chip" data-cmd="{SYM} technicals">Technicals</button>
+        <button type="button" class="chip" data-cmd="{SYM} fundamentals" data-feature="fundamentals">Fundamentals</button>
+        <button type="button" class="chip" data-cmd="find a trade" data-feature="scan">Scan</button>
+        <button type="button" class="chip" data-cmd="full report {SYM}" data-feature="marketReport">Report</button>
+        <button type="button" class="chip" data-cmd="chart {SYM}">Chart</button>
+        <button type="button" class="chip" data-cmd="market brief">Brief</button>
+        <button type="button" class="chip" data-cmd="{SYM} options" data-feature="options">Options</button>
       </div>
+    </form>
 
-      <div class="transcript" id="transcript" aria-live="polite"></div>
-      <p class="hint" id="hint">say wake</p>
+    <div class="desk">
+      <aside class="col col-left">
+        <section class="panel watch-panel">
+          <div class="panel-head">
+            <h2>Watchlist</h2>
+            <span class="muted">Yahoo-style · delay possible</span>
+          </div>
+          <div class="watch-table" id="watchlist"></div>
+        </section>
+        <section class="panel results-panel" aria-label="Results">
+          <div class="panel-head">
+            <h2>Results</h2>
+            <span class="muted" id="activityLog">Ready · paper risk armed</span>
+          </div>
+          <div class="transcript" id="transcript" aria-live="polite">
+            <div class="bubble dgs welcome">
+              <span class="who">DGS AI</span>
+              <p>Desk online. Type a command or click a skill. Paper default. Delayed data possible. Not financial advice. No guaranteed profit.</p>
+            </div>
+          </div>
+        </section>
+      </aside>
 
-      <section class="bot-card" id="botCard" aria-label="Paper trading bot">
-        <div class="bot-card-top">
-          <div>
-            <p class="bot-kicker">Bot · paper only</p>
-            <p class="bot-fine">Not financial advice · delayed data possible · no guaranteed profit · IB SL dry-run</p>
+      <section class="col col-chart">
+        <div class="panel chart-stage" id="chartOverlay" data-ui="chart-stage">
+          <div class="chart-head">
+            <div>
+              <p class="chart-kicker">TradingView</p>
+              <h2 id="chartTitle">NVDA</h2>
+            </div>
+            <div class="chart-actions">
+              <button type="button" class="ghost-btn" id="closeChartBtn">Reload</button>
+              <button type="button" class="ghost-btn" id="openTvTabBtn">Open TV</button>
+              <button type="button" class="run-btn compact" id="sendPhoneBtn">Send to phone</button>
+            </div>
           </div>
-          <div class="bot-card-actions" data-feature="botCardFull">
-            <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false" data-feature="autopilot">Autopilot OFF</button>
-            <button type="button" class="bot-scan" id="scanBtn" data-feature="scan">Scan</button>
-          </div>
-        </div>
-        <div class="bot-proposal" id="botProposal" data-feature="scan">
-          <p class="bot-empty">No setup yet — say <em>find a trade</em> or tap Scan</p>
-        </div>
-        <p class="bot-auto-line" id="botAutoLine" data-feature="autopilot">Autopilot OFF · paper default</p>
-        <p class="bot-sltp" id="botSltp" data-feature="slTpManage">Auto stop-loss / take-profit managed while autopilot is on (paper marks).</p>
-        <div class="bot-budget" id="botBudgetWrap" data-feature="budget">
-          <label class="bot-budget-label">Trading budget (paper)
-            <input id="tradingBudget" type="number" min="100" step="100" value="1000" inputmode="decimal" />
-          </label>
-          <button type="button" class="bot-scan" id="budgetRunBtn">Run within budget</button>
-        </div>
-        <div class="bot-meta">
-          <span id="botGate" data-open="0">Gate CLOSED</span>
-          <span id="botDayPnl">Day $0.00</span>
-          <button type="button" class="bot-enter" id="botEnterBtn" disabled>Paper enter</button>
-        </div>
-        <p class="bot-upgrade" id="botUpgradeHint" hidden>Starter includes manual paper enter. Upgrade to Pro for autopilot, scan, budget, and CoinSwitch intents.</p>
-        <div class="bot-cs" id="botCs" aria-label="CoinSwitch primary live broker" data-feature="coinswitch">
-          <div class="bot-cs-top">
-            <span class="bot-cs-label">CoinSwitch · India · PRIMARY</span>
-            <span class="bot-cs-status" id="botCsStatus" data-on="0">Not connected</span>
-          </div>
-          <p class="bot-cs-fine">Live orders via <strong>DGS AI assistant</strong> (server-side keys). Page stores preference + intents only — never embeds secrets.</p>
-          <p class="bot-cs-intent" id="botCsIntent">No live intents yet · say <em>coinswitch status</em></p>
+          <iframe id="tvFrame" title="DGS AI chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <p class="chart-tip" id="chartTvTip">TradingView alert webhooks need a backend URL — GitHub Pages cannot receive them. Stub: <code>https://YOUR-BACKEND/hooks/tv</code></p>
         </div>
       </section>
-    </main>
 
-    <section class="chart-overlay hidden" id="chartOverlay" data-ui="chart-stage">
-      <div class="chart-head">
-        <div>
-          <p class="chart-kicker">DGS AI · chart</p>
-          <h2 id="chartTitle">NVDA</h2>
-        </div>
-        <button type="button" class="icon-btn" id="closeChartBtn">Close</button>
-      </div>
-      <iframe id="tvFrame" title="DGS AI chart" allow="clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
-      <div class="chart-dock">
-        <button type="button" class="btn btn-accent" id="sendPhoneBtn">Send to phone</button>
-        <button type="button" class="btn" id="openTvTabBtn">Open in TradingView</button>
-      </div>
-      <p class="chart-tip" id="chartTvTip">Tip: TradingView alert webhooks need a backend URL — GitHub Pages alone cannot receive them. Stub: <code>https://YOUR-BACKEND/hooks/tv</code></p>
-    </section>
+      <aside class="col col-right">
+        <section class="panel bot-card" id="botCard" aria-label="Paper trading bot">
+          <div class="bot-card-top">
+            <div>
+              <p class="bot-kicker">Paper / Bot</p>
+              <p class="bot-fine">Paper only · no guaranteed profit · IB SL dry-run</p>
+            </div>
+            <div class="bot-card-actions" data-feature="botCardFull">
+              <button type="button" class="bot-scan" id="autopilotBtn" data-on="0" aria-pressed="false" data-feature="autopilot">Autopilot OFF</button>
+              <button type="button" class="bot-scan" id="scanBtn" data-feature="scan">Scan</button>
+            </div>
+          </div>
+          <div class="stats">
+            <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
+            <div><span>Drawdown</span><strong id="ddNow">0.00%</strong></div>
+            <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
+          </div>
+          <div class="bot-proposal" id="botProposal" data-feature="scan">
+            <p class="bot-empty">No setup — run <em>Scan</em> or <em>find a trade</em></p>
+          </div>
+          <p class="bot-auto-line" id="botAutoLine" data-feature="autopilot">Autopilot OFF · paper default</p>
+          <p class="bot-sltp" id="botSltp" data-feature="slTpManage">SL/TP managed on paper marks while autopilot is on.</p>
+          <div class="bot-budget" id="botBudgetWrap" data-feature="budget">
+            <label class="bot-budget-label">Budget (paper)
+              <input id="tradingBudget" type="number" min="100" step="100" value="1000" inputmode="decimal" />
+            </label>
+            <button type="button" class="bot-scan" id="budgetRunBtn">Run budget</button>
+          </div>
+          <div class="bot-meta">
+            <span id="botGate" data-open="0">Gate CLOSED</span>
+            <span id="botDayPnl">Day $0.00</span>
+            <button type="button" class="bot-enter" id="botEnterBtn" disabled>Paper enter</button>
+          </div>
+          <p class="bot-upgrade" id="botUpgradeHint" hidden>Starter: manual paper. Pro unlocks autopilot, scan, budget, CoinSwitch.</p>
+          <div class="bot-cs" id="botCs" aria-label="CoinSwitch primary live broker" data-feature="coinswitch">
+            <div class="bot-cs-top">
+              <span class="bot-cs-label">CoinSwitch · IN · PRIMARY</span>
+              <span class="bot-cs-status" id="botCsStatus" data-on="0">Not connected</span>
+            </div>
+            <p class="bot-cs-fine">Live orders via <strong>DGS AI assistant</strong> (server-side keys). This page stores preference + intents only.</p>
+            <p class="bot-cs-intent" id="botCsIntent">No live intents</p>
+          </div>
+          <h3>Paper book</h3>
+          <ul id="book" class="book"></ul>
+          <div class="btn-row tight">
+            <button type="button" class="ghost-btn" id="openRiskBtn2">Risk drawer</button>
+            <button type="button" class="ghost-btn" id="haltBtn">Force halt</button>
+          </div>
+        </section>
+      </aside>
+    </div>
 
-    <nav class="dock" id="dock">
-      <button type="button" class="dock-btn" id="wakeBtn"><span>Wake</span></button>
-      <button type="button" class="dock-btn" id="listenBtn"><span>Talk</span></button>
-      <button type="button" class="dock-btn" id="briefBtn"><span>Brief</span></button>
-      <button type="button" class="dock-btn" id="chartBtn"><span>Chart</span></button>
-    </nav>
-
-    <nav class="corner-rail" aria-label="Modules">
-      <button type="button" id="openRiskBtn" title="Risk &amp; book" aria-label="Risk and paper book">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 19V5M4 19h16M8 15V9M12 15V7M16 15v-3"/></svg>
-      </button>
-      <button type="button" class="tab" data-mode="social" title="Social" aria-label="Social">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg>
-      </button>
-      <button type="button" class="tab" data-mode="work" title="Work" aria-label="Work">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
-      </button>
-      <button type="button" id="openConnectBtn" title="Connect AI apps" aria-label="Connect AI and trading apps" data-feature="connectApps">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>
-      </button>
-    </nav>
+    <footer class="statusbar">
+      <span>PAPER DEFAULT</span>
+      <span>DELAYED DATA POSSIBLE</span>
+      <span>NOT FINANCIAL ADVICE</span>
+      <span>NO GUARANTEED PROFIT</span>
+      <span>Dineshgopi Sunkara</span>
+    </footer>
   </div>
 
   <div class="backdrop hidden" id="backdrop"></div>
@@ -204,12 +239,6 @@
       <button type="button" class="icon-btn drawer-close" data-close="risk">Close</button>
     </div>
     <p class="fine">Not financial advice. Paper default. Yahoo-style data may be delayed ~15 minutes. No guaranteed profit. IB stop-loss is dry-run by default. Live CoinSwitch runs through <strong>DGS AI assistant</strong> with keys server-side — not from this static page.</p>
-
-    <div class="stats">
-      <div><span>Day P&amp;L</span><strong id="dayPnl">$0.00</strong></div>
-      <div><span>Drawdown</span><strong id="ddNow">0.00%</strong></div>
-      <div><span>Gate</span><strong id="gateBadge">CLOSED</strong></div>
-    </div>
 
     <details open>
       <summary>Session</summary>
@@ -230,7 +259,7 @@
       </div>
     </details>
 
-    <details>
+    <details open>
       <summary>Risk gates</summary>
       <label>Equity (paper) <input id="equity" type="number" value="10000" min="100" step="100" /></label>
       <label>Max risk / trade % <input id="riskPct" type="number" value="0.5" min="0.1" max="5" step="0.1" /></label>
@@ -241,7 +270,7 @@
       <p class="gate closed" id="gateMsg">Gate: CLOSED until a setup passes risk</p>
     </details>
 
-    <details>
+    <details open>
       <summary>Proposed setup</summary>
       <label>Symbol <input id="symbol" type="text" value="NVDA" autocomplete="off" /></label>
       <label>Side
@@ -256,20 +285,45 @@
     </details>
 
     <div class="btn-row">
-      <button id="haltBtn" class="btn btn-danger" type="button">Force halt</button>
       <button id="resetDayBtn" class="btn" type="button">Reset day P&amp;L</button>
       <button id="clearBookBtn" class="btn" type="button">Clear book</button>
     </div>
-    <button id="gestureBtn" class="btn" type="button">Enable pinch camera</button>
-    <video id="gestureCam" playsinline muted></video>
-    <p class="log" id="voiceLog">DGS AI idle. Paper risk guard armed.</p>
+    <p class="fine">Founder: Dineshgopi Sunkara. Paper only. No guaranteed profit.</p>
+  </aside>
 
-    <details id="connectAppsPanel" data-feature="connectApps">
+  <aside class="drawer" id="drawer-settings">
+    <div class="drawer-handle"></div>
+    <div class="drawer-head">
+      <h2>Connect &amp; settings</h2>
+      <button type="button" class="icon-btn drawer-close" data-close="settings">Close</button>
+    </div>
+
+    <section class="analysis-card">
+      <p class="bot-kicker">Market skills</p>
+      <p class="fine">Quote and technicals on Starter. Fundamentals, options, scanners, reports, and IB tools are Pro.</p>
+      <label>Symbol <input id="analysisSymbol" type="text" value="NVDA" autocomplete="off" /></label>
+      <div class="skill-grid">
+        <button type="button" class="btn" id="skillQuoteBtn" data-feature="quote">Quote</button>
+        <button type="button" class="btn" id="skillTechBtn" data-feature="technicals">Technicals</button>
+        <button type="button" class="btn" id="skillFundBtn" data-feature="fundamentals">Fundamentals</button>
+        <button type="button" class="btn" id="skillOptBtn" data-feature="options">Options / Greeks</button>
+        <button type="button" class="btn" id="skillReportBtn" data-feature="marketReport">Full report</button>
+        <button type="button" class="btn" id="skillIbBtn" data-feature="ibPortfolio">IB portfolio</button>
+        <button type="button" class="btn" id="skillIbSlBtn" data-feature="ibPortfolio">IB stop-loss</button>
+        <button type="button" class="btn" id="skillScanBtn" data-feature="scan">Bullish scan</button>
+      </div>
+      <div class="compare-row">
+        <label>Compare A <input id="compareA" type="text" value="NVDA" autocomplete="off" /></label>
+        <label>Compare B <input id="compareB" type="text" value="SPY" autocomplete="off" /></label>
+        <button type="button" class="btn btn-accent" id="skillCompareBtn" data-feature="riskCompare">Risk compare</button>
+      </div>
+    </section>
+
+    <details id="connectAppsPanel" data-feature="connectApps" open>
       <summary>Connect AI / trading apps</summary>
-      <p class="fine">Works like a mobile AI assistant for trading. Keys stay in <strong>localStorage only</strong> on this device. Live CoinSwitch still runs via DGS AI assistant keys later — this panel is a preference stub. App Store / Play Store listing is roadmap, not live.</p>
+      <p class="fine">Keys stay in <strong>localStorage only</strong>. Live CoinSwitch still runs via DGS AI assistant. App Store / Play = roadmap.</p>
       <label>OpenAI-compatible API key (optional stub)
-        <input id="openaiCompatKey" type="password" autocomplete="off" placeholder="sk-… local only" />
-      </label>
+        <input id="openaiCompatKey" type="password" autocomplete="off" placeholder="sk-… local only" /></label>
       <label class="check"><input id="coinswitchFlagToggle" type="checkbox" /> CoinSwitch connected preference</label>
       <div class="btn-row">
         <button type="button" class="btn" id="saveConnectAppsBtn">Save locally</button>
@@ -280,19 +334,24 @@
 
     <details id="liveBrokers" open data-feature="coinswitch">
       <summary>CoinSwitch (India) · PRIMARY live</summary>
-      <p class="fine">Honest: Live CoinSwitch orders are executed by <strong>DGS AI assistant</strong> with your API keys <em>server-side</em>. This static GitHub Pages app never embeds Ed25519 secrets or signs real orders (insecure + CORS). Here you only store a “connected” preference and last trade intents.</p>
-      <p class="broker-tip">TradingView webhook stub (future backend): <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code> — static Pages cannot receive webhooks alone.</p>
-
+      <p class="fine">Live CoinSwitch orders are executed by <strong>DGS AI assistant</strong> with API keys <em>server-side</em>. This page never embeds secrets or signs orders.</p>
+      <p class="broker-tip">TradingView webhook stub: <code id="tvWebhookStub">https://YOUR-BACKEND/hooks/tv</code></p>
       <div class="broker-block broker-primary" data-broker="coinswitch">
         <h4>CoinSwitch <span class="broker-badge">PRIMARY · India</span></h4>
         <p class="broker-status" id="coinswitchStatus" data-on="0">Not connected</p>
         <div class="btn-row">
-          <button type="button" class="btn btn-accent" id="coinswitchConnectBtn" title="Local preference only — link real keys in DGS AI chat">Mark connected</button>
+          <button type="button" class="btn btn-accent" id="coinswitchConnectBtn">Mark connected</button>
           <button type="button" class="btn" id="coinswitchDisconnectBtn">Disconnect</button>
         </div>
-        <p class="fine">“Connected” is a localStorage flag only. Link API keys in DGS AI chat for server-side execution. Never paste signing secrets into this page.</p>
+        <div class="compare-row cs-intent-form">
+          <label>Side
+            <select id="csIntentSide"><option>BUY</option><option>SELL</option><option>TRADE</option></select>
+          </label>
+          <label>Symbol <input id="csIntentSymbol" type="text" value="BTC" autocomplete="off" /></label>
+          <button type="button" class="btn btn-accent" id="csIntentBtn">Log intent</button>
+        </div>
         <p class="broker-kicker">Last trade intents</p>
-        <ul id="coinswitchIntents" class="cs-intents"><li class="empty">None yet — say <em>buy BTC on coinswitch</em></li></ul>
+        <ul id="coinswitchIntents" class="cs-intents"><li class="empty">None yet</li></ul>
       </div>
     </details>
 
@@ -304,69 +363,45 @@
         <label>API secret <input id="alpacaSecret" type="password" autocomplete="off" placeholder="secret" /></label>
         <label class="check"><input id="alpacaPaper" type="checkbox" checked /> Prefer Alpaca paper endpoint</label>
         <div class="btn-row">
-          <button type="button" class="btn" id="alpacaConnectBtn" disabled title="Validates format only — does not send orders">Connect (format check)</button>
+          <button type="button" class="btn" id="alpacaConnectBtn" disabled>Connect (format check)</button>
           <span class="broker-status" id="alpacaStatus">Not connected · orders disabled</span>
         </div>
       </div>
-
       <div class="broker-block" data-broker="robinhood">
         <h4>Robinhood</h4>
-        <p class="broker-warn">No official bot API — use Alpaca paper, CoinSwitch via DGS AI, or TradingView alerts. We will not ask for your Robinhood password.</p>
+        <p class="broker-warn">No official bot API. We will not ask for your Robinhood password.</p>
       </div>
     </details>
 
-    <h3>Paper book</h3>
-    <ul id="book" class="book"></ul>
-    <p class="fine">Founder: Dineshgopi Sunkara. Paper only. No guaranteed profit.</p>
-  </aside>
+    <details>
+      <summary>Social drafts</summary>
+      <p class="blurb">Drafts only. You approve before posting.</p>
+      <label>Platform
+        <select id="socialPlatform"><option>LinkedIn</option><option>Instagram</option><option>X</option><option>TikTok</option></select>
+      </label>
+      <label>Topic / offer <input id="socialTopic" type="text" value="Intraday risk discipline with DGS AI" /></label>
+      <label>Tone
+        <select id="socialTone"><option>Professional</option><option>Bold</option><option>Educational</option><option>Founder story</option></select>
+      </label>
+      <button id="socialDraftBtn" class="btn btn-accent" type="button">Draft post</button>
+      <button id="socialChecklistBtn" class="btn" type="button">Today’s social checklist</button>
+      <pre id="socialOut" class="analysis"></pre>
+    </details>
 
-  <aside class="drawer" id="drawer-social">
-    <div class="drawer-handle"></div>
-    <div class="drawer-head">
-      <h2>Social</h2>
-      <button type="button" class="icon-btn drawer-close" data-close="social">Close</button>
-    </div>
-    <p class="blurb">Drafts and checklists only. You approve before anything goes live.</p>
-    <label>Platform
-      <select id="socialPlatform">
-        <option>LinkedIn</option>
-        <option>Instagram</option>
-        <option>X</option>
-        <option>TikTok</option>
-      </select>
-    </label>
-    <label>Topic / offer <input id="socialTopic" type="text" value="Intraday risk discipline with DGS AI" /></label>
-    <label>Tone
-      <select id="socialTone">
-        <option>Professional</option>
-        <option>Bold</option>
-        <option>Educational</option>
-        <option>Founder story</option>
-      </select>
-    </label>
-    <button id="socialDraftBtn" class="btn btn-accent" type="button">Draft post</button>
-    <button id="socialChecklistBtn" class="btn" type="button">Today’s social checklist</button>
-    <pre id="socialOut" class="analysis"></pre>
-  </aside>
-
-  <aside class="drawer" id="drawer-work">
-    <div class="drawer-handle"></div>
-    <div class="drawer-head">
-      <h2>Work</h2>
-      <button type="button" class="icon-btn drawer-close" data-close="work">Close</button>
-    </div>
-    <p class="blurb">Plans, emails, actions, SOPs. Same DGS AI control layer.</p>
-    <label>Task type
-      <select id="workType">
-        <option>Daily priorities</option>
-        <option>Client email</option>
-        <option>Meeting notes → actions</option>
-        <option>SOP checklist</option>
-      </select>
-    </label>
-    <label>Details <textarea id="workInput" rows="5" placeholder="Paste context, bullets, or a messy dump…"></textarea></label>
-    <button id="workRunBtn" class="btn btn-accent" type="button">Generate</button>
-    <pre id="workOut" class="analysis"></pre>
+    <details>
+      <summary>Work drafts</summary>
+      <label>Task type
+        <select id="workType">
+          <option>Daily priorities</option>
+          <option>Client email</option>
+          <option>Meeting notes → actions</option>
+          <option>SOP checklist</option>
+        </select>
+      </label>
+      <label>Details <textarea id="workInput" rows="5" placeholder="Paste context…"></textarea></label>
+      <button id="workRunBtn" class="btn btn-accent" type="button">Generate</button>
+      <pre id="workOut" class="analysis"></pre>
+    </details>
   </aside>
 
   <aside class="drawer" id="drawer-share" data-ui="share-sheet">
@@ -387,9 +422,6 @@
   </aside>
 
   <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
-
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260913skills"></script>
+  <script type="module" src="js/app.js?v=20260913desk"></script>
 </body>
 </html>

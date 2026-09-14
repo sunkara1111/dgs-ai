@@ -11,7 +11,7 @@ This GitHub Pages app ships a working login + paywall UI. It stays locked until 
 | Plan | Price | Access |
 |------|-------|--------|
 | Owner | free (private hashed allowlist) | Full — never list owner emails in UI/docs |
-| Starter (`limited`) | **$19/mo** or **₹1,499/mo** | Sign-in, orb, voice Q&A, quote, technicals, chart, send-to-phone, manual paper |
+| Starter (`limited`) | **$19/mo** or **₹1,499/mo** | Sign-in, desk, command bar, quote, technicals, chart, send-to-phone, manual paper |
 | Pro (`pro`) | **$49/mo** or **₹3,999/mo** | Everything Starter + fundamentals, options/Greeks, scanners, PDF reports, IBKR paper portfolio + stop-loss dry-run, autopilot, budget, CoinSwitch intents, Connect AI panel |
 
 Entitlement shape: `{ paid: true, plan: 'limited'|'pro', ... }` in `localStorage`. Feature gates: `getPlan()`, `hasFeature('autopilot'|…)`.

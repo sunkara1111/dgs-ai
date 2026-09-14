@@ -6,14 +6,14 @@
  * Plans: owner (private) | limited/starter | pro
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260913skills';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260913desk';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js?v=20260913skills';
+} from './billing-config.js?v=20260913desk';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -28,8 +28,6 @@ const ENT_PREFIX = 'dgs-ai-pro';
 /** Features available on Starter (limited). Everything else needs Pro/owner. */
 const LIMITED_FEATURES = new Set([
   'signin',
-  'orb',
-  'voice',
   'brief',
   'quote',
   'technicals',
@@ -91,7 +89,7 @@ export function getPlan() {
 /**
  * Feature gate.
  * Owner & Pro: all features.
- * Limited/Starter: sign-in, orb, voice Q&A, quote, technicals, chart, send-to-phone, manual paper.
+ * Limited/Starter: sign-in, command bar, quote, technicals, chart, send-to-phone, manual paper.
  */
 export function hasFeature(name) {
   const plan = getPlan();
@@ -245,14 +243,20 @@ async function fireUnlock() {
   unlocked = true;
   setGate('open');
   const chip = $('accountChip');
+  const plan = getPlan();
   if (chip && currentUser) {
     chip.hidden = false;
     chip.textContent = normalizeEmail(currentUser.email) || 'Signed in';
-    const plan = getPlan();
     if (plan === 'owner') chip.dataset.tier = 'owner';
     else if (plan === 'pro') chip.dataset.tier = 'pro';
     else if (plan === 'limited') chip.dataset.tier = 'limited';
     else chip.dataset.tier = '';
+  }
+  const planChip = $('planChip');
+  if (planChip) {
+    planChip.hidden = false;
+    planChip.textContent = plan === 'owner' ? 'Owner' : plan === 'pro' ? 'Pro' : 'Starter';
+    planChip.dataset.tier = plan || 'limited';
   }
   document.body.dataset.plan = getPlan() || '';
   unlockListeners.splice(0).forEach((fn) => {
@@ -272,6 +276,12 @@ async function applyUser(user) {
       chip.hidden = true;
       chip.textContent = '';
       delete chip.dataset.tier;
+    }
+    const planChip = $('planChip');
+    if (planChip) {
+      planChip.hidden = true;
+      planChip.textContent = '';
+      delete planChip.dataset.tier;
     }
     document.body.dataset.plan = '';
     return;
