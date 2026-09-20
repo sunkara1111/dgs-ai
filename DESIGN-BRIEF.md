@@ -1,5 +1,5 @@
 # DGS AI
-**Founder:** Dineshgopi Sunkara
+**Founder:** Dineshgopi Sunkara · Senior Controls Engineer · Automation Engineer
 **Controller:** DGS AI assistant
 
 ## Roles (priority order)
