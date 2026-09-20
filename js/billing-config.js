@@ -2,8 +2,9 @@
  * DGS AI — checkout placeholders (client-side entitlement MVP)
  *
  * PLANS
- *   Starter (limited): $19/mo or ₹1,499/mo
- *   Pro (full):        $49/mo or ₹3,999/mo
+ *   Free forever:      $0 — DGS Agent chat, work/social drafts, paper desk
+ *   Starter (legacy):  $19/mo or ₹1,499/mo — kept for existing checkout links
+ *   Pro:               $49/mo or ₹3,999/mo — advanced trading autopilot / live
  *
  * SETUP
  * Razorpay (India):
