@@ -1,3 +1,5 @@
+# DGS AI — live GitHub Pages desk
+# https://sunkara1111.github.io/dgs-ai/
 User-agent: *
 Allow: /
 

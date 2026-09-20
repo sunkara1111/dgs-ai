@@ -6,7 +6,7 @@ Inspired by [Freqtrade](https://github.com/freqtrade/freqtrade) patterns and pow
 ## Setup
 
 ```bash
-cd /workspace/dinesh-ai-fund
+python3 -m venv .venv
 .venv/bin/pip install -r tools/ft_bot/requirements.txt
 ```
 

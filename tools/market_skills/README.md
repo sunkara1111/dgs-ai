@@ -11,20 +11,16 @@ IBKR paper portfolio helpers.
 ## Setup
 
 ```bash
-cd /workspace/dinesh-ai-fund
 python3 -m venv .venv
-.venv/bin/pip install -e /workspace/trading_skills
-# or: .venv/bin/pip install yfinance pandas numpy scipy pandas-ta ib-async reportlab mistune requests python-dotenv
+.venv/bin/pip install yfinance pandas numpy scipy pandas-ta ib-async reportlab mistune requests python-dotenv
 ```
 
-Reference library lives at `/workspace/trading_skills` (capabilities comparable to the
-open `trading_skills` project). User-facing brand remains **DGS AI**.
+Optional local `trading_skills` package if you have it checked out beside this repo.
+User-facing brand remains **DGS AI**.
 
 ## Commands
 
 ```bash
-cd /workspace/dinesh-ai-fund
-
 .venv/bin/python -m tools.market_skills quote AAPL
 .venv/bin/python -m tools.market_skills technicals NVDA
 .venv/bin/python -m tools.market_skills fundamentals MSFT

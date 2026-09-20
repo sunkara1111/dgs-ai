@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260914desk3';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260920live';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -142,7 +142,7 @@ const state = {
   profile: null,
 };
 
-const CACHE_BUST = '20260914desk3';
+const CACHE_BUST = '20260920live';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
@@ -2408,23 +2408,20 @@ function statusSpeech() {
 
 
 /** Yahoo history for technicals (~15m delay). Starter+ */
-async function fetchHistoryCloses(symbol, range = '3mo') {
+async function fetchChart(symbol, range = '3mo') {
   const ysym = yahooSymbol(symbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=${encodeURIComponent(range)}`;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 4500);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal, mode: 'cors' });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error('http');
-    const data = await res.json();
-    const r = data.chart?.result?.[0];
-    const closes = (r?.indicators?.quote?.[0]?.close || []).filter((x) => x != null);
-    return closes;
-  } catch (_) {
-    clearTimeout(timer);
-    return null;
-  }
+  const path = `/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=${encodeURIComponent(range)}`;
+  const data = await fetchYahooJson(path);
+  const r = data?.chart?.result?.[0];
+  if (!r) return null;
+  const closes = (r.indicators?.quote?.[0]?.close || []).filter((x) => x != null);
+  const vols = (r.indicators?.quote?.[0]?.volume || []).filter((x) => x != null);
+  return { meta: r.meta || {}, closes, vols };
+}
+
+async function fetchHistoryCloses(symbol, range = '3mo') {
+  const chart = await fetchChart(symbol, range);
+  return chart && chart.closes && chart.closes.length ? chart.closes : null;
 }
 
 function rsiFromCloses(closes, period = 14) {
@@ -2466,16 +2463,118 @@ function atrApprox(closes, n = 14) {
   return sum / n;
 }
 
-async function technicalsSpeech(symbol) {
-  if (!requireFeature('technicals', 'Technicals are included on Starter and Pro. Sign in to continue.')) return;
-  const filler = speakFiller();
-  const closes = await fetchHistoryCloses(symbol, '3mo');
-  await filler;
-  if (!closes || closes.length < 30) {
-    const q = await fetchQuote(symbol);
-    await speak(`${spokenQuote(q)} Full RSI MACD Bollinger ATR ADX run on the DGS AI box CLI: python -m tools.market_skills technicals ${symbol}. Delayed Yahoo-style data. Not advice.`);
-    return;
+function fmtBig(n) {
+  if (n == null || Number.isNaN(n)) return '—';
+  const a = Math.abs(n);
+  if (a >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
+  if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  return fmtPx(n);
+}
+
+function mean(arr) {
+  if (!arr || !arr.length) return null;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function stdev(arr) {
+  if (!arr || arr.length < 2) return null;
+  const m = mean(arr);
+  const v = arr.reduce((s, x) => s + (x - m) ** 2, 0) / (arr.length - 1);
+  return Math.sqrt(v);
+}
+
+function pctReturns(closes) {
+  const out = [];
+  if (!closes) return out;
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i - 1]) out.push((closes[i] - closes[i - 1]) / closes[i - 1]);
   }
+  return out;
+}
+
+function corr(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 8) return null;
+  const aa = a.slice(-n);
+  const bb = b.slice(-n);
+  const ma = mean(aa);
+  const mb = mean(bb);
+  let num = 0;
+  let da = 0;
+  let db = 0;
+  for (let i = 0; i < n; i++) {
+    const x = aa[i] - ma;
+    const y = bb[i] - mb;
+    num += x * y;
+    da += x * x;
+    db += y * y;
+  }
+  return da && db ? num / Math.sqrt(da * db) : null;
+}
+
+function maxDrawdownPct(closes) {
+  if (!closes || closes.length < 2) return null;
+  let peak = closes[0];
+  let dd = 0;
+  for (const c of closes) {
+    peak = Math.max(peak, c);
+    if (peak) dd = Math.max(dd, (peak - c) / peak);
+  }
+  return dd * 100;
+}
+
+function normCdf(x) {
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const t = 1 / (1 + p * Math.abs(x));
+  const y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x / 2);
+  return 0.5 * (1 + sign * y);
+}
+
+function bsDelta(spot, strike, iv, tYears, isCall) {
+  if (!spot || !strike || !iv || tYears <= 0) return null;
+  const d1 = (Math.log(spot / strike) + 0.5 * iv * iv * tYears) / (iv * Math.sqrt(tYears));
+  return isCall ? normCdf(d1) : normCdf(d1) - 1;
+}
+
+async function fetchJsonUrl(url, timeoutMs = 5000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, mode: 'cors' });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('http');
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+async function fetchYahooJson(pathAndQuery) {
+  const direct = `https://query1.finance.yahoo.com${pathAndQuery}`;
+  const mirrors = [
+    direct,
+    `https://query2.finance.yahoo.com${pathAndQuery}`,
+    `https://corsproxy.io/?${encodeURIComponent(direct)}`,
+  ];
+  for (const url of mirrors) {
+    try {
+      const data = await fetchJsonUrl(url, 5500);
+      if (data) return data;
+    } catch (_) {}
+  }
+  return null;
+}
+
+function computeTechnicals(closes) {
+  if (!closes || closes.length < 30) return null;
   const last = closes[closes.length - 1];
   const rsi = rsiFromCloses(closes);
   const sma20 = sma(closes, 20);
@@ -2484,38 +2583,250 @@ async function technicalsSpeech(symbol) {
   const ema26 = ema(closes, 26);
   const atr = atrApprox(closes, 14);
   const macd = ema12 != null && ema26 != null ? ema12 - ema26 : null;
-  const bits = [
+  return { last, rsi, sma20, sma50, macd, atr };
+}
+
+function technicalsLine(symbol, t) {
+  if (!t) return '';
+  return [
     `${symbol} technicals (delayed Yahoo-style, about fifteen minutes).`,
-    `Last ${fmtPx(last)}.`,
-    rsi != null ? `RSI fourteen ${rsi.toFixed(1)}.` : '',
-    macd != null ? `MACD approx ${macd.toFixed(2)}.` : '',
-    sma20 != null ? `SMA twenty ${fmtPx(sma20)}.` : '',
-    sma50 != null ? `SMA fifty ${fmtPx(sma50)}.` : '',
-    atr != null ? `ATR fourteen about ${fmtPx(atr)}.` : '',
+    `Last ${fmtPx(t.last)}.`,
+    t.rsi != null ? `RSI fourteen ${t.rsi.toFixed(1)}.` : '',
+    t.macd != null ? `MACD approx ${t.macd.toFixed(2)}.` : '',
+    t.sma20 != null ? `SMA twenty ${fmtPx(t.sma20)}.` : '',
+    t.sma50 != null ? `SMA fifty ${fmtPx(t.sma50)}.` : '',
+    t.atr != null ? `ATR fourteen about ${fmtPx(t.atr)}.` : '',
+  ].filter(Boolean).join(' ');
+}
+
+async function fetchFundamentals(symbol) {
+  const chart = await fetchChart(symbol, '1y');
+  if (!chart || !chart.meta) return null;
+  const m = chart.meta;
+  const last = m.regularMarketPrice ?? chart.closes.at(-1);
+  const high52 = m.fiftyTwoWeekHigh;
+  const low52 = m.fiftyTwoWeekLow;
+  const rangePos = (last != null && high52 != null && low52 != null && high52 !== low52)
+    ? (last - low52) / (high52 - low52) * 100
+    : null;
+  const hv = stdev(pctReturns(chart.closes.slice(-64)));
+  const t = computeTechnicals(chart.closes);
+  return {
+    kind: CRYPTO.has(symbol) ? 'crypto' : 'stock',
+    name: m.longName || m.shortName || symbol,
+    last,
+    volume: m.regularMarketVolume,
+    week52High: high52,
+    week52Low: low52,
+    rangePos,
+    hv20: hv == null ? null : hv * Math.sqrt(252) * 100,
+    sma20: t && t.sma20,
+    sma50: t && t.sma50,
+    rsi: t && t.rsi,
+    source: 'yahoo-chart',
+  };
+}
+
+function fundamentalsLine(symbol, f) {
+  if (!f) return '';
+  const tape = [
+    `${symbol} tape snapshot from Yahoo chart (delay possible).`,
+    f.name && f.name !== symbol ? `${f.name}.` : '',
+    f.last != null ? `Last ${fmtPx(f.last)}.` : '',
+    f.volume != null ? `Volume ${fmtBig(f.volume)}.` : '',
+    (f.week52Low != null && f.week52High != null) ? `52-week ${fmtPx(f.week52Low)} to ${fmtPx(f.week52High)}.` : '',
+    f.rangePos != null ? `Now ${f.rangePos.toFixed(0)}% up the 52-week range.` : '',
+    f.hv20 != null ? `~3-month realized vol ${f.hv20.toFixed(1)}%.` : '',
+    f.sma20 != null ? `SMA20 ${fmtPx(f.sma20)}.` : '',
+    f.sma50 != null ? `SMA50 ${fmtPx(f.sma50)}.` : '',
+    f.rsi != null ? `RSI14 ${f.rsi.toFixed(1)}.` : '',
+    'PE, margins, and book value are not on this static page (Yahoo crumb-gated). Box CLI: python -m tools.market_skills fundamentals ' + symbol + '.',
     'Not financial advice. No guaranteed profit.',
-  ].filter(Boolean);
-  await speak(bits.join(' '));
-  addLine('dgs', bits.join(' '));
+  ];
+  return tape.filter(Boolean).join(' ');
+}
+
+function nearestStrikeRow(rows, spot) {
+  if (!rows || !rows.length || !spot) return null;
+  return rows.reduce((best, row) => {
+    const strike = Number(row.strike);
+    if (!Number.isFinite(strike)) return best;
+    if (!best) return row;
+    return Math.abs(strike - spot) < Math.abs(Number(best.strike) - spot) ? row : best;
+  }, null);
+}
+
+async function fetchOptionsSnapshot(symbol) {
+  if (CRYPTO.has(symbol)) return { kind: 'crypto' };
+  const ysym = yahooSymbol(symbol);
+  const data = await fetchYahooJson(`/v7/finance/options/${encodeURIComponent(ysym)}`);
+  const chain = data?.optionChain?.result?.[0];
+  if (chain) {
+    const spot = Number(chain.quote?.regularMarketPrice);
+    const expiryUnix = (chain.expirationDates || [])[0];
+    const opt = (chain.options || [])[0] || {};
+    const call = nearestStrikeRow(opt.calls, spot);
+    const put = nearestStrikeRow(opt.puts, spot);
+    const tYears = expiryUnix ? Math.max((expiryUnix * 1000 - Date.now()) / (365 * 24 * 3600 * 1000), 1 / 365) : null;
+    const callDelta = call ? bsDelta(spot, Number(call.strike), Number(call.impliedVolatility), tYears, true) : null;
+    const putDelta = put ? bsDelta(spot, Number(put.strike), Number(put.impliedVolatility), tYears, false) : null;
+    return {
+      kind: 'stock',
+      spot,
+      expiry: expiryUnix ? new Date(expiryUnix * 1000).toISOString().slice(0, 10) : null,
+      call,
+      put,
+      callDelta,
+      putDelta,
+    };
+  }
+  const chart = await fetchChart(symbol, '3mo');
+  if (!chart) return null;
+  const hv = stdev(pctReturns(chart.closes.slice(-21)));
+  return {
+    kind: 'hv-only',
+    spot: chart.meta.regularMarketPrice ?? chart.closes.at(-1),
+    hv20: hv == null ? null : hv * Math.sqrt(252) * 100,
+    week52High: chart.meta.fiftyTwoWeekHigh,
+    week52Low: chart.meta.fiftyTwoWeekLow,
+  };
+}
+
+function optionsLine(symbol, snap) {
+  if (!snap) return '';
+  if (snap.kind === 'crypto') {
+    return `${symbol} has no listed equity option chain on Yahoo. Use the chart and technicals. Not advice.`;
+  }
+  if (snap.kind === 'hv-only') {
+    return [
+      `${symbol} listed option chain is crumb-gated on this static page.`,
+      snap.spot != null ? `Spot ${fmtPx(snap.spot)}.` : '',
+      snap.hv20 != null ? `20-day realized vol about ${snap.hv20.toFixed(1)}% annualized.` : '',
+      (snap.week52Low != null && snap.week52High != null) ? `52-week ${fmtPx(snap.week52Low)} to ${fmtPx(snap.week52High)}.` : '',
+      `ATM Greeks and the chain still run on the box: python -m tools.market_skills options ${symbol}.`,
+      'Not financial advice.',
+    ].filter(Boolean).join(' ');
+  }
+  const rowBits = (row, delta, side) => {
+    if (!row) return `${side}: none near ATM.`;
+    const iv = Number(row.impliedVolatility);
+    return `${side} strike ${fmtPx(row.strike)} last ${fmtPx(row.lastPrice)} IV ${Number.isFinite(iv) ? (iv * 100).toFixed(1) + '%' : '—'} vol ${row.volume ?? '—'} OI ${row.openInterest ?? '—'}${delta != null ? ` delta ${delta.toFixed(2)} (r=0 approx)` : ''}.`;
+  };
+  return [
+    `${symbol} options (Yahoo chain, delay possible).`,
+    snap.spot != null ? `Spot ${fmtPx(snap.spot)}.` : '',
+    snap.expiry ? `Nearest expiry ${snap.expiry}.` : '',
+    rowBits(snap.call, snap.callDelta, 'ATM call'),
+    rowBits(snap.put, snap.putDelta, 'ATM put'),
+    'Greeks use listed IV and r=0. Not financial advice.',
+  ].filter(Boolean).join(' ');
+}
+
+async function fetchRiskCompare(a, b) {
+  const [ca, cb] = await Promise.all([fetchHistoryCloses(a, '6mo'), fetchHistoryCloses(b, '6mo')]);
+  if (!ca || !cb || ca.length < 20 || cb.length < 20) return null;
+  const ra = pctReturns(ca);
+  const rb = pctReturns(cb);
+  const volA = stdev(ra);
+  const volB = stdev(rb);
+  const c = corr(ra, rb);
+  const beta = (c != null && volA != null && volB) ? c * (volA / volB) : null;
+  const ann = (s) => (s == null ? null : s * Math.sqrt(252) * 100);
+  return {
+    a, b,
+    lastA: ca[ca.length - 1],
+    lastB: cb[cb.length - 1],
+    volA: ann(volA),
+    volB: ann(volB),
+    corr: c,
+    beta,
+    ddA: maxDrawdownPct(ca),
+    ddB: maxDrawdownPct(cb),
+  };
+}
+
+function riskCompareLine(r) {
+  if (!r) return '';
+  const pct = (n) => (n == null ? '—' : `${n.toFixed(1)}%`);
+  return [
+    `Risk compare ${r.a} vs ${r.b} (daily closes, ~6 months, delay possible).`,
+    `${r.a} last ${fmtPx(r.lastA)}, ann. vol ${pct(r.volA)}, max DD ${pct(r.ddA)}.`,
+    `${r.b} last ${fmtPx(r.lastB)}, ann. vol ${pct(r.volB)}, max DD ${pct(r.ddB)}.`,
+    r.corr != null ? `Correlation ${r.corr.toFixed(2)}.` : '',
+    r.beta != null ? `Beta of ${r.a} vs ${r.b} ${r.beta.toFixed(2)}.` : '',
+    'Not financial advice. No guaranteed profit.',
+  ].filter(Boolean).join(' ');
+}
+
+async function technicalsSpeech(symbol) {
+  if (!requireFeature('technicals', 'Technicals are included on Starter and Pro. Sign in to continue.')) return;
+  const filler = speakFiller();
+  const closes = await fetchHistoryCloses(symbol, '3mo');
+  await filler;
+  const t = computeTechnicals(closes);
+  if (!t) {
+    const q = await fetchQuote(symbol);
+    await speak(`${spokenQuote(q)} Could not load a 3-month history from this page right now. Retry technicals, or run python -m tools.market_skills technicals ${symbol} on the box. Delayed Yahoo-style data. Not advice.`);
+    return;
+  }
+  await speak(`${technicalsLine(symbol, t)} Not financial advice. No guaranteed profit.`);
 }
 
 async function fundamentalsSpeech(symbol) {
   if (!requireFeature('fundamentals', 'Fundamentals are a Pro feature. Starter includes quote, technicals, and chart.')) return;
-  await speak(`${symbol} fundamentals: full PE, margins, growth, and balance-sheet snapshot run on the DGS AI assistant box via python -m tools.market_skills fundamentals ${symbol}. Delayed data. Not financial advice. No guaranteed profit.`);
+  const filler = speakFiller();
+  const f = await fetchFundamentals(symbol);
+  await filler;
+  if (!f) {
+    await speak(`${symbol} fundamentals did not load from Yahoo on this static page (CORS or delay). Box CLI still works: python -m tools.market_skills fundamentals ${symbol}. Not financial advice.`);
+    return;
+  }
+  await speak(fundamentalsLine(symbol, f));
 }
 
 async function optionsSpeech(symbol) {
   if (!requireFeature('options', 'Option chains and Greeks are Pro. Starter covers quote, technicals, and chart.')) return;
-  await speak(`${symbol} options: chain summary and Black-Scholes Greeks for ATM strikes run via DGS AI market skills CLI — python -m tools.market_skills options ${symbol}. Yahoo chain may be delayed about fifteen minutes. Not advice.`);
+  const filler = speakFiller();
+  const snap = await fetchOptionsSnapshot(symbol);
+  await filler;
+  if (!snap) {
+    await speak(`${symbol} options chain did not load from Yahoo on this page. Box CLI: python -m tools.market_skills options ${symbol}. Delayed data. Not advice.`);
+    return;
+  }
+  await speak(optionsLine(symbol, snap));
 }
 
 async function riskCompareSpeech(a, b) {
-  if (!requireFeature('riskCompare', 'Risk compare is Pro. Upgrade for volatility, beta, VaR, and correlation.')) return;
-  await speak(`Risk compare ${a} versus ${b}: volatility, beta, drawdown, Sharpe, and correlation run on the box — python -m tools.market_skills risk-compare ${a} ${b}. Not financial advice. Delayed data. No guaranteed profit.`);
+  if (!requireFeature('riskCompare', 'Risk compare is Pro. Upgrade for volatility, beta, and correlation.')) return;
+  const filler = speakFiller();
+  const r = await fetchRiskCompare(a, b);
+  await filler;
+  if (!r) {
+    await speak(`Risk compare ${a} versus ${b} needs two histories. Retry, or run python -m tools.market_skills risk-compare ${a} ${b} on the box. Not financial advice.`);
+    return;
+  }
+  await speak(riskCompareLine(r));
 }
 
 async function fullReportSpeech(symbol) {
-  if (!requireFeature('marketReport', 'Full markdown and PDF reports are Pro. Starter keeps quote, technicals, and chart.')) return;
-  await speak(`Full ${symbol} report: technicals, fundamentals, bullish score, and PMCC snippet write to tools/out as markdown and PDF — python -m tools.market_skills report ${symbol}. Not financial advice. Delayed Yahoo-style data. No guaranteed profit.`);
+  if (!requireFeature('marketReport', 'Full reports are Pro. Starter keeps quote, technicals, and chart.')) return;
+  const filler = speakFiller();
+  const [q, closes, f] = await Promise.all([
+    fetchQuote(symbol),
+    fetchHistoryCloses(symbol, '3mo'),
+    fetchFundamentals(symbol),
+  ]);
+  const t = computeTechnicals(closes);
+  await filler;
+  const bits = [
+    `${symbol} report (in-desk, delayed Yahoo-style).`,
+    spokenQuote(q),
+    t ? technicalsLine(symbol, t) : 'Technicals unavailable on this page right now.',
+    f ? fundamentalsLine(symbol, f) : 'Fundamentals unavailable on this page right now.',
+    'PDF export still runs on the box: python -m tools.market_skills report ' + symbol + '.',
+    'Not financial advice. No guaranteed profit.',
+  ];
+  await speak(bits.join(' '));
 }
 
 async function ibPortfolioSpeech() {

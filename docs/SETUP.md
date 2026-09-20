@@ -89,7 +89,6 @@ Firebase Auth persists the session in the browser. Use **Sign out** on the paywa
 See `tools/market_skills/README.md`. Examples:
 
 ```bash
-cd /workspace/dinesh-ai-fund
 .venv/bin/python -m tools.market_skills quote AAPL
 .venv/bin/python -m tools.market_skills technicals NVDA
 .venv/bin/python -m tools.market_skills report MSFT
