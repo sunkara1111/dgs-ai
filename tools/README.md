@@ -8,7 +8,7 @@ risk compare, markdown/PDF reports, IBKR paper portfolio / rolls / stop-loss dry
 See [`market_skills/README.md`](market_skills/README.md).
 
 ```bash
-cd /workspace/dinesh-ai-fund
+python3 -m venv .venv
 .venv/bin/python -m tools.market_skills quote AAPL
 .venv/bin/python -m tools.market_skills report NVDA
 .venv/bin/python -m tools.market_skills ib-stop-loss   # dry-run default
@@ -52,7 +52,6 @@ export COINSWITCH_SECRET_KEY='...' # hex Ed25519 seed
 ### Setup
 
 ```bash
-cd /workspace/dinesh-ai-fund
 python3 -m venv .venv
 .venv/bin/pip install cryptography requests
 ```
