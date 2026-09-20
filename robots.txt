@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sunkara1111.github.io/dgs-ai/sitemap.xml
