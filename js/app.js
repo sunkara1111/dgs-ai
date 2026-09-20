@@ -2408,23 +2408,20 @@ function statusSpeech() {
 
 
 /** Yahoo history for technicals (~15m delay). Starter+ */
-async function fetchHistoryCloses(symbol, range = '3mo') {
+async function fetchChart(symbol, range = '3mo') {
   const ysym = yahooSymbol(symbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=${encodeURIComponent(range)}`;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 4500);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal, mode: 'cors' });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error('http');
-    const data = await res.json();
-    const r = data.chart?.result?.[0];
-    const closes = (r?.indicators?.quote?.[0]?.close || []).filter((x) => x != null);
-    return closes;
-  } catch (_) {
-    clearTimeout(timer);
-    return null;
-  }
+  const path = `/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=${encodeURIComponent(range)}`;
+  const data = await fetchYahooJson(path);
+  const r = data?.chart?.result?.[0];
+  if (!r) return null;
+  const closes = (r.indicators?.quote?.[0]?.close || []).filter((x) => x != null);
+  const vols = (r.indicators?.quote?.[0]?.volume || []).filter((x) => x != null);
+  return { meta: r.meta || {}, closes, vols };
+}
+
+async function fetchHistoryCloses(symbol, range = '3mo') {
+  const chart = await fetchChart(symbol, range);
+  return chart && chart.closes && chart.closes.length ? chart.closes : null;
 }
 
 function rsiFromCloses(closes, period = 14) {
@@ -2464,18 +2461,6 @@ function atrApprox(closes, n = 14) {
     sum += Math.abs(closes[i] - closes[i - 1]);
   }
   return sum / n;
-}
-
-function yahooNum(node) {
-  if (node == null) return null;
-  if (typeof node === 'number' && Number.isFinite(node)) return node;
-  if (typeof node === 'object') {
-    if (typeof node.raw === 'number' && Number.isFinite(node.raw)) return node.raw;
-    const parsed = Number(node.fmt);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  const n = Number(node);
-  return Number.isFinite(n) ? n : null;
 }
 
 function fmtBig(n) {
@@ -2615,72 +2600,50 @@ function technicalsLine(symbol, t) {
 }
 
 async function fetchFundamentals(symbol) {
-  if (CRYPTO.has(symbol)) {
-    const q = await fetchQuote(symbol);
-    return {
-      kind: 'crypto',
-      name: q.name,
-      last: q.last,
-      marketCap: null,
-      pe: null,
-      forwardPe: null,
-      pb: null,
-      profitMargin: null,
-      operatingMargin: null,
-      revenueGrowth: null,
-      beta: null,
-      week52High: q.high,
-      week52Low: q.low,
-      source: q.source,
-    };
-  }
-  const ysym = yahooSymbol(symbol);
-  const data = await fetchYahooJson(`/v10/finance/quoteSummary/${encodeURIComponent(ysym)}?modules=price,summaryDetail,defaultKeyStatistics,financialData`);
-  const block = data?.quoteSummary?.result?.[0];
-  if (!block) return null;
-  const price = block.price || {};
-  const sd = block.summaryDetail || {};
-  const ks = block.defaultKeyStatistics || {};
-  const fd = block.financialData || {};
+  const chart = await fetchChart(symbol, '1y');
+  if (!chart || !chart.meta) return null;
+  const m = chart.meta;
+  const last = m.regularMarketPrice ?? chart.closes.at(-1);
+  const high52 = m.fiftyTwoWeekHigh;
+  const low52 = m.fiftyTwoWeekLow;
+  const rangePos = (last != null && high52 != null && low52 != null && high52 !== low52)
+    ? (last - low52) / (high52 - low52) * 100
+    : null;
+  const hv = stdev(pctReturns(chart.closes.slice(-64)));
+  const t = computeTechnicals(chart.closes);
   return {
-    kind: 'stock',
-    name: price.shortName || price.longName || symbol,
-    last: yahooNum(price.regularMarketPrice) ?? yahooNum(sd.regularMarketPrice),
-    marketCap: yahooNum(price.marketCap) ?? yahooNum(sd.marketCap),
-    pe: yahooNum(sd.trailingPE) ?? yahooNum(ks.trailingPE),
-    forwardPe: yahooNum(sd.forwardPE) ?? yahooNum(ks.forwardPE),
-    pb: yahooNum(ks.priceToBook),
-    profitMargin: yahooNum(fd.profitMargins),
-    operatingMargin: yahooNum(fd.operatingMargins),
-    revenueGrowth: yahooNum(fd.revenueGrowth),
-    beta: yahooNum(sd.beta) ?? yahooNum(ks.beta),
-    week52High: yahooNum(sd.fiftyTwoWeekHigh),
-    week52Low: yahooNum(sd.fiftyTwoWeekLow),
-    source: 'yahoo',
+    kind: CRYPTO.has(symbol) ? 'crypto' : 'stock',
+    name: m.longName || m.shortName || symbol,
+    last,
+    volume: m.regularMarketVolume,
+    week52High: high52,
+    week52Low: low52,
+    rangePos,
+    hv20: hv == null ? null : hv * Math.sqrt(252) * 100,
+    sma20: t && t.sma20,
+    sma50: t && t.sma50,
+    rsi: t && t.rsi,
+    source: 'yahoo-chart',
   };
 }
 
 function fundamentalsLine(symbol, f) {
   if (!f) return '';
-  if (f.kind === 'crypto') {
-    return `${symbol} (${f.name}) is crypto — no PE / margin snapshot from Yahoo fundamentals. Last ${fmtPx(f.last)}. Use technicals and the chart. Delayed data. Not advice.`;
-  }
-  const pct = (n) => (n == null ? '—' : `${(n * 100).toFixed(1)}%`);
-  return [
-    `${symbol} fundamentals (Yahoo-style, delay possible).`,
+  const tape = [
+    `${symbol} tape snapshot from Yahoo chart (delay possible).`,
     f.name && f.name !== symbol ? `${f.name}.` : '',
     f.last != null ? `Last ${fmtPx(f.last)}.` : '',
-    f.marketCap != null ? `Market cap ${fmtBig(f.marketCap)}.` : '',
-    f.pe != null ? `Trailing P/E ${f.pe.toFixed(1)}.` : '',
-    f.forwardPe != null ? `Forward P/E ${f.forwardPe.toFixed(1)}.` : '',
-    f.pb != null ? `Price/book ${f.pb.toFixed(2)}.` : '',
-    f.profitMargin != null ? `Profit margin ${pct(f.profitMargin)}.` : '',
-    f.operatingMargin != null ? `Operating margin ${pct(f.operatingMargin)}.` : '',
-    f.revenueGrowth != null ? `Revenue growth ${pct(f.revenueGrowth)}.` : '',
-    f.beta != null ? `Beta ${f.beta.toFixed(2)}.` : '',
+    f.volume != null ? `Volume ${fmtBig(f.volume)}.` : '',
     (f.week52Low != null && f.week52High != null) ? `52-week ${fmtPx(f.week52Low)} to ${fmtPx(f.week52High)}.` : '',
+    f.rangePos != null ? `Now ${f.rangePos.toFixed(0)}% up the 52-week range.` : '',
+    f.hv20 != null ? `~3-month realized vol ${f.hv20.toFixed(1)}%.` : '',
+    f.sma20 != null ? `SMA20 ${fmtPx(f.sma20)}.` : '',
+    f.sma50 != null ? `SMA50 ${fmtPx(f.sma50)}.` : '',
+    f.rsi != null ? `RSI14 ${f.rsi.toFixed(1)}.` : '',
+    'PE, margins, and book value are not on this static page (Yahoo crumb-gated). Box CLI: python -m tools.market_skills fundamentals ' + symbol + '.',
     'Not financial advice. No guaranteed profit.',
-  ].filter(Boolean).join(' ');
+  ];
+  return tape.filter(Boolean).join(' ');
 }
 
 function nearestStrikeRow(rows, spot) {
@@ -2698,23 +2661,34 @@ async function fetchOptionsSnapshot(symbol) {
   const ysym = yahooSymbol(symbol);
   const data = await fetchYahooJson(`/v7/finance/options/${encodeURIComponent(ysym)}`);
   const chain = data?.optionChain?.result?.[0];
-  if (!chain) return null;
-  const spot = Number(chain.quote?.regularMarketPrice);
-  const expiryUnix = (chain.expirationDates || [])[0];
-  const opt = (chain.options || [])[0] || {};
-  const call = nearestStrikeRow(opt.calls, spot);
-  const put = nearestStrikeRow(opt.puts, spot);
-  const tYears = expiryUnix ? Math.max((expiryUnix * 1000 - Date.now()) / (365 * 24 * 3600 * 1000), 1 / 365) : null;
-  const callDelta = call ? bsDelta(spot, Number(call.strike), Number(call.impliedVolatility), tYears, true) : null;
-  const putDelta = put ? bsDelta(spot, Number(put.strike), Number(put.impliedVolatility), tYears, false) : null;
+  if (chain) {
+    const spot = Number(chain.quote?.regularMarketPrice);
+    const expiryUnix = (chain.expirationDates || [])[0];
+    const opt = (chain.options || [])[0] || {};
+    const call = nearestStrikeRow(opt.calls, spot);
+    const put = nearestStrikeRow(opt.puts, spot);
+    const tYears = expiryUnix ? Math.max((expiryUnix * 1000 - Date.now()) / (365 * 24 * 3600 * 1000), 1 / 365) : null;
+    const callDelta = call ? bsDelta(spot, Number(call.strike), Number(call.impliedVolatility), tYears, true) : null;
+    const putDelta = put ? bsDelta(spot, Number(put.strike), Number(put.impliedVolatility), tYears, false) : null;
+    return {
+      kind: 'stock',
+      spot,
+      expiry: expiryUnix ? new Date(expiryUnix * 1000).toISOString().slice(0, 10) : null,
+      call,
+      put,
+      callDelta,
+      putDelta,
+    };
+  }
+  const chart = await fetchChart(symbol, '3mo');
+  if (!chart) return null;
+  const hv = stdev(pctReturns(chart.closes.slice(-21)));
   return {
-    kind: 'stock',
-    spot,
-    expiry: expiryUnix ? new Date(expiryUnix * 1000).toISOString().slice(0, 10) : null,
-    call,
-    put,
-    callDelta,
-    putDelta,
+    kind: 'hv-only',
+    spot: chart.meta.regularMarketPrice ?? chart.closes.at(-1),
+    hv20: hv == null ? null : hv * Math.sqrt(252) * 100,
+    week52High: chart.meta.fiftyTwoWeekHigh,
+    week52Low: chart.meta.fiftyTwoWeekLow,
   };
 }
 
@@ -2722,6 +2696,16 @@ function optionsLine(symbol, snap) {
   if (!snap) return '';
   if (snap.kind === 'crypto') {
     return `${symbol} has no listed equity option chain on Yahoo. Use the chart and technicals. Not advice.`;
+  }
+  if (snap.kind === 'hv-only') {
+    return [
+      `${symbol} listed option chain is crumb-gated on this static page.`,
+      snap.spot != null ? `Spot ${fmtPx(snap.spot)}.` : '',
+      snap.hv20 != null ? `20-day realized vol about ${snap.hv20.toFixed(1)}% annualized.` : '',
+      (snap.week52Low != null && snap.week52High != null) ? `52-week ${fmtPx(snap.week52Low)} to ${fmtPx(snap.week52High)}.` : '',
+      `ATM Greeks and the chain still run on the box: python -m tools.market_skills options ${symbol}.`,
+      'Not financial advice.',
+    ].filter(Boolean).join(' ');
   }
   const rowBits = (row, delta, side) => {
     if (!row) return `${side}: none near ATM.`;
