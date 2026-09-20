@@ -2,7 +2,7 @@
 
 Live: https://sunkara1111.github.io/dgs-ai/
 
-**Founder:** Dineshgopi Sunkara
+**Founder:** Dineshgopi Sunkara · Senior Controls Engineer · Automation Engineer
 
 This GitHub Pages app ships a working login + paywall UI. It stays locked until Firebase Auth is configured. Checkout links stay placeholders until Razorpay / Stripe URLs are pasted. No secrets belong in this repo (no Admin SDK, no service-account JSON, no API signing keys).
 
