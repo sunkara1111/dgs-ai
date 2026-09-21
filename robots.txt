@@ -1,8 +1,6 @@
 # DGS AI — free AI agent bot
-# Live GitHub Pages: https://sunkara1111.github.io/dgs-ai/
-# Custom domain: https://dgsai.sunkaraops.com/
+# Live: https://sunkara1111.github.io/dgs-ai/
 User-agent: *
 Allow: /
 
-Sitemap: https://dgsai.sunkaraops.com/sitemap.xml
 Sitemap: https://sunkara1111.github.io/dgs-ai/sitemap.xml

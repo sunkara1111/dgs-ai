@@ -533,7 +533,7 @@ function authErrorMessage(err) {
   }
   if (code === 'auth/unauthorized-domain') {
     const host = (typeof location !== 'undefined' && location.hostname) ? location.hostname : 'this host';
-    return `Add ${host} (and dgsai.sunkaraops.com, sunkara1111.github.io) as authorized domains in Firebase Auth settings.`;
+    return `Add ${host} (and sunkara1111.github.io) as an authorized domain in Firebase Auth settings.`;
   }
   return (err && err.message) ? err.message : 'Sign-in failed.';
 }

@@ -8,32 +8,35 @@ fail() { echo "check-pages: $*" >&2; exit 1; }
 test -f index.html || fail "missing index.html"
 test -f 404.html || fail "missing 404.html"
 test -f .nojekyll || fail "missing .nojekyll (needed so Pages serves css/js as-is)"
-test -f CNAME || fail "missing root CNAME"
 test -f robots.txt || fail "missing robots.txt"
 test -f sitemap.xml || fail "missing sitemap.xml"
 test -f css/styles.css || fail "missing css/styles.css"
 test -f js/app.js || fail "missing js/app.js"
 test -f js/gate.js || fail "missing js/gate.js"
 
-host="$(tr -d '[:space:]' < CNAME)"
-[[ "$host" == "dgsai.sunkaraops.com" ]] || fail "CNAME must be exactly dgsai.sunkaraops.com (got: ${host})"
-[[ "$host" != http* ]] || fail "CNAME must not include a scheme"
-[[ "$host" != */* ]] || fail "CNAME must not include a path"
+# A root CNAME 301s github.io to that host. dgsai.sunkaraops.com DNS is not
+# available from this repo — do not enforce a custom domain until it resolves.
+if [[ -e CNAME ]]; then
+  fail "root CNAME present; remove it until dgsai.sunkaraops.com DNS resolves (it 301s github.io to a dead host)"
+fi
+test -f docs/CNAME.example || fail "missing docs/CNAME.example (copy to /CNAME only after DNS)"
 
 grep -q 'href="css/styles.css' index.html || fail "index.html must use relative css path"
 grep -q 'src="js/app.js' index.html || fail "index.html must use relative js path"
 grep -q 'sunkara1111.github.io/dgs-ai' index.html || fail "index.html must document the github.io URL"
-grep -q 'dgsai.sunkaraops.com' index.html || fail "index.html must document the custom domain"
+grep -q 'canonical" href="https://sunkara1111.github.io/dgs-ai/' index.html || fail "canonical must be the live github.io URL"
 grep -Eiq 'coming soon' index.html && fail "index.html must not say Coming soon" || true
 
 if grep -E '(href|src)="/dgs-ai/' index.html 404.html; then
-  fail "absolute /dgs-ai/ asset paths break the custom domain (served from /)"
+  fail "absolute /dgs-ai/ asset paths break GitHub Pages project URLs"
 fi
 
 grep -q 'https://sunkara1111.github.io/dgs-ai/' sitemap.xml || fail "sitemap must list github.io"
-grep -q 'https://dgsai.sunkaraops.com/' sitemap.xml || fail "sitemap must list custom domain"
+if grep -q 'https://dgsai.sunkaraops.com/' sitemap.xml; then
+  fail "sitemap must not list dgsai.sunkaraops.com until DNS resolves"
+fi
 grep -q 'sunkara1111.github.io/dgs-ai' robots.txt || fail "robots.txt must mention github.io"
-grep -q 'dgsai.sunkaraops.com' robots.txt || fail "robots.txt must mention custom domain"
+grep -q 're-add' README.md || fail "README must say to re-add CNAME only after DNS exists"
 
 python3 - <<'PY'
 from pathlib import Path

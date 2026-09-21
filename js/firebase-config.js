@@ -8,8 +8,8 @@
  *      - Email/Password
  * 3. Authentication → Settings → Authorized domains: add
  *      sunkara1111.github.io
- *      dgsai.sunkaraops.com
  *      localhost   (optional, for local preview)
+ *      dgsai.sunkaraops.com  (only after DNS exists — see DOMAIN.md)
  * 4. Project settings → Your apps → Web app → copy the config object
  *    into FIREBASE_CONFIG below (public client keys — not Admin / service-account).
  * 5. Commit the filled values. Never commit Admin SDK keys, .env secrets, or
