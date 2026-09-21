@@ -1,0 +1,35 @@
+name: pages-check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-static-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate GitHub Pages root site
+        run: bash scripts/check-pages.sh
+      - name: Smoke-serve index.html
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in 1 2 3 4 5 6 7 8; do
+            if curl -fsS "http://127.0.0.1:4173/" | grep -q "Talk to DGS Agent"; then
+              curl -fsS "http://127.0.0.1:4173/CNAME"
+              curl -fsS "http://127.0.0.1:4173/robots.txt" >/dev/null
+              curl -fsS "http://127.0.0.1:4173/sitemap.xml" >/dev/null
+              curl -fsS "http://127.0.0.1:4173/404.html" >/dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "local smoke serve failed" >&2
+          exit 1

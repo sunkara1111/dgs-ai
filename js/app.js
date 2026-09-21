@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260920agent';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260921pages';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -142,8 +142,9 @@ const state = {
   profile: null,
 };
 
-const CACHE_BUST = '20260920agent';
+const CACHE_BUST = '20260921pages';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
+const CUSTOM_ORIGIN = 'https://dgsai.sunkaraops.com/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
 const THEME_KEY = 'dgs-ai-theme';
@@ -757,6 +758,7 @@ function pagesBase() {
   try {
     const u = new URL(location.href);
     if (u.protocol === 'http:' || u.protocol === 'https:') {
+      if (u.hostname === 'dgsai.sunkaraops.com') return CUSTOM_ORIGIN;
       let path = u.pathname || '/';
       if (path.endsWith('index.html')) path = path.slice(0, -'index.html'.length);
       if (!path.endsWith('/')) path += '/';

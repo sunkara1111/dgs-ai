@@ -9,14 +9,17 @@
  * SETUP
  * Razorpay (India):
  *   Create Payment Links for ₹1,499 (Starter) and ₹3,999 (Pro).
- *   Success / callback URL:
+ *   Success / callback URL (GitHub Pages live URL):
  *     https://sunkara1111.github.io/dgs-ai/?paid=1
+ *   Custom domain (after DNS):
+ *     https://dgsai.sunkaraops.com/?paid=1
  *   Paste into RAZORPAY_PAYMENT_LINK_INR_STARTER / _PRO.
  *
  * Stripe (USD):
  *   Payment Links for $19 (Starter) and $49 (Pro).
  *   Success URL: https://sunkara1111.github.io/dgs-ai/?paid=1
  *   Cancel URL:  https://sunkara1111.github.io/dgs-ai/
+ *   After DNS you can also use https://dgsai.sunkaraops.com/?paid=1
  *   Paste into STRIPE_PAYMENT_LINK_USD_STARTER / _PRO.
  *
  * Production must verify payment with a webhook + server-side entitlement.

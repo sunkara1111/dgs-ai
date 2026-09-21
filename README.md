@@ -1,6 +1,8 @@
 # DGS AI
 
-**Live:** https://sunkara1111.github.io/dgs-ai/
+**Live GitHub Pages:** https://sunkara1111.github.io/dgs-ai/
+
+**Custom domain:** https://dgsai.sunkaraops.com/ (repo-root `CNAME` is committed; add DNS at your host — see [DOMAIN.md](DOMAIN.md))
 
 Free AI agent bot. Talk to **DGS Agent** for chat, commands, work drafts, and social drafts. The paper trading desk is a free skill. Optional Pro is only for advanced trading autopilot and live.
 
@@ -8,14 +10,17 @@ Free AI agent bot. Talk to **DGS Agent** for chat, commands, work drafts, and so
 
 This GitHub Pages site is **live** (not a coming-soon page). The app is free forever — no account required. Default mode is paper / dry-run. Delayed Yahoo-style data is possible. Not financial advice. No guaranteed profit.
 
+GitHub Pages deploys from the `main` branch **root** (`index.html`, `.nojekyll`, `CNAME`). No paid host is required.
+
 ## Public pages
 
 | Path | Purpose |
 |------|---------|
-| https://sunkara1111.github.io/dgs-ai/ | DGS Agent (free) + optional trading desk |
+| https://sunkara1111.github.io/dgs-ai/ | Live GitHub Pages URL (project site) |
+| https://dgsai.sunkaraops.com/ | Custom domain (root `CNAME`) |
 | https://sunkara1111.github.io/dgs-ai/robots.txt | Crawl rules |
 | https://sunkara1111.github.io/dgs-ai/sitemap.xml | Sitemap |
-| [DOMAIN.md](DOMAIN.md) | Custom-domain checklist (no invented hostname) |
+| [DOMAIN.md](DOMAIN.md) | Custom-domain DNS + HTTPS checklist |
 
 ## Honest limits
 
