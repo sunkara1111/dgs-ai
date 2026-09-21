@@ -1,12 +1,14 @@
 # DGS AI — free agent + optional Pro setup
 
-Live: https://sunkara1111.github.io/dgs-ai/
+Live GitHub Pages: https://sunkara1111.github.io/dgs-ai/
+
+Do not add a root `CNAME` for `dgsai.sunkaraops.com` until DNS resolves — it 301s the live github.io site to a dead host. See [DOMAIN.md](../DOMAIN.md).
 
 **Founder:** Dineshgopi Sunkara · Senior Controls Engineer · Automation Engineer
 
 This GitHub Pages app ships a **free DGS Agent**. Anyone can talk to the bot without paying. Sign-in is optional. Checkout links stay placeholders until Razorpay / Stripe URLs are pasted. No secrets belong in this repo (no Admin SDK, no service-account JSON, no API signing keys).
 
-Custom domain: see [DOMAIN.md](../DOMAIN.md). Do not invent a purchased hostname.
+Custom domain: [DOMAIN.md](../DOMAIN.md). Re-add a root `CNAME` from `docs/CNAME.example` only after `dgsai.sunkaraops.com` DNS exists.
 
 ## Plans
 
@@ -32,7 +34,7 @@ The free agent works without an account. Firebase is only for people who want to
 1. Create a project at https://console.firebase.google.com
 2. Add a **Web** app; copy the public client config into `FIREBASE_CONFIG` in `js/firebase-config.js`.
 3. Authentication → Sign-in method → enable **Google** and **Email/Password**.
-4. Authentication → Settings → Authorized domains → add `sunkara1111.github.io` (and your custom domain from `DOMAIN.md`, plus `localhost` if you preview locally).
+4. Authentication → Settings → Authorized domains → add `sunkara1111.github.io` (plus `localhost` if you preview locally). Add `dgsai.sunkaraops.com` only after DNS exists — see [DOMAIN.md](../DOMAIN.md).
 5. Commit the public client config. Do **not** commit Admin SDK keys or service-account files.
 
 When placeholders remain (`YOUR_FIREBASE_API_KEY`), the landing page still offers **Talk to DGS Agent — Free forever**.
@@ -41,9 +43,9 @@ When placeholders remain (`YOUR_FIREBASE_API_KEY`), the landing page still offer
 
 Kept for existing payment links. New users should use the free agent.
 
-**Stripe $19 (USD):** Payment Link → amount **$19** → success `https://sunkara1111.github.io/dgs-ai/?paid=1` → paste into `STRIPE_PAYMENT_LINK_USD_STARTER`.
+**Stripe $19 (USD):** Payment Link → amount **$19** → success `https://sunkara1111.github.io/dgs-ai/?paid=1` (or `https://dgsai.sunkaraops.com/?paid=1` after DNS) → paste into `STRIPE_PAYMENT_LINK_USD_STARTER`.
 
-**Razorpay ₹1,499 (INR):** Payment Link → amount **₹1,499** → callback `https://sunkara1111.github.io/dgs-ai/?paid=1` → paste into `RAZORPAY_PAYMENT_LINK_INR_STARTER`.
+**Razorpay ₹1,499 (INR):** Payment Link → amount **₹1,499** → callback `https://sunkara1111.github.io/dgs-ai/?paid=1` (or `https://dgsai.sunkaraops.com/?paid=1` after DNS) → paste into `RAZORPAY_PAYMENT_LINK_INR_STARTER`.
 
 ## 3. Optional Pro checkout (`js/billing-config.js`)
 

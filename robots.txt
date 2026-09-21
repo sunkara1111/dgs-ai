@@ -1,5 +1,5 @@
 # DGS AI — free AI agent bot
-# https://sunkara1111.github.io/dgs-ai/
+# Live: https://sunkara1111.github.io/dgs-ai/
 User-agent: *
 Allow: /
 

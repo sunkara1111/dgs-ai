@@ -7,14 +7,14 @@
  * Core agent (chat, commands, work, social, paper desk) is never paywalled.
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260920agent';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260921pages';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js?v=20260920agent';
+} from './billing-config.js?v=20260921pages';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -532,7 +532,8 @@ function authErrorMessage(err) {
     return 'This sign-in method is disabled in Firebase. Enable Google and Email/Password in the console.';
   }
   if (code === 'auth/unauthorized-domain') {
-    return 'Add sunkara1111.github.io as an authorized domain in Firebase Auth settings.';
+    const host = (typeof location !== 'undefined' && location.hostname) ? location.hostname : 'this host';
+    return `Add ${host} (and sunkara1111.github.io) as an authorized domain in Firebase Auth settings.`;
   }
   return (err && err.message) ? err.message : 'Sign-in failed.';
 }

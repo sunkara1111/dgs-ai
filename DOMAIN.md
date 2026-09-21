@@ -1,75 +1,52 @@
 # Custom domain checklist — DGS AI
 
-DGS AI ships on GitHub Pages today:
+DGS AI is a **static** GitHub Pages site. Pages deploys from the `main` branch **root** (`/`). No paid host is required.
+
+## Live URL
 
 **https://sunkara1111.github.io/dgs-ai/**
 
-Do **not** invent or assume a purchased domain. Use a hostname you already own. Example *patterns* only (not claims that these are live):
+Do **not** commit a repo-root `CNAME` while `dgsai.sunkaraops.com` DNS does not resolve. GitHub Pages treats that file as a custom domain and **301s** the github.io URL to it. That takes the public site down.
 
-- `dgsai.sunkaraops.com` (subdomain of a domain you control)
-- `dgsai.com` (apex you purchased yourself)
+`sunkaraops.com` Netlify DNS is on another team. This repo cannot create the record.
 
-Until you attach a real hostname, keep using the GitHub Pages URL. A root `CNAME` file is **not** committed here on purpose — adding one would point Pages at a domain you have not configured.
+## When DNS exists — then re-add CNAME
 
-## Placeholder CNAME
+Intended hostname (not live today): `dgsai.sunkaraops.com`
 
-When you own the hostname, create a repo-root file named `CNAME` with **only** that hostname (no `https://`, no path):
-
-```
-YOUR_CUSTOM_DOMAIN
-```
-
-Example after you own a subdomain:
-
-```
-dgsai.sunkaraops.com
-```
-
-A copy of this placeholder lives at `docs/CNAME.example`. Copy it to `/CNAME` only after DNS is yours.
-
-## GitHub Pages (recommended, current host)
-
-1. Buy or pick a hostname you already control. Do not use a placeholder in production DNS.
-2. In your DNS host, add a **CNAME** record:
-   - **Host / name:** `dgsai` (or `www`)
+1. In Netlify / NSONE for `sunkaraops.com`, add a **CNAME**:
+   - **Host / name:** `dgsai`
    - **Target / value:** `sunkara1111.github.io`
-   - TTL: 300–3600 is fine
-3. Apex (`dgsai.com` → site) needs **A/AAAA** records that GitHub publishes for Pages, or an ALIAS/ANAME if your DNS supports it. Confirm the current IPs on [GitHub Pages custom-domain docs](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site).
-4. Add the `CNAME` file at the repo root with the hostname.
-5. GitHub → repo **Settings → Pages → Custom domain** → enter the same hostname → Save.
-6. Wait for DNS + TLS. GitHub issues a Let’s Encrypt certificate. Enforce HTTPS when it is ready.
-7. Add the custom hostname to **Firebase Auth → Settings → Authorized domains** (sign-in is optional; still required if you use Google / email).
-8. Update public URLs after cutover:
-   - `index.html` canonical, Open Graph, Twitter, JSON-LD
-   - `robots.txt` Sitemap line
-   - `sitemap.xml` `<loc>`
-   - `README.md` live link
-9. In Search Console, add the new property and recrawl. Keep the paper-default / not-financial-advice disclaimers.
+   - Do **not** target `sunkara1111.github.io/dgs-ai` — DNS is a host, not a path.
+2. Confirm `dgsai.sunkaraops.com` resolves (`dig +short CNAME dgsai.sunkaraops.com`).
+3. Copy `docs/CNAME.example` to a repo-root file named `CNAME` (hostname only, no `https://`).
+4. GitHub → repo **Settings → Pages → Custom domain** → `dgsai.sunkaraops.com` → Save.
+5. Wait for free Let’s Encrypt TLS. Enforce HTTPS when ready.
+6. Add `dgsai.sunkaraops.com` to **Firebase Auth → Settings → Authorized domains**. Keep `sunkara1111.github.io`.
+7. Point canonical, Open Graph, JSON-LD, `robots.txt`, `sitemap.xml`, and README at the new origin.
 
-## Netlify (optional later)
+Until those steps are done, keep using https://sunkara1111.github.io/dgs-ai/ and leave the root `CNAME` **out** of the repo.
 
-1. Import this repo. Publish directory = repo root (this is a static site, not a build).
-2. Site → Domain management → add the hostname you own.
-3. DNS: CNAME `dgsai` (or `www`) → `YOUR_SITE.netlify.app` **or** use Netlify DNS.
-4. Do not leave `YOUR_CUSTOM_DOMAIN` in a live CNAME.
-5. HTTPS is automatic. Add the hostname to Firebase authorized domains.
-6. Update canonical / sitemap / robots to the new origin.
+## GitHub Pages (current host)
 
-## Vercel (optional later)
+- Source: `main` branch, site root (`/`) — not `/docs`
+- **No** root `CNAME` until DNS is live
+- `.nojekyll` so `css/` and `js/` are served as-is
+- `404.html` for unknown paths
+- Asset URLs are **relative**, so the same files will also work at `/` on a custom domain later
 
-1. Import this repo. Framework preset: Other. Output: static root.
-2. Project → Domains → add the hostname you own.
-3. DNS: CNAME to `cname.vercel-dns.com` (or the target Vercel shows).
-4. Add the hostname to Firebase authorized domains.
-5. Update canonical / sitemap / robots to the new origin.
+## Netlify / Vercel (optional later)
 
-## After cutover
+Not required. The parent site `sunkaraops.com` is on Netlify; DGS AI stays on free GitHub Pages.
 
-- [ ] DNS CNAME/ALIAS points at GitHub Pages, Netlify, or Vercel — not a guessed host
-- [ ] Repo-root `CNAME` matches the hostname (GitHub Pages only)
-- [ ] HTTPS lock is valid
-- [ ] Firebase authorized domains include the hostname
-- [ ] Canonical, sitemap, robots, and README use the new origin
+## Cutover checklist
+
+- [x] Live site is https://sunkara1111.github.io/dgs-ai/ (no root `CNAME`)
+- [ ] DNS CNAME `dgsai` → `sunkara1111.github.io` exists and resolves
+- [ ] Repo-root `CNAME` copied from `docs/CNAME.example` **after** DNS
+- [ ] HTTPS lock is valid on https://dgsai.sunkaraops.com/
+- [ ] Firebase authorized domains include `dgsai.sunkaraops.com`
+- [ ] Canonical, sitemap, robots, and README updated to the new origin
 - [ ] No “Powered by” platform badges on the public app
 - [ ] Paper default · not financial advice · no guaranteed profit still visible
 
