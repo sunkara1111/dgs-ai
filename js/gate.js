@@ -1,19 +1,20 @@
 /**
- * DGS AI launch gate — Google / email auth + Starter/Pro paywall.
+ * DGS AI launch gate — free agent first, optional account, optional Pro.
  * Owner allowlist (hashed) bypasses payment with full access.
  * Entitlement is client-side (localStorage) MVP.
  *
- * Plans: owner (private) | limited/starter | pro
+ * Plans: owner (private) | free | limited/starter (legacy paid) | pro
+ * Core agent (chat, commands, work, social, paper desk) is never paywalled.
  * Do NOT list free owner emails in UI or docs.
  */
-import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260920live';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './firebase-config.js?v=20260920agent';
 import {
   BILLING,
   isPayLinkReady,
   payLinkFor,
   planFromPayKind,
   payKindLabel,
-} from './billing-config.js?v=20260920live';
+} from './billing-config.js?v=20260920agent';
 
 // Free-access emails stored as SHA-256 only (not listed in UI or plaintext).
 const FREE_EMAIL_HASHES = new Set([
@@ -25,11 +26,13 @@ const FREE_EMAIL_HASHES = new Set([
 
 const ENT_PREFIX = 'dgs-ai-pro';
 const PROFILE_PREFIX = 'dgs-ai-profile';
+const GUEST_KEY = 'dgs-ai-guest';
 
 const profileReadyListeners = [];
 
-/** Features available on Starter (limited). Everything else needs Pro/owner. */
-const LIMITED_FEATURES = new Set([
+/** Always free on the agent path (guest, signed-in free, or legacy Starter). */
+const FREE_FEATURES = new Set([
+  'agent',
   'signin',
   'brief',
   'quote',
@@ -38,9 +41,11 @@ const LIMITED_FEATURES = new Set([
   'sendPhone',
   'manualPaper',
   'riskBasic',
+  'social',
+  'work',
 ]);
 
-/** Pro-only (also granted to owner). */
+/** Pro-only advanced trading (also granted to owner). Autopilot / live / scanners. */
 const PRO_FEATURES = new Set([
   'autopilot',
   'scan',
@@ -50,7 +55,6 @@ const PRO_FEATURES = new Set([
   'connectApps',
   'generateBot',
   'slTpManage',
-  // Market skills (full scanners / reports / IB) — Starter keeps quote+technicals+chart
   'fundamentals',
   'options',
   'marketReport',
@@ -66,6 +70,7 @@ let currentUser = null;
 let paidConfirmArmed = false;
 let ownerSession = false;
 let cachedPlan = null;
+let preferLanding = false;
 
 export function onUnlocked(fn) {
   if (typeof fn !== 'function') return;
@@ -204,32 +209,63 @@ export function getAgentName() {
   return name || 'DGS Agent';
 }
 
-/** Current plan: 'owner' | 'pro' | 'limited' | null */
+/** Current plan: 'owner' | 'pro' | 'limited' | 'free' | null */
 export function getPlan() {
   if (!unlocked) return null;
   if (ownerSession) return 'owner';
-  if (cachedPlan === 'pro' || cachedPlan === 'limited') return cachedPlan;
+  if (cachedPlan === 'pro' || cachedPlan === 'limited' || cachedPlan === 'free') return cachedPlan;
   const ent = currentUser ? readEntitlement(currentUser) : null;
   if (ent && (ent.plan === 'pro' || ent.plan === 'limited')) return ent.plan;
   // Legacy entitlements (paid without plan) → treat as pro for backward compat
   if (ent && ent.paid === true) return 'pro';
-  return null;
+  return 'free';
 }
 
 /**
  * Feature gate.
  * Owner & Pro: all features.
- * Limited/Starter: sign-in, command bar, quote, technicals, chart, send-to-phone, manual paper.
+ * Free + legacy Starter: agent chat, work, social, paper desk, quote, technicals, chart.
+ * Pro-only: autopilot, live brokers, scanners, reports, IB.
  */
 export function hasFeature(name) {
   const plan = getPlan();
-  if (!plan) return false;
+  if (!plan) {
+    // Agent path is free even before unlock finishes (defensive).
+    return FREE_FEATURES.has(name);
+  }
   if (plan === 'owner' || plan === 'pro') return true;
-  if (plan === 'limited') {
-    // Starter: everything except Pro-only features
+  if (plan === 'free' || plan === 'limited') {
+    if (FREE_FEATURES.has(name)) return true;
     return !PRO_FEATURES.has(name);
   }
-  return false;
+  return FREE_FEATURES.has(name);
+}
+
+export function isGuestSession() {
+  return !currentUser;
+}
+
+export function enterFreeAgent() {
+  preferLanding = false;
+  try { localStorage.setItem(GUEST_KEY, '1'); } catch (_) {}
+  if (!currentUser && cachedPlan !== 'pro' && cachedPlan !== 'limited' && !ownerSession) {
+    cachedPlan = 'free';
+  }
+  fireUnlock();
+}
+
+export function showPlans() {
+  setGate('paywall');
+  setPayMsg('DGS Agent stays free. Pro is optional — advanced trading autopilot and live only.', '');
+}
+
+export function closePlans() {
+  if (unlocked) setGate('open');
+  else setGate('locked');
+}
+
+function hasGuestFlag() {
+  try { return localStorage.getItem(GUEST_KEY) === '1'; } catch (_) { return false; }
 }
 
 export async function signOutUser() {
@@ -370,30 +406,51 @@ function resolvePendingPlan() {
   return 'limited';
 }
 
-async function fireUnlock() {
-  if (unlocked) return;
-  unlocked = true;
+function planLabel(plan) {
+  if (plan === 'owner') return 'Owner';
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'limited') return 'Starter';
+  return 'Free';
+}
+
+function refreshPlanChips() {
+  const plan = getPlan() || 'free';
   const chip = $('accountChip');
-  const plan = getPlan();
-  if (chip && currentUser) {
-    chip.hidden = false;
-    chip.textContent = normalizeEmail(currentUser.email) || 'Signed in';
-    if (plan === 'owner') chip.dataset.tier = 'owner';
-    else if (plan === 'pro') chip.dataset.tier = 'pro';
-    else if (plan === 'limited') chip.dataset.tier = 'limited';
-    else chip.dataset.tier = '';
+  if (chip) {
+    if (currentUser) {
+      chip.hidden = false;
+      chip.textContent = normalizeEmail(currentUser.email) || 'Signed in';
+      chip.dataset.tier = plan === 'owner' || plan === 'pro' || plan === 'limited' || plan === 'free' ? plan : 'free';
+    } else {
+      chip.hidden = false;
+      chip.textContent = 'Guest · free';
+      chip.dataset.tier = 'free';
+    }
   }
   const planChip = $('planChip');
   if (planChip) {
     planChip.hidden = false;
-    planChip.textContent = plan === 'owner' ? 'Owner' : plan === 'pro' ? 'Pro' : 'Starter';
-    planChip.dataset.tier = plan || 'limited';
+    planChip.textContent = planLabel(plan);
+    planChip.dataset.tier = plan;
   }
-  document.body.dataset.plan = getPlan() || '';
-  // Block desk until customer/owner profile is saved once
-  const existingProfile = readProfile(currentUser);
-  if (!existingProfile) setGate('onboarding');
-  else setGate('open');
+  const upgradeBtn = $('upgradePlanBtn');
+  if (upgradeBtn) {
+    const paid = plan === 'pro' || plan === 'owner';
+    upgradeBtn.hidden = paid;
+  }
+  const signInAppBtn = $('signInAppBtn');
+  const signOutBtn = $('signOutBtn');
+  if (signInAppBtn) signInAppBtn.hidden = !!currentUser;
+  if (signOutBtn) signOutBtn.hidden = !currentUser;
+  document.body.dataset.plan = plan;
+}
+
+function fireUnlock() {
+  refreshPlanChips();
+  setGate('open');
+  if (unlocked) return;
+  unlocked = true;
+  const existingProfile = currentUser ? readProfile(currentUser) : null;
   unlockListeners.splice(0).forEach((fn) => {
     try { fn(); } catch (err) { console.error(err); }
   });
@@ -407,23 +464,27 @@ async function fireUnlock() {
 async function applyUser(user) {
   currentUser = user;
   ownerSession = false;
-  cachedPlan = null;
   if (!user) {
-    unlocked = false;
+    cachedPlan = 'free';
+    if (preferLanding) {
+      unlocked = false;
+      setGate('locked');
+      refreshPlanChips();
+      return;
+    }
+    if (hasGuestFlag() || unlocked) {
+      fireUnlock();
+      return;
+    }
     setGate('locked');
+    refreshPlanChips();
     const chip = $('accountChip');
-    if (chip) {
+    if (chip && !hasGuestFlag()) {
       chip.hidden = true;
       chip.textContent = '';
       delete chip.dataset.tier;
     }
-    const planChip = $('planChip');
-    if (planChip) {
-      planChip.hidden = true;
-      planChip.textContent = '';
-      delete planChip.dataset.tier;
-    }
-    document.body.dataset.plan = '';
+    document.body.dataset.plan = hasGuestFlag() ? 'free' : '';
     return;
   }
 
@@ -449,9 +510,9 @@ async function applyUser(user) {
     return;
   }
 
-  unlocked = false;
-  setGate('paywall');
-  setPayMsg('Choose Starter or Pro to unlock DGS AI. Paper default · no guaranteed profit.', '');
+  // Signed-in users get the free agent. Pro is optional.
+  cachedPlan = 'free';
+  fireUnlock();
 }
 
 function authErrorMessage(err) {
@@ -662,6 +723,37 @@ function bindGateUi() {
   const appOut = $('signOutBtn');
   if (appOut) appOut.onclick = () => { signOutUser(); };
 
+  const enterFree = $('enterFreeBtn');
+  if (enterFree) enterFree.onclick = () => { enterFreeAgent(); };
+
+  const seePlans = $('seePlansBtn');
+  if (seePlans) seePlans.onclick = () => { showPlans(); };
+
+  const backFree = $('backToFreeBtn');
+  if (backFree) backFree.onclick = () => {
+    if (unlocked) closePlans();
+    else enterFreeAgent();
+  };
+
+  const upgradeBtn = $('upgradePlanBtn');
+  if (upgradeBtn) upgradeBtn.onclick = () => { showPlans(); };
+
+  const signInApp = $('signInAppBtn');
+  if (signInApp) {
+    signInApp.onclick = () => {
+      preferLanding = true;
+      unlocked = false;
+      setGate('locked');
+      setLoginMsg('Sign in to save your account. The agent stays free.', '');
+    };
+  }
+
+  const useFreePlan = $('useFreePlanBtn');
+  if (useFreePlan) useFreePlan.onclick = () => {
+    if (unlocked) closePlans();
+    else enterFreeAgent();
+  };
+
   const onboardForm = $('onboardForm');
   if (onboardForm) {
     onboardForm.addEventListener('submit', (ev) => {
@@ -688,13 +780,15 @@ function bindGateUi() {
         return;
       }
       if (msg) {
-        msg.textContent = 'Profile saved on this device. Opening desk…';
+        msg.textContent = 'Profile saved on this device. Opening DGS Agent…';
         msg.dataset.kind = '';
       }
     });
   }
   const onboardOut = $('onboardSignOutBtn');
   if (onboardOut) onboardOut.onclick = () => { signOutUser(); };
+  const onboardSkip = $('onboardSkipBtn');
+  if (onboardSkip) onboardSkip.onclick = () => { enterFreeAgent(); };
 }
 
 async function initGate() {
@@ -702,10 +796,14 @@ async function initGate() {
   consumePaidQuery();
   bindGateUi();
 
+  if (hasGuestFlag()) {
+    enterFreeAgent();
+  }
+
   if (!isFirebaseConfigured()) {
     setLoginMsg(
-      'Sign-in activates when Firebase keys are added in js/firebase-config.js. See SETUP.md.',
-      'warn'
+      'Account sign-in is optional. Use DGS Agent free forever without an account.',
+      ''
     );
     return;
   }

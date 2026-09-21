@@ -1,4 +1,4 @@
-import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260920live';
+import { onUnlocked, signOutUser, getPlan, hasFeature, getProfile, onProfileReady, getCurrentUser, patchUserProfile, getAgentName } from './gate.js?v=20260920agent';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'dgs-ai-v3';
@@ -142,7 +142,7 @@ const state = {
   profile: null,
 };
 
-const CACHE_BUST = '20260920live';
+const CACHE_BUST = '20260920agent';
 const PAGES_FALLBACK = 'https://sunkara1111.github.io/dgs-ai/';
 
 const CONNECT_APPS_KEY = 'dgs-ai-connect-apps';
@@ -286,7 +286,7 @@ function deskCcxtTest() {
 
 function deskCcxtSave() {
   if (!hasFeature('connectApps')) {
-    requireFeature('connectApps', 'Connect trading account / CCXT is a Pro feature. Starter can still paper trade.');
+        requireFeature('connectApps', 'Connect trading account / CCXT is optional Pro. The free agent can still paper trade.');
     return;
   }
   syncSettingsCcxtFromDesk();
@@ -505,7 +505,7 @@ function updateModeBadge() {
 function startManagedBot(opts = {}) {
   const announce = !(opts && opts.quiet);
   if (!hasFeature('autopilot')) {
-    if (announce) requireFeature('autopilot', 'Start bot / managed autopilot is a Pro feature. Starter includes manual paper enter.');
+    if (announce) requireFeature('autopilot', 'Start bot / managed autopilot is optional Pro. The free agent includes chat, work, social, and manual paper.');
     return;
   }
   const profile = getProfile() || state.profile;
@@ -570,7 +570,7 @@ function updateStartStopUi() {
 
 function requireFeature(name, upgradeMsg) {
   if (hasFeature(name)) return true;
-  const msg = upgradeMsg || 'That feature needs DGS AI Pro. Starter covers quote, technicals, chart, send-to-phone, and manual paper trades. No guaranteed profit.';
+  const msg = upgradeMsg || 'That feature is optional Pro (autopilot / live). DGS Agent is free forever for chat, work, social, quote, technicals, chart, and manual paper. No guaranteed profit.';
   speak(msg);
   const hint = $('botUpgradeHint');
   if (hint) {
@@ -733,7 +733,8 @@ function addLine(who, text) {
   if (!box || !text) return;
   const el = document.createElement('div');
   el.className = `bubble ${who}`;
-  el.innerHTML = `<span class="who">${who === 'user' ? 'You' : 'DGS AI'}</span><p>${escapeHtml(text)}</p>`;
+  const bot = who === 'user' ? 'You' : escapeHtml(resolveAgentName());
+  el.innerHTML = `<span class="who">${bot}</span><p>${escapeHtml(text)}</p>`;
   box.appendChild(el);
   while (box.children.length > 16) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
@@ -1095,7 +1096,8 @@ function openChart(symbol, opts = {}) {
   setChartChipActive(sym);
   showPane('chart');
   if (!(opts && opts.silent)) {
-    speak(`Opening ${sym} chart. Paper only. Use Send to phone for the handoff.`);
+    setUiMode('desk');
+    speak(`Opening ${sym} chart on the trading desk. Paper only. Use Send to phone for the handoff.`);
   }
 }
 
@@ -1546,7 +1548,7 @@ function analyzeRisk() {
 async function scanMarket(opts = {}) {
   const quiet = !!(opts && opts.quiet);
   if (!hasFeature('scan')) {
-    if (!quiet) requireFeature('scan', 'Market scan and find-a-trade are Pro features. On Starter, use the risk drawer to analyze and paper-enter manually.');
+    if (!quiet) requireFeature('scan', 'Market scan is optional Pro. On the free agent, use quote, technicals, or the risk drawer for manual paper.');
     return;
   }
   if (!quiet) markUserSpoke();
@@ -1874,7 +1876,7 @@ async function autopilotTick() {
 function startAutopilot(opts = {}) {
   const announce = !(opts && opts.quiet);
   if (!hasFeature('autopilot')) {
-    if (announce) requireFeature('autopilot', 'Paper autopilot is a Pro feature. Starter includes manual paper enter. Upgrade to Pro for the quiet scan loop with auto stop-loss and take-profit.');
+    if (announce) requireFeature('autopilot', 'Paper autopilot is optional Pro. The free agent includes manual paper enter. Upgrade only if you want the managed loop.');
     return;
   }
   if (state.autopilot) {
@@ -1987,7 +1989,7 @@ function updateCoinSwitchUi() {
 
 function setCoinSwitchConnected(on, announce = true) {
   if (on && !hasFeature('coinswitch')) {
-    if (announce) requireFeature('coinswitch', 'CoinSwitch connect and live intents are Pro features. Starter stays paper-manual. Live brokers need official APIs via DGS AI assistant.');
+    if (announce) requireFeature('coinswitch', 'CoinSwitch live intents are optional Pro. The free agent stays paper-manual. Live brokers need official APIs.');
     return;
   }
   state.coinswitchConnected = !!on;
@@ -2004,7 +2006,7 @@ function setCoinSwitchConnected(on, announce = true) {
 
 function appendCoinSwitchIntent(rawText, extras = {}) {
   if (!hasFeature('coinswitch')) {
-    requireFeature('coinswitch', 'CoinSwitch trade intents are a Pro feature. Upgrade to log live intents; execution still happens via DGS AI assistant keys, not this page.');
+    requireFeature('coinswitch', 'CoinSwitch trade intents are optional Pro. The free agent stays paper. Live execution still happens via DGS AI assistant keys, not this page.');
     return null;
   }
   const text = String(rawText || '').trim();
@@ -2185,7 +2187,7 @@ function bindBrokerStubs() {
   if (cxBtn) {
     cxBtn.onclick = () => {
       if (!hasFeature('connectApps')) {
-        requireFeature('connectApps', 'CCXT exchange connect is a Pro feature.');
+        requireFeature('connectApps', 'CCXT exchange connect is optional Pro. The free agent stays paper.');
         return;
       }
       const key = $('ccxtKey')?.value || '';
@@ -2280,7 +2282,7 @@ function bindBrokerStubs() {
   if (cBtn) {
     cBtn.onclick = () => {
       if (!hasFeature('coinswitch')) {
-        requireFeature('coinswitch', 'CoinSwitch connect is a Pro feature.');
+        requireFeature('coinswitch', 'CoinSwitch connect is optional Pro. The free agent stays paper.');
         return;
       }
       const key = $('coinswitchKey')?.value || '';
@@ -2759,7 +2761,7 @@ function riskCompareLine(r) {
 }
 
 async function technicalsSpeech(symbol) {
-  if (!requireFeature('technicals', 'Technicals are included on Starter and Pro. Sign in to continue.')) return;
+  if (!requireFeature('technicals', 'Technicals are included on the free DGS Agent.')) return;
   const filler = speakFiller();
   const closes = await fetchHistoryCloses(symbol, '3mo');
   await filler;
@@ -2773,7 +2775,7 @@ async function technicalsSpeech(symbol) {
 }
 
 async function fundamentalsSpeech(symbol) {
-  if (!requireFeature('fundamentals', 'Fundamentals are a Pro feature. Starter includes quote, technicals, and chart.')) return;
+  if (!requireFeature('fundamentals', 'Fundamentals are optional Pro. The free agent includes quote, technicals, and chart.')) return;
   const filler = speakFiller();
   const f = await fetchFundamentals(symbol);
   await filler;
@@ -2785,7 +2787,7 @@ async function fundamentalsSpeech(symbol) {
 }
 
 async function optionsSpeech(symbol) {
-  if (!requireFeature('options', 'Option chains and Greeks are Pro. Starter covers quote, technicals, and chart.')) return;
+  if (!requireFeature('options', 'Option chains and Greeks are optional Pro. The free agent covers quote, technicals, and chart.')) return;
   const filler = speakFiller();
   const snap = await fetchOptionsSnapshot(symbol);
   await filler;
@@ -2797,7 +2799,7 @@ async function optionsSpeech(symbol) {
 }
 
 async function riskCompareSpeech(a, b) {
-  if (!requireFeature('riskCompare', 'Risk compare is Pro. Upgrade for volatility, beta, and correlation.')) return;
+  if (!requireFeature('riskCompare', 'Risk compare is optional Pro. Upgrade for volatility, beta, and correlation.')) return;
   const filler = speakFiller();
   const r = await fetchRiskCompare(a, b);
   await filler;
@@ -2809,7 +2811,7 @@ async function riskCompareSpeech(a, b) {
 }
 
 async function fullReportSpeech(symbol) {
-  if (!requireFeature('marketReport', 'Full reports are Pro. Starter keeps quote, technicals, and chart.')) return;
+  if (!requireFeature('marketReport', 'Full reports are optional Pro. The free agent keeps quote, technicals, and chart.')) return;
   const filler = speakFiller();
   const [q, closes, f] = await Promise.all([
     fetchQuote(symbol),
@@ -2830,12 +2832,12 @@ async function fullReportSpeech(symbol) {
 }
 
 async function ibPortfolioSpeech() {
-  if (!requireFeature('ibPortfolio', 'IBKR portfolio read is Pro. Needs TWS paper on port 7497.')) return;
+  if (!requireFeature('ibPortfolio', 'IBKR portfolio read is optional Pro. Needs TWS paper on port 7497.')) return;
   await speak('My IB portfolio: DGS AI reads Interactive Brokers paper via TWS or IB Gateway on one two seven dot zero dot zero dot one port seven four nine seven. Say ib status or run python -m tools.market_skills ib-positions --rolls on the box. If TWS is not running you get a graceful offline message. Stop-loss is dry-run by default — pass --execute only when you mean it. Not advice.');
 }
 
 async function ibStopLossSpeech() {
-  if (!requireFeature('ibPortfolio', 'IB stop-loss tools are Pro and dry-run by default.')) return;
+  if (!requireFeature('ibPortfolio', 'IB stop-loss tools are optional Pro and dry-run by default.')) return;
   await speak('IB stop-loss defaults to dry-run. It analyzes paper positions and proposed stops without placing orders. To place, the operator must pass --execute on the CLI. Live port seven four nine six is not the default. Not financial advice.');
 }
 
@@ -2849,7 +2851,19 @@ function parseTwoSymbols(text) {
 
 
 function helpSpeech() {
-  return 'I am DGS AI. Type commands in the bar or tap a skill. Starter: quote, technicals, chart, send to phone, manual paper. Pro: fundamentals, options Greeks, bullish scan, risk compare, full report, IB portfolio, stop-loss dry-run, autopilot, CoinSwitch intents. Also: find a trade, take the trade, how is my book, close trade, brief. Paper default. Delayed data possible. Not advice. No guaranteed profit.';
+  return 'I am DGS Agent, a free AI bot. Chat with me, ask for work drafts or social drafts, or run paper desk skills: quote, technicals, chart, send to phone, manual paper, brief. Optional Pro is only for autopilot and live trading plus scanners and reports. Also: daily priorities, draft a LinkedIn post, open desk, how is my book. Paper default. Delayed data possible. Not advice. No guaranteed profit.';
+}
+
+function setUiMode(mode) {
+  const next = mode === 'desk' ? 'desk' : 'agent';
+  document.body.dataset.uiMode = next;
+  const app = $('app');
+  if (app) app.dataset.ui = next;
+  const brandSub = document.querySelector('.brand-sub');
+  if (brandSub) brandSub.textContent = next === 'desk' ? 'DESK' : 'AGENT';
+  document.querySelectorAll('.mode-btn').forEach((btn) => {
+    btn.classList.toggle('is-on', btn.getAttribute('data-ui-mode') === next);
+  });
 }
 
 function showPane(name) {
@@ -2871,31 +2885,23 @@ async function quoteSpeech(symbol) {
 function quickAnswer(q) {
   const t = q.toLowerCase();
   if (/(who are you|your name|what are you)/.test(t)) {
-    return 'I am DGS AI, built for Dineshgopi Sunkara. Text-first dashboard. Stocks and crypto brief, charts, and paper risk. I do not place live orders.';
+    return 'I am DGS Agent, the free AI bot from DGS AI, built for Dineshgopi Sunkara. Chat, work drafts, social drafts, and a paper trading desk skill. I do not place live orders.';
   }
   if (/(help|what can you|commands)/.test(t)) return helpSpeech();
   if (/(profit|guarantee|guaranteed)/.test(t)) {
     return 'No profit is guaranteed. DGS AI blocks bad paper size. It does not promise returns.';
   }
   if (/(broker|live order|real money|place a trade)/.test(t)) {
-    return 'Paper autopilot is the default. CoinSwitch India is the primary live path — orders are executed by DGS AI assistant with your keys server-side, not from this page. Type coinswitch status or buy BTC on coinswitch to log an intent. Alpaca is an optional stub. Robinhood has no official bot API; we will not ask for your password.';
-  }
-  if (/(social|instagram|linkedin|twitter|post)/.test(t)) {
-    showPane('settings');
-    return 'Settings is open on Social drafts. I draft. You approve before posting.';
-  }
-  if (/(work|email|sop|priority|priorities)/.test(t)) {
-    showPane('settings');
-    return 'Settings is open on Work drafts. Plans and drafts only.';
+    return 'The agent and paper desk are free. Paper autopilot / live is optional Pro. CoinSwitch India is the primary live path — orders are executed by DGS AI assistant with your keys server-side, not from this page. Robinhood has no official bot API; we will not ask for your password.';
   }
   if (/(hello|hi |hey )/.test(t) || t === 'hi' || t === 'hey') {
-    return 'Ready. Type quote, technicals, chart, find a trade, or any stock or crypto.';
+    return 'Hey — DGS Agent is free forever. Ask for a social draft, daily priorities, a quote, or say open desk.';
   }
   if (/(not financial advice|disclaimer|delayed data|fifteen minute|15 ?m)/.test(t)) {
     return 'Disclaimer: DGS AI is not financial advice. Yahoo-style quotes may be delayed about fifteen minutes. No profits are guaranteed. IB stop-loss is dry-run by default.';
   }
   if (/(what (is|are) (market )?skills|market skills|trading skills)/.test(t)) {
-    return 'DGS AI market skills cover quote, technicals, fundamentals, options Greeks, bullish and PMCC scans, risk compare, PDF reports, and IBKR paper portfolio with stop-loss dry-run. Starter gets quote, technicals, and chart. Pro unlocks the rest on the assistant box CLI.';
+    return 'DGS Agent market skills: quote, technicals, and chart are free. Fundamentals, options Greeks, scanners, reports, and IBKR paper tools are optional Pro or the box CLI. Not financial advice.';
   }
   return null;
 }
@@ -2904,6 +2910,39 @@ async function handleCommand(text) {
   const t = text.toLowerCase().trim();
   addLine('user', text);
   setStatus('WORKING');
+
+  if (/(open (the )?(trading )?desk|show (the )?desk|desk mode)/.test(t)) {
+    setUiMode('desk');
+    await speak('Trading desk is open as a free skill. Paper default. Not financial advice. No guaranteed profit.');
+    return;
+  }
+  if (/(open (the )?agent|agent mode|talk to (the )?agent)/.test(t)) {
+    setUiMode('agent');
+    await speak('DGS Agent is here. Ask for a draft, a quote, or help. Free forever.');
+    return;
+  }
+  if (/(draft (a )?(linkedin|instagram|x|twitter|tiktok|social)|social draft|draft a post|today'?s social)/.test(t)) {
+    const plat = t.includes('instagram') ? 'Instagram'
+      : t.includes('tiktok') ? 'TikTok'
+      : (t.includes('twitter') || /\bx\b/.test(t)) ? 'X'
+      : 'LinkedIn';
+    if ($('socialPlatform')) $('socialPlatform').value = plat;
+    if (/(checklist)/.test(t)) socialChecklist();
+    else draftSocial();
+    setUiMode('agent');
+    return;
+  }
+  if (/(daily priorities|client email|meeting notes|sop checklist|work draft)/.test(t)) {
+    if ($('workType')) {
+      if (t.includes('email')) $('workType').value = 'Client email';
+      else if (t.includes('meeting')) $('workType').value = 'Meeting notes → actions';
+      else if (t.includes('sop')) $('workType').value = 'SOP checklist';
+      else $('workType').value = 'Daily priorities';
+    }
+    runWork();
+    setUiMode('agent');
+    return;
+  }
 
   // scan AAPL,MSFT — optional ticker list
   if (/^scan\b/.test(t) && /[a-z]{1,5}\s*,/.test(t)) {
@@ -2947,7 +2986,7 @@ async function handleCommand(text) {
     return;
   }
   if (/(bullish scan|scan tickers|pmcc scan|scan for bullish)/.test(t)) {
-    if (!requireFeature('scan', 'Bullish / PMCC scanners are Pro. Starter: quote, technicals, chart.')) return;
+    if (!requireFeature('scan', 'Bullish / PMCC scanners are optional Pro. Free agent: quote, technicals, chart.')) return;
     await scanMarket();
     return;
   }
@@ -3086,7 +3125,7 @@ async function handleCommand(text) {
     await assetPipeline(parseSymbol(text));
     return;
   }
-  await speak('Got it. Try quote, technicals, fundamentals, options, risk compare, full report, my IB portfolio, find a trade, take the trade, autopilot, brief, chart, send to phone, or coinswitch status. Paper default. Delayed data possible. Not advice. No guaranteed profit.');
+  await speak('Got it. Try help, daily priorities, draft a LinkedIn post, quote, technicals, chart, brief, or open desk. Optional Pro: fundamentals, options, scan, autopilot, live. Paper default. Delayed data possible. Not advice. No guaranteed profit.');
 }
 
 function openDrawer(name) {
@@ -3238,6 +3277,8 @@ function bindUi() {
   if ($('openRiskBtn')) $('openRiskBtn').onclick = riskOpen;
   if ($('openRiskBtn2')) $('openRiskBtn2').onclick = riskOpen;
   if ($('openSettingsBtn')) $('openSettingsBtn').onclick = () => openDrawer('settings');
+  if ($('modeAgentBtn')) $('modeAgentBtn').onclick = () => { setUiMode('agent'); };
+  if ($('modeDeskBtn')) $('modeDeskBtn').onclick = () => { setUiMode('desk'); };
   if ($('themeToggleBtn')) $('themeToggleBtn').onclick = () => toggleTheme();
   if ($('saveAgentNameBtn')) $('saveAgentNameBtn').onclick = () => saveAgentNameFromUi();
   if ($('agentNameInput')) {
@@ -3398,6 +3439,7 @@ function bootFromQuery() {
     if (!chart) return;
     const sym = chart.replace(/[^A-Z0-9]/g, '') || 'NVDA';
     openChart(sym, { silent: true });
+    setUiMode('desk');
   } catch (_) {}
 }
 
@@ -3406,6 +3448,7 @@ function bootApp() {
   if (booted) return;
   booted = true;
   applyTheme(getTheme());
+  setUiMode(document.body.dataset.uiMode || 'agent');
   loadState();
   loadConnectApps();
   try {
@@ -3426,7 +3469,7 @@ function bootApp() {
     applyProfileToDesk(p);
     if (!hadProfileAtBoot) {
       if ($('activityLog')) $('activityLog').textContent = 'Profile saved · desk unlocked · paper risk armed';
-      speak('Profile saved. Connect a broker in Settings when ready, then press Start bot. Paper first. No guaranteed profit.');
+      speak('Profile saved. DGS Agent stays free. Connect a broker in Settings when you want optional live tools. Paper first. No guaranteed profit.');
     }
   });
   if (state.proposal) applyProposal(state.proposal);
